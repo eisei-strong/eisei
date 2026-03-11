@@ -4,3 +4,4 @@ qa_history.json
 backups/
 .DS_Store
 node_modules/
+BotConfig.js
