@@ -112,6 +112,16 @@
     },
     {
       "phase": "step3",
+      "title": "理想ヒアリングの解説動画を見た",
+      "question": "動画の内容を要約してください",
+      "videos": [
+        "https://www.loom.com/embed/e705e33f0aff4e97aa073f38588a4ec9",
+        "https://www.loom.com/embed/a690b15649ec48b7947dd607e7d0bcd0",
+        "https://www.loom.com/embed/52600d79dd25423bafff57fcc8cc1a90"
+      ]
+    },
+    {
+      "phase": "step3",
       "title": "理想ヒアリングの台本を読んだ",
       "question": "理想ヒアリングの流れを自分の言葉で説明してください"
     },
