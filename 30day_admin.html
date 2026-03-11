@@ -1,0 +1,2003 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>30日間プログラム 管理画面</title>
+<style>
+  :root {
+    --bg: #F8FAFC;
+    --bg-card: #FFFFFF;
+    --bg-hover: #F1F5F9;
+    --bg-input: #FFFFFF;
+    --border: #E2E8F0;
+    --border-light: #F1F5F9;
+    --text: #1E293B;
+    --text-secondary: #64748B;
+    --text-muted: #94A3B8;
+    --accent: #2563EB;
+    --accent-light: #DBEAFE;
+    --accent-dark: #1D4ED8;
+    --green: #16A34A;
+    --green-bg: #DCFCE7;
+    --yellow: #CA8A04;
+    --yellow-bg: #FEF9C3;
+    --red: #DC2626;
+    --red-bg: #FEE2E2;
+    --gold: #c9a84c;
+    --radius: 12px;
+    --radius-sm: 8px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-md: 0 4px 6px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.04);
+    --shadow-lg: 0 10px 15px rgba(0,0,0,0.1), 0 4px 6px rgba(0,0,0,0.05);
+    --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+    --phase0: #2196F3;
+    --phase1a: #4CAF50;
+    --phase1b: #00BCD4;
+    --phase1c: #9C27B0;
+    --phase1d: #FF9800;
+    --phase1e: #e85d5d;
+    --phase1f: #c9a84c;
+    --phase1g: #00BCD4;
+    --phase2: #4CAF50;
+    --phase3: #2196F3;
+    --phase4: #c9a84c;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN',
+                 'Noto Sans JP', 'Yu Gothic', 'Meiryo', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ===== Login Screen ===== */
+  .login-overlay {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .login-overlay.hidden { display: none; }
+
+  .login-box {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-lg);
+    padding: 40px;
+    width: 90%;
+    max-width: 400px;
+    text-align: center;
+  }
+  .login-box h1 {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 8px;
+  }
+  .login-box p {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-bottom: 24px;
+  }
+  .login-box input {
+    width: 100%;
+    padding: 12px 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 15px;
+    background: var(--bg-input);
+    color: var(--text);
+    outline: none;
+    transition: border-color var(--transition);
+  }
+  .login-box input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-light);
+  }
+  .login-box button {
+    width: 100%;
+    padding: 12px;
+    margin-top: 16px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background var(--transition);
+  }
+  .login-box button:hover { background: var(--accent-dark); }
+  .login-error {
+    color: var(--red);
+    font-size: 13px;
+    margin-top: 12px;
+    display: none;
+  }
+
+  /* ===== Header ===== */
+  header {
+    position: sticky;
+    top: 0;
+    background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border);
+    z-index: 100;
+    padding: 0 24px;
+  }
+  .header-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 56px;
+    gap: 16px;
+  }
+  .header-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .header-title span { color: var(--accent); }
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .header-stat {
+    font-size: 13px;
+    color: var(--text-secondary);
+    padding: 4px 12px;
+    background: var(--border-light);
+    border-radius: 20px;
+  }
+  .btn-logout {
+    padding: 6px 14px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all var(--transition);
+  }
+  .btn-logout:hover {
+    color: var(--red);
+    border-color: var(--red);
+    background: var(--red-bg);
+  }
+  .btn-refresh {
+    padding: 6px 14px;
+    font-size: 13px;
+    color: var(--accent);
+    background: var(--accent-light);
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-weight: 600;
+    transition: all var(--transition);
+  }
+  .btn-refresh:hover {
+    background: var(--accent);
+    color: #fff;
+  }
+
+  /* ===== Main Container ===== */
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px 16px 60px;
+  }
+
+  /* ===== Tab Nav ===== */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 24px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 4px;
+    box-shadow: var(--shadow);
+  }
+  .tab-btn {
+    flex: 1;
+    padding: 10px 16px;
+    background: none;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all var(--transition);
+  }
+  .tab-btn:hover { color: var(--text); background: var(--bg-hover); }
+  .tab-btn.active {
+    background: var(--accent);
+    color: #fff;
+    box-shadow: var(--shadow);
+  }
+
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* ===== Course Editor ===== */
+  .editor-toolbar {
+    display: flex; align-items: center; gap: 16px;
+    margin-bottom: 20px; padding: 16px 20px;
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: var(--radius); box-shadow: var(--shadow);
+    position: sticky; top: 60px; z-index: 10;
+  }
+  .editor-save-btn {
+    padding: 10px 28px; background: var(--accent); color: #fff;
+    border: none; border-radius: var(--radius-sm); font-size: 14px;
+    font-weight: 700; cursor: pointer; transition: background var(--transition);
+  }
+  .editor-save-btn:hover { background: var(--accent-dark); }
+  .editor-status { font-size: 13px; color: var(--green); }
+
+  .editor-phase {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: var(--radius); margin-bottom: 16px;
+    box-shadow: var(--shadow); overflow: hidden;
+  }
+  .editor-phase-header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 16px 20px; border-bottom: 1px solid var(--border);
+    border-left: 4px solid var(--accent); cursor: pointer;
+    background: var(--bg-hover);
+  }
+  .editor-phase-header:hover { background: #E8EAED; }
+  .editor-phase-toggle { font-size: 12px; color: var(--text-muted); transition: transform var(--transition); }
+  .editor-phase-toggle.open { transform: rotate(90deg); }
+  .editor-phase-title-display { font-size: 15px; font-weight: 700; flex: 1; }
+  .editor-phase-count { font-size: 12px; color: var(--text-muted); background: var(--bg); padding: 2px 10px; border-radius: 12px; }
+  .editor-phase-actions { display: flex; gap: 6px; }
+  .editor-phase-actions button {
+    padding: 4px 10px; font-size: 11px; border: 1px solid var(--border);
+    border-radius: 6px; background: var(--bg); color: var(--text-secondary);
+    cursor: pointer; transition: all var(--transition);
+  }
+  .editor-phase-actions button:hover { border-color: var(--accent); color: var(--accent); }
+  .editor-phase-actions button.danger:hover { border-color: var(--red); color: var(--red); }
+
+  .editor-phase-body { padding: 0; display: none; }
+  .editor-phase-body.open { display: block; }
+
+  .editor-phase-meta {
+    padding: 16px 20px; border-bottom: 1px solid var(--border-light);
+    background: #FAFBFC; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+  }
+  .editor-phase-meta label { font-size: 11px; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 4px; }
+  .editor-phase-meta input, .editor-phase-meta textarea {
+    width: 100%; padding: 8px 12px; border: 1px solid var(--border);
+    border-radius: 6px; font-size: 13px; background: var(--bg-input);
+    font-family: inherit; resize: vertical;
+  }
+  .editor-phase-meta input:focus, .editor-phase-meta textarea:focus {
+    outline: none; border-color: var(--accent);
+  }
+  .editor-phase-meta .full-width { grid-column: 1 / -1; }
+
+  .editor-step {
+    padding: 14px 20px; border-bottom: 1px solid var(--border-light);
+    display: flex; gap: 12px; align-items: flex-start;
+    transition: background var(--transition);
+  }
+  .editor-step:hover { background: var(--bg-hover); }
+  .editor-step-num {
+    min-width: 28px; height: 28px; border-radius: 50%;
+    background: var(--bg); border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; color: var(--text-muted); flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .editor-step-content { flex: 1; min-width: 0; }
+  .editor-step-title-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .editor-step-title-input {
+    flex: 1; padding: 6px 10px; border: 1px solid transparent;
+    border-radius: 6px; font-size: 14px; font-weight: 600;
+    background: transparent; transition: all var(--transition);
+  }
+  .editor-step-title-input:hover { border-color: var(--border); background: var(--bg-input); }
+  .editor-step-title-input:focus { outline: none; border-color: var(--accent); background: var(--bg-input); }
+  .editor-step-fields { display: none; margin-top: 8px; }
+  .editor-step-fields.open { display: block; }
+  .editor-step-field { margin-bottom: 8px; }
+  .editor-step-field label { font-size: 11px; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 3px; }
+  .editor-step-field input, .editor-step-field textarea {
+    width: 100%; padding: 7px 10px; border: 1px solid var(--border);
+    border-radius: 6px; font-size: 13px; background: var(--bg-input);
+    font-family: inherit; resize: vertical;
+  }
+  .editor-step-field input:focus, .editor-step-field textarea:focus {
+    outline: none; border-color: var(--accent);
+  }
+  .editor-step-actions { display: flex; gap: 4px; flex-shrink: 0; }
+  .editor-step-actions button {
+    width: 28px; height: 28px; border: 1px solid var(--border);
+    border-radius: 6px; background: var(--bg); color: var(--text-muted);
+    cursor: pointer; font-size: 14px; display: flex;
+    align-items: center; justify-content: center;
+    transition: all var(--transition);
+  }
+  .editor-step-actions button:hover { border-color: var(--accent); color: var(--accent); }
+  .editor-step-actions button.danger:hover { border-color: var(--red); color: var(--red); }
+
+  .editor-add-step {
+    padding: 12px 20px; text-align: center;
+  }
+  .editor-add-step button {
+    padding: 8px 20px; border: 1px dashed var(--border);
+    border-radius: var(--radius-sm); background: transparent;
+    color: var(--text-muted); font-size: 13px; cursor: pointer;
+    transition: all var(--transition);
+  }
+  .editor-add-step button:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+
+  .editor-add-phase {
+    text-align: center; padding: 20px;
+  }
+  .editor-btn-add-phase {
+    padding: 12px 32px; border: 2px dashed var(--border);
+    border-radius: var(--radius); background: transparent;
+    color: var(--text-muted); font-size: 14px; font-weight: 600;
+    cursor: pointer; transition: all var(--transition);
+  }
+  .editor-btn-add-phase:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+
+  /* ===== Sort Controls ===== */
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .controls label {
+    font-size: 13px;
+    color: var(--text-secondary);
+    font-weight: 600;
+  }
+  .controls select {
+    padding: 6px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    background: var(--bg-card);
+    color: var(--text);
+    cursor: pointer;
+    outline: none;
+  }
+  .controls select:focus {
+    border-color: var(--accent);
+  }
+  .search-input {
+    padding: 8px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    background: var(--bg-card);
+    color: var(--text);
+    outline: none;
+    width: 200px;
+    transition: border-color var(--transition);
+  }
+  .search-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-light);
+  }
+
+  /* ===== Overview Cards Grid ===== */
+  .user-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 16px;
+  }
+  .user-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    box-shadow: var(--shadow);
+    cursor: pointer;
+    transition: all var(--transition);
+  }
+  .user-card:hover {
+    box-shadow: var(--shadow-md);
+    border-color: var(--accent);
+    transform: translateY(-1px);
+  }
+  .user-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .user-card-name {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .user-card-date {
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .user-card-stats {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 14px;
+    font-size: 13px;
+  }
+  .user-card-stat {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--text-secondary);
+  }
+  .user-card-stat strong {
+    color: var(--text);
+    font-size: 15px;
+  }
+  .progress-bar-wrapper {
+    background: var(--border-light);
+    border-radius: 6px;
+    height: 8px;
+    overflow: hidden;
+    margin-bottom: 10px;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    border-radius: 6px;
+    transition: width 0.5s ease;
+  }
+  .progress-green { background: var(--green); }
+  .progress-yellow { background: var(--yellow); }
+  .progress-red { background: var(--red); }
+
+  .grade-pills {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .grade-pill {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-weight: 600;
+  }
+  .grade-pill-S { background: rgba(201,168,76,0.15); color: #b8942e; }
+  .grade-pill-A { background: rgba(76,175,80,0.15); color: #2E7D32; }
+  .grade-pill-B { background: rgba(255,152,0,0.15); color: #E65100; }
+  .grade-pill-C { background: rgba(232,93,93,0.15); color: #C62828; }
+
+  /* ===== Detail Panel ===== */
+  .detail-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.3);
+    z-index: 200;
+    display: none;
+    justify-content: flex-end;
+  }
+  .detail-overlay.open {
+    display: flex;
+  }
+  .detail-panel {
+    width: 100%;
+    max-width: 640px;
+    background: var(--bg);
+    height: 100%;
+    overflow-y: auto;
+    box-shadow: -4px 0 24px rgba(0,0,0,0.12);
+    padding: 0;
+    animation: slideIn 0.25s ease;
+  }
+  @keyframes slideIn {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+  }
+  .detail-header {
+    position: sticky;
+    top: 0;
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    z-index: 10;
+  }
+  .detail-header h2 {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .detail-close {
+    width: 36px;
+    height: 36px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    border-radius: 50%;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    transition: all var(--transition);
+  }
+  .detail-close:hover {
+    background: var(--red-bg);
+    color: var(--red);
+    border-color: var(--red);
+  }
+  .detail-body {
+    padding: 24px;
+  }
+  .detail-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .detail-stat-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 14px;
+    text-align: center;
+  }
+  .detail-stat-card .val {
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--text);
+  }
+  .detail-stat-card .label {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+  .detail-grade-chart {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 20px;
+    margin-bottom: 24px;
+  }
+  .grade-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+    font-size: 13px;
+  }
+  .grade-bar-label {
+    width: 30px;
+    text-align: center;
+    font-weight: 700;
+  }
+  .grade-bar-track {
+    flex: 1;
+    height: 20px;
+    background: var(--border-light);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .grade-bar-inner {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.4s ease;
+  }
+  .grade-bar-count {
+    width: 30px;
+    text-align: right;
+    color: var(--text-secondary);
+    font-weight: 600;
+  }
+
+  /* Step list in detail */
+  .detail-phase {
+    margin-bottom: 20px;
+  }
+  .detail-phase-title {
+    font-size: 14px;
+    font-weight: 700;
+    padding: 8px 14px;
+    border-radius: var(--radius-sm);
+    margin-bottom: 8px;
+    color: #fff;
+  }
+  .detail-step {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 12px 16px;
+    margin-bottom: 6px;
+    transition: background var(--transition);
+  }
+  .detail-step:hover {
+    background: var(--bg-hover);
+  }
+  .detail-step-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .detail-step-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    flex: 1;
+  }
+  .detail-step-num {
+    font-size: 11px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+  }
+  .detail-step-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    font-size: 12px;
+    font-weight: 800;
+    flex-shrink: 0;
+  }
+  .badge-S { background: var(--gold); color: #000; }
+  .badge-A { background: #4CAF50; color: #fff; }
+  .badge-B { background: #FF9800; color: #000; }
+  .badge-C { background: #e85d5d; color: #fff; }
+  .badge-none { background: var(--border-light); color: var(--text-muted); }
+  .detail-step-date {
+    font-size: 11px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+  }
+  .detail-step-history {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border-light);
+    display: none;
+  }
+  .detail-step.expanded .detail-step-history {
+    display: block;
+  }
+  .history-entry {
+    padding: 8px 10px;
+    background: var(--bg);
+    border-radius: 6px;
+    margin-bottom: 6px;
+    font-size: 12px;
+  }
+  .history-entry-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+  .history-entry-answer {
+    color: var(--text-secondary);
+    white-space: pre-wrap;
+    word-break: break-word;
+    line-height: 1.5;
+  }
+
+  /* ===== Phase Summary Tab ===== */
+  .phase-summary-grid {
+    display: grid;
+    gap: 16px;
+  }
+  .phase-row {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    box-shadow: var(--shadow);
+  }
+  .phase-row-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .phase-row-name {
+    font-size: 15px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .phase-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .phase-row-pct {
+    font-size: 14px;
+    font-weight: 700;
+  }
+  .phase-bar-bg {
+    height: 10px;
+    background: var(--border-light);
+    border-radius: 5px;
+    overflow: hidden;
+    margin-bottom: 10px;
+  }
+  .phase-bar-fill {
+    height: 100%;
+    border-radius: 5px;
+    transition: width 0.5s ease;
+  }
+  .phase-row-detail {
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .bottleneck-tag {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--red);
+    background: var(--red-bg);
+    padding: 2px 8px;
+    border-radius: 10px;
+    margin-left: 8px;
+  }
+
+  /* ===== Loading State ===== */
+  .loading-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-muted);
+  }
+  .loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 16px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ===== Empty State ===== */
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-muted);
+    font-size: 14px;
+  }
+
+  /* ===== Responsive ===== */
+  @media (max-width: 768px) {
+    .header-inner {
+      flex-wrap: wrap;
+      height: auto;
+      padding: 12px 0;
+      gap: 8px;
+    }
+    .header-stat { display: none; }
+    .user-grid {
+      grid-template-columns: 1fr;
+    }
+    .detail-panel {
+      max-width: 100%;
+    }
+    .tabs {
+      flex-wrap: nowrap;
+      overflow-x: auto;
+    }
+    .tab-btn {
+      white-space: nowrap;
+      flex: none;
+      padding: 10px 14px;
+      font-size: 13px;
+    }
+    .detail-summary {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    .controls {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .search-input {
+      width: 100%;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .container {
+      padding: 16px 10px 40px;
+    }
+    .user-card {
+      padding: 16px;
+    }
+    .detail-body {
+      padding: 16px;
+    }
+    header {
+      padding: 0 12px;
+    }
+  }
+</style>
+<!-- Firebase compat SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+</head>
+<body>
+
+<!-- ===== Login Screen ===== -->
+<div class="login-overlay" id="loginOverlay">
+  <div class="login-box">
+    <h1>管理画面ログイン</h1>
+    <p>30日間プログラム 管理ダッシュボード</p>
+    <input type="password" id="loginPassword" placeholder="パスワードを入力" autocomplete="off">
+    <button onclick="attemptLogin()">ログイン</button>
+    <div class="login-error" id="loginError">パスワードが正しくありません</div>
+  </div>
+</div>
+
+<!-- ===== Header ===== -->
+<header id="mainHeader" style="display:none;">
+  <div class="header-inner">
+    <div class="header-title"><span>管理画面</span> 30日間プログラム</div>
+    <div class="header-actions">
+      <div class="header-stat" id="headerUserCount">0 名登録</div>
+      <button class="btn-refresh" onclick="exportCSV()" style="background:rgba(22,163,74,0.1);color:var(--green);">CSV出力</button>
+      <button class="btn-refresh" onclick="loadAllData()">更新</button>
+      <button class="btn-logout" onclick="doLogout()">ログアウト</button>
+    </div>
+  </div>
+</header>
+
+<!-- ===== Main Content ===== -->
+<div class="container" id="mainContent" style="display:none;">
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('overview', this)">ユーザー一覧</button>
+    <button class="tab-btn" onclick="switchTab('phases', this)">フェーズ別分析</button>
+    <button class="tab-btn" onclick="switchTab('editor', this)">コース編集</button>
+    <button class="tab-btn" onclick="switchTab('qa', this)">Q&A履歴</button>
+  </div>
+
+  <!-- Tab: Overview -->
+  <div class="tab-content active" id="tab-overview">
+    <div class="controls">
+      <label>並び替え:</label>
+      <select id="sortSelect" onchange="renderUserCards()">
+        <option value="progress-desc">進捗 高い順</option>
+        <option value="progress-asc">進捗 低い順</option>
+        <option value="name-asc">名前 昇順</option>
+        <option value="name-desc">名前 降順</option>
+        <option value="date-desc">最新活動日 新しい順</option>
+        <option value="date-asc">最新活動日 古い順</option>
+      </select>
+      <input type="text" class="search-input" id="userSearch" placeholder="名前で検索..." oninput="renderUserCards()">
+    </div>
+    <div id="userGrid" class="user-grid"></div>
+    <div class="loading-state" id="loadingState">
+      <div class="loading-spinner"></div>
+      <div>データを読み込み中...</div>
+    </div>
+    <div class="empty-state" id="emptyState" style="display:none;">
+      登録ユーザーがまだいません。
+    </div>
+  </div>
+
+  <!-- Tab: Phase Summary -->
+  <div class="tab-content" id="tab-phases">
+    <div class="phase-summary-grid" id="phaseSummaryGrid"></div>
+  </div>
+
+  <!-- Tab: Q&A History -->
+  <div class="tab-content" id="tab-qa">
+    <div style="display:flex;gap:12px;margin-bottom:16px;align-items:center">
+      <select id="qaFilter" onchange="renderQaHistory()" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px">
+        <option value="all">すべて</option>
+        <option value="grade">テスト採点</option>
+        <option value="chat">質問チャット</option>
+      </select>
+      <input type="text" id="qaSearch" placeholder="名前・内容で検索..." oninput="renderQaHistory()" style="flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px">
+      <button onclick="loadQaHistory()" style="padding:8px 16px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);font-size:13px;cursor:pointer">更新</button>
+    </div>
+    <div id="qaHistoryList"></div>
+  </div>
+
+  <!-- Tab: Course Editor -->
+  <div class="tab-content" id="tab-editor">
+    <div class="editor-toolbar">
+      <button class="editor-save-btn" onclick="saveCourseConfig()">保存して反映</button>
+      <span class="editor-status" id="editorStatus"></span>
+    </div>
+    <div id="editorContainer"></div>
+    <div class="editor-add-phase">
+      <button class="editor-btn-add-phase" onclick="addPhase()">+ 新しいフェーズを追加</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Detail Panel ===== -->
+<div class="detail-overlay" id="detailOverlay" onclick="closeDetailIfBg(event)">
+  <div class="detail-panel" id="detailPanel">
+    <div class="detail-header">
+      <h2 id="detailUserName">--</h2>
+      <button class="detail-close" onclick="closeDetail()">&times;</button>
+    </div>
+    <div class="detail-body" id="detailBody"></div>
+  </div>
+</div>
+
+<script>
+// ==========================================================
+//  Constants & Phase/Step Data
+// ==========================================================
+var TOTAL_STEPS = 57;
+var ADMIN_PASSWORD = 'hoshi2026';
+var LS_KEY = 'admin30day_auth';
+
+var PHASES = [
+  { id: 'p0',  name: 'Phase 0 全体把握',         cards: [0,1,2,3],                    color: '#2196F3' },
+  { id: 'p1a', name: 'Phase 1-A アイスブレイク',  cards: [4,5,6],                      color: '#4CAF50' },
+  { id: 'p1b', name: 'Phase 1-B ヒアリング',      cards: [7,8,9],                      color: '#00BCD4' },
+  { id: 'p1c', name: 'Phase 1-C プレゼン',        cards: [10,11,12],                   color: '#9C27B0' },
+  { id: 'p1d', name: 'Phase 1-D アンカリング',    cards: [13,14,15],                   color: '#FF9800' },
+  { id: 'p1e', name: 'Phase 1-E クロージング',    cards: [16,17,18],                   color: '#e85d5d' },
+  { id: 'p1f', name: 'Phase 1-F 契約・決済',      cards: [19,20,21,22,23],             color: '#c9a84c' },
+  { id: 'p1g', name: 'Phase 1-G 模擬商談',        cards: [24,25,26],                   color: '#00BCD4' },
+  { id: 'p2',  name: 'Phase 2 商談デビュー',      cards: [27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43], color: '#4CAF50' },
+  { id: 'p3',  name: 'Phase 3 通常案件',          cards: [44,45,46,47,48,49,50],       color: '#2196F3' },
+  { id: 'p4',  name: 'Phase 4 量を回す',          cards: [51,52,53,54,55,56],          color: '#c9a84c' }
+];
+
+var STEP_TITLES = {
+  0: '商談の全体構成を読んだ',
+  1: 'トップセールスの商談動画を見た',
+  2: '記憶術のやり方を読んだ',
+  3: '記憶術のアクティブラーニング',
+  4: 'アイスブレイクの台本を読んだ',
+  5: 'アイスブレイクを覚えた',
+  6: 'アイスブレイクを録画して提出した',
+  7: 'ヒアリングの台本を読んだ',
+  8: 'ヒアリングを覚えた',
+  9: 'ヒアリングを録画して提出した',
+  10: 'プレゼンの台本を読んだ',
+  11: 'プレゼンを覚えた',
+  12: 'プレゼンを録画して提出した',
+  13: 'アンカリングの台本を読んだ',
+  14: 'アンカリングを覚えた',
+  15: 'アンカリングを録画して提出した',
+  16: 'クロージングの台本を読んだ',
+  17: 'クロージングを覚えた',
+  18: 'クロージングを録画して提出した',
+  19: '契約書の巻き方を読んだ',
+  20: '決済方法の種類と手順を読んだ',
+  21: '契約書の巻き方を覚えた',
+  22: '決済方法の案内を覚えた',
+  23: '台本フル通し録画提出',
+  24: '模擬商談1回目',
+  25: 'BotのFBスクリプトを覚えた',
+  26: '模擬商談2回目',
+  27: '1件目の商談録画提出',
+  28: '1件目：FBスクリプト覚えた',
+  29: '1件目：FBスクリプト録画提出',
+  30: '2件目の商談録画提出',
+  31: '2件目：FBスクリプト覚えた',
+  32: '2件目：FBスクリプト録画提出',
+  33: '3件目の商談録画提出',
+  34: '3件目：FBスクリプト覚えた',
+  35: '3件目：FBスクリプト録画提出',
+  36: '4件目の商談録画提出',
+  37: '4件目：FBスクリプト覚えた',
+  38: '4件目：FBスクリプト録画提出',
+  39: '5件目の商談録画提出',
+  40: '5件目：FBスクリプト覚えた',
+  41: '5件目：FBスクリプト録画提出',
+  42: '切り返しスクリプト覚えた',
+  43: '切り返し録画提出',
+  44: '通常案件1件目録画提出',
+  45: '通常案件1件目：FBスクリプト覚えた',
+  46: '通常案件1件目：FBスクリプト録画提出',
+  47: '通常案件2件目録画提出',
+  48: '通常案件3件目録画提出',
+  49: '通常案件4件目録画提出',
+  50: '通常案件5件目録画提出',
+  51: '累計10商談達成',
+  52: '初成約',
+  53: '累計15商談達成',
+  54: '保留案件フォロー完了',
+  55: '累計20商談達成',
+  56: '300万着金達成'
+};
+
+var GRADE_CONF = {
+  S: { label: '\u25CE', cls: 'badge-S', name: 'S', pillCls: 'grade-pill-S', barColor: '#c9a84c' },
+  A: { label: '\u25CB', cls: 'badge-A', name: 'A', pillCls: 'grade-pill-A', barColor: '#4CAF50' },
+  B: { label: '\u25B3', cls: 'badge-B', name: 'B', pillCls: 'grade-pill-B', barColor: '#FF9800' },
+  C: { label: '\u00D7', cls: 'badge-C', name: 'C', pillCls: 'grade-pill-C', barColor: '#e85d5d' }
+};
+
+// ==========================================================
+//  Firebase Setup
+// ==========================================================
+var firebaseConfig = {
+  apiKey:            "YOUR_API_KEY",
+  authDomain:        "YOUR_PROJECT.firebaseapp.com",
+  projectId:         "YOUR_PROJECT_ID",
+  storageBucket:     "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId:             "YOUR_APP_ID"
+};
+
+var db = null;
+var firestoreReady = false;
+
+try {
+  if (firebaseConfig.apiKey !== "YOUR_API_KEY") {
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.firestore();
+    firestoreReady = true;
+  }
+} catch (e) {
+  console.warn('Firebase init failed:', e);
+}
+
+// ==========================================================
+//  State
+// ==========================================================
+var allUsers = [];
+
+// ==========================================================
+//  Auth
+// ==========================================================
+function attemptLogin() {
+  var pw = document.getElementById('loginPassword').value;
+  if (pw === ADMIN_PASSWORD) {
+    localStorage.setItem(LS_KEY, 'authenticated');
+    showApp();
+  } else {
+    var err = document.getElementById('loginError');
+    err.style.display = 'block';
+    setTimeout(function() { err.style.display = 'none'; }, 2500);
+  }
+}
+
+function doLogout() {
+  localStorage.removeItem(LS_KEY);
+  document.getElementById('loginOverlay').classList.remove('hidden');
+  document.getElementById('mainHeader').style.display = 'none';
+  document.getElementById('mainContent').style.display = 'none';
+  document.getElementById('loginPassword').value = '';
+}
+
+function showApp() {
+  document.getElementById('loginOverlay').classList.add('hidden');
+  document.getElementById('mainHeader').style.display = '';
+  document.getElementById('mainContent').style.display = '';
+  loadAllData();
+}
+
+// Enter key on password field
+document.getElementById('loginPassword').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') attemptLogin();
+});
+
+// Auto-login if previously authenticated
+if (localStorage.getItem(LS_KEY) === 'authenticated') {
+  showApp();
+}
+
+// ==========================================================
+//  Data Loading
+// ==========================================================
+function loadFromLocalStorage() {
+  // Read from the same localStorage keys used by 30day_program.html
+  var currentUserName = localStorage.getItem('30day_user');
+  if (!currentUserName) {
+    allUsers = [];
+    processAndRender();
+    return;
+  }
+
+  var quizData = {};
+  try { quizData = JSON.parse(localStorage.getItem('30day_quiz') || '{}'); } catch(e) {}
+
+  var user = {
+    id: currentUserName,
+    name: currentUserName,
+    updatedAt: null,
+    goalChecked: localStorage.getItem('30day_goal') === '1',
+    why: localStorage.getItem('30day_why') || '',
+    quiz: {}
+  };
+
+  Object.keys(quizData).forEach(function(cardId) {
+    var hist = quizData[cardId];
+    if (Array.isArray(hist) && hist.length > 0) {
+      var latest = hist[hist.length - 1];
+      user.quiz[cardId] = {
+        history: hist,
+        latestGrade: latest.grade,
+        latestDate: latest.date || ''
+      };
+    }
+  });
+
+  allUsers = [user];
+  processAndRender();
+}
+
+function loadAllData() {
+  if (!firestoreReady) {
+    // localStorageから読み込む（個人ページと同じデータ）
+    loadFromLocalStorage();
+    return;
+  }
+
+  document.getElementById('loadingState').style.display = '';
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('userGrid').innerHTML = '';
+
+  db.collection('users').get().then(function(usersSnap) {
+    var promises = [];
+    var userData = [];
+
+    usersSnap.forEach(function(userDoc) {
+      var data = userDoc.data();
+      var user = {
+        id: userDoc.id,
+        name: data.displayName || data.name || userDoc.id,
+        updatedAt: (data.updatedAt && data.updatedAt.toDate) ? data.updatedAt.toDate() : ((data.createdAt && data.createdAt.toDate) ? data.createdAt.toDate() : null),
+        goalChecked: data.goalChecked || false,
+        why: data.why || '',
+        quiz: {}
+      };
+
+      var p = db.collection('users').doc(userDoc.id).collection('quiz').get().then(function(quizSnap) {
+        quizSnap.forEach(function(quizDoc) {
+          var cardId = quizDoc.id; // e.g. "card-0"
+          var data = quizDoc.data();
+          user.quiz[cardId] = {
+            history: data.history || [],
+            latestGrade: data.latestGrade || '',
+            latestDate: data.latestDate || ''
+          };
+        });
+        userData.push(user);
+      });
+      promises.push(p);
+    });
+
+    return Promise.all(promises).then(function() {
+      allUsers = userData;
+      processAndRender();
+    });
+  }).catch(function(err) {
+    console.error('Error loading data:', err);
+    document.getElementById('loadingState').innerHTML =
+      '<div style="color:var(--red);font-size:14px;">\u30C7\u30FC\u30BF\u8AAD\u307F\u8FBC\u307F\u30A8\u30E9\u30FC: ' + escHtml(err.message) + '</div>';
+  });
+}
+
+function processAndRender() {
+  allUsers.forEach(function(user) {
+    var completedCount = 0;
+    var grades = { S: 0, A: 0, B: 0, C: 0 };
+    var latestDate = null;
+
+    for (var i = 0; i < TOTAL_STEPS; i++) {
+      var cardId = 'card-' + i;
+      var quizData = user.quiz[cardId];
+      if (quizData && quizData.history && quizData.history.length > 0) {
+        completedCount++;
+        var latest = quizData.history[quizData.history.length - 1];
+        if (latest.grade && grades.hasOwnProperty(latest.grade)) {
+          grades[latest.grade]++;
+        }
+        if (latest.date) {
+          var d = latest.date;
+          if (!latestDate || d > latestDate) latestDate = d;
+        }
+      } else if (quizData && quizData.latestGrade) {
+        completedCount++;
+        if (grades.hasOwnProperty(quizData.latestGrade)) {
+          grades[quizData.latestGrade]++;
+        }
+        if (quizData.latestDate && (!latestDate || quizData.latestDate > latestDate)) {
+          latestDate = quizData.latestDate;
+        }
+      }
+    }
+
+    user.completedCount = completedCount;
+    user.progressPct = Math.round((completedCount / TOTAL_STEPS) * 100);
+    user.grades = grades;
+    user.latestDateStr = latestDate || '';
+  });
+
+  document.getElementById('headerUserCount').textContent = allUsers.length + ' \u540D\u767B\u9332';
+  document.getElementById('loadingState').style.display = 'none';
+
+  if (allUsers.length === 0) {
+    document.getElementById('emptyState').style.display = '';
+  }
+
+  renderUserCards();
+  renderPhaseSummary();
+}
+
+// ==========================================================
+//  Tab Switching
+// ==========================================================
+function switchTab(tabId, btn) {
+  var tabs = document.querySelectorAll('.tab-btn');
+  var contents = document.querySelectorAll('.tab-content');
+  for (var i = 0; i < tabs.length; i++) tabs[i].classList.remove('active');
+  for (var j = 0; j < contents.length; j++) contents[j].classList.remove('active');
+  btn.classList.add('active');
+  document.getElementById('tab-' + tabId).classList.add('active');
+}
+
+// ==========================================================
+//  User Cards Rendering
+// ==========================================================
+function renderUserCards() {
+  var sortVal = document.getElementById('sortSelect').value;
+  var searchVal = (document.getElementById('userSearch').value || '').trim().toLowerCase();
+
+  var filtered = allUsers.filter(function(u) {
+    if (!searchVal) return true;
+    return u.name.toLowerCase().indexOf(searchVal) !== -1;
+  });
+
+  filtered.sort(function(a, b) {
+    switch (sortVal) {
+      case 'progress-desc': return b.progressPct - a.progressPct;
+      case 'progress-asc':  return a.progressPct - b.progressPct;
+      case 'name-asc':      return a.name.localeCompare(b.name, 'ja');
+      case 'name-desc':     return b.name.localeCompare(a.name, 'ja');
+      case 'date-desc':     return (b.latestDateStr || '').localeCompare(a.latestDateStr || '');
+      case 'date-asc':      return (a.latestDateStr || '').localeCompare(b.latestDateStr || '');
+      default: return 0;
+    }
+  });
+
+  var grid = document.getElementById('userGrid');
+  grid.innerHTML = '';
+
+  if (filtered.length === 0 && allUsers.length > 0) {
+    grid.innerHTML = '<div class="empty-state">\u8A72\u5F53\u3059\u308B\u30E6\u30FC\u30B6\u30FC\u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093\u3002</div>';
+    return;
+  }
+
+  filtered.forEach(function(user) {
+    var pctClass = user.progressPct > 70 ? 'progress-green' : (user.progressPct >= 30 ? 'progress-yellow' : 'progress-red');
+    var pctColor = user.progressPct > 70 ? 'var(--green)' : (user.progressPct >= 30 ? 'var(--yellow)' : 'var(--red)');
+
+    var dateDisplay = user.latestDateStr || '--';
+    if (dateDisplay.length > 10) dateDisplay = dateDisplay.substring(0, 10);
+
+    var card = document.createElement('div');
+    card.className = 'user-card';
+    card.onclick = (function(u) { return function() { openDetail(u); }; })(user);
+
+    card.innerHTML =
+      '<div class="user-card-header">' +
+        '<div class="user-card-name">' + escHtml(user.name) + '</div>' +
+        '<div class="user-card-date">' + escHtml(dateDisplay) + '</div>' +
+      '</div>' +
+      '<div class="user-card-stats">' +
+        '<div class="user-card-stat">\u9032\u6357 <strong style="color:' + pctColor + ';">' + user.progressPct + '%</strong></div>' +
+        '<div class="user-card-stat">\u5B8C\u4E86 <strong>' + user.completedCount + '</strong> / ' + TOTAL_STEPS + '</div>' +
+      '</div>' +
+      '<div class="progress-bar-wrapper">' +
+        '<div class="progress-bar-fill ' + pctClass + '" style="width:' + user.progressPct + '%;"></div>' +
+      '</div>' +
+      '<div class="grade-pills">' +
+        (user.grades.S > 0 ? '<div class="grade-pill grade-pill-S">\u25CE ' + user.grades.S + '</div>' : '') +
+        (user.grades.A > 0 ? '<div class="grade-pill grade-pill-A">\u25CB ' + user.grades.A + '</div>' : '') +
+        (user.grades.B > 0 ? '<div class="grade-pill grade-pill-B">\u25B3 ' + user.grades.B + '</div>' : '') +
+        (user.grades.C > 0 ? '<div class="grade-pill grade-pill-C">\u00D7 ' + user.grades.C + '</div>' : '') +
+      '</div>';
+
+    grid.appendChild(card);
+  });
+}
+
+// ==========================================================
+//  Detail Panel
+// ==========================================================
+function openDetail(user) {
+  document.getElementById('detailUserName').textContent = user.name;
+  var body = document.getElementById('detailBody');
+  body.innerHTML = '';
+
+  // Summary stats
+  var pctColor = user.progressPct > 70 ? 'var(--green)' : (user.progressPct >= 30 ? 'var(--yellow)' : 'var(--red)');
+  var summaryHtml =
+    '<div class="detail-summary">' +
+      '<div class="detail-stat-card"><div class="val" style="color:' + pctColor + ';">' + user.progressPct + '%</div><div class="label">\u9032\u6357</div></div>' +
+      '<div class="detail-stat-card"><div class="val">' + user.completedCount + '</div><div class="label">\u5B8C\u4E86\u6570 / ' + TOTAL_STEPS + '</div></div>' +
+      '<div class="detail-stat-card"><div class="val" style="color:#c9a84c;">' + user.grades.S + '</div><div class="label">\u25CE \u5B8C\u74A7</div></div>' +
+      '<div class="detail-stat-card"><div class="val" style="color:#4CAF50;">' + user.grades.A + '</div><div class="label">\u25CB \u3060\u3044\u305F\u3044</div></div>' +
+      '<div class="detail-stat-card"><div class="val" style="color:#FF9800;">' + user.grades.B + '</div><div class="label">\u25B3 \u3046\u3063\u3059\u3089</div></div>' +
+      '<div class="detail-stat-card"><div class="val" style="color:#e85d5d;">' + user.grades.C + '</div><div class="label">\u00D7 \u899A\u3048\u3066\u306A\u3044</div></div>' +
+    '</div>';
+  body.innerHTML += summaryHtml;
+
+  // Grade distribution bars
+  var totalGraded = user.grades.S + user.grades.A + user.grades.B + user.grades.C;
+  var maxGrade = Math.max(user.grades.S, user.grades.A, user.grades.B, user.grades.C, 1);
+  var chartHtml =
+    '<div class="detail-grade-chart">' +
+      '<div style="font-size:13px;font-weight:700;margin-bottom:12px;color:var(--text);">\u30B0\u30EC\u30FC\u30C9\u5206\u5E03</div>';
+
+  var gradeKeys = ['S', 'A', 'B', 'C'];
+  for (var gi = 0; gi < gradeKeys.length; gi++) {
+    var gk = gradeKeys[gi];
+    var gc = GRADE_CONF[gk];
+    var cnt = user.grades[gk];
+    var barW = totalGraded > 0 ? Math.round((cnt / maxGrade) * 100) : 0;
+    chartHtml +=
+      '<div class="grade-bar-row">' +
+        '<div class="grade-bar-label" style="color:' + gc.barColor + ';">' + gc.label + '</div>' +
+        '<div class="grade-bar-track">' +
+          '<div class="grade-bar-inner" style="width:' + barW + '%;background:' + gc.barColor + ';"></div>' +
+        '</div>' +
+        '<div class="grade-bar-count">' + cnt + '</div>' +
+      '</div>';
+  }
+  chartHtml += '</div>';
+  body.innerHTML += chartHtml;
+
+  // Why (if set)
+  if (user.why) {
+    body.innerHTML +=
+      '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px;margin-bottom:24px;">' +
+        '<div style="font-size:13px;font-weight:700;margin-bottom:8px;color:var(--text);">30\u65E5\u5F8C\u306E\u76EE\u6A19</div>' +
+        '<div style="font-size:13px;color:var(--text-secondary);white-space:pre-wrap;word-break:break-word;">' + escHtml(user.why) + '</div>' +
+      '</div>';
+  }
+
+  // Per-phase step list
+  var stepsHtml = '';
+  for (var pi = 0; pi < PHASES.length; pi++) {
+    var phase = PHASES[pi];
+    stepsHtml += '<div class="detail-phase">';
+    stepsHtml += '<div class="detail-phase-title" style="background:' + phase.color + ';">' + escHtml(phase.name) + '</div>';
+
+    for (var ci = 0; ci < phase.cards.length; ci++) {
+      var cardIdx = phase.cards[ci];
+      var cardId = 'card-' + cardIdx;
+      var quizData = user.quiz[cardId];
+      var title = STEP_TITLES[cardIdx] || ('Step ' + cardIdx);
+      var hasData = quizData && ((quizData.history && quizData.history.length > 0) || quizData.latestGrade);
+      var latestGrade = null;
+      var latestDateStr = '';
+      var history = [];
+
+      if (quizData) {
+        if (quizData.history && quizData.history.length > 0) {
+          history = quizData.history;
+          var latest = history[history.length - 1];
+          latestGrade = latest.grade;
+          latestDateStr = latest.date || '';
+        } else if (quizData.latestGrade) {
+          latestGrade = quizData.latestGrade;
+          latestDateStr = quizData.latestDate || '';
+        }
+      }
+
+      var badgeHtml = '';
+      if (latestGrade && GRADE_CONF[latestGrade]) {
+        var gc = GRADE_CONF[latestGrade];
+        badgeHtml = '<span class="detail-step-badge ' + gc.cls + '">' + gc.label + '</span>';
+      } else {
+        badgeHtml = '<span class="detail-step-badge badge-none">-</span>';
+      }
+
+      var dateShort = latestDateStr;
+      if (dateShort.length > 16) dateShort = dateShort.substring(0, 16);
+
+      var stepId = 'step-' + user.id + '-' + cardIdx;
+      stepsHtml +=
+        '<div class="detail-step" id="' + stepId + '" onclick="toggleStepHistory(\'' + stepId + '\')">' +
+          '<div class="detail-step-header">' +
+            '<div class="detail-step-num">#' + cardIdx + '</div>' +
+            '<div class="detail-step-title">' + escHtml(title) + '</div>' +
+            (dateShort ? '<div class="detail-step-date">' + escHtml(dateShort) + '</div>' : '') +
+            badgeHtml +
+          '</div>';
+
+      if (history.length > 0) {
+        stepsHtml += '<div class="detail-step-history">';
+        for (var hi = history.length - 1; hi >= 0; hi--) {
+          var rec = history[hi];
+          var recGc = GRADE_CONF[rec.grade] || { label: '?', cls: 'badge-none' };
+          stepsHtml +=
+            '<div class="history-entry">' +
+              '<div class="history-entry-header">' +
+                '<span class="detail-step-badge ' + recGc.cls + '" style="width:20px;height:20px;font-size:10px;">' + recGc.label + '</span>' +
+                '<span style="color:var(--text-muted);font-size:11px;">' + escHtml(rec.date || '') + '</span>' +
+              '</div>' +
+              (rec.answer ? '<div class="history-entry-answer">' + escHtml(rec.answer) + '</div>' : '') +
+            '</div>';
+        }
+        stepsHtml += '</div>';
+      }
+
+      stepsHtml += '</div>';
+    }
+
+    stepsHtml += '</div>';
+  }
+
+  body.innerHTML += stepsHtml;
+
+  document.getElementById('detailOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function toggleStepHistory(stepId) {
+  var el = document.getElementById(stepId);
+  if (el) el.classList.toggle('expanded');
+}
+
+function closeDetail() {
+  document.getElementById('detailOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function closeDetailIfBg(event) {
+  if (event.target === document.getElementById('detailOverlay')) {
+    closeDetail();
+  }
+}
+
+// Close on Escape
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeDetail();
+});
+
+// ==========================================================
+//  Phase Summary Rendering
+// ==========================================================
+function renderPhaseSummary() {
+  var grid = document.getElementById('phaseSummaryGrid');
+  grid.innerHTML = '';
+
+  if (allUsers.length === 0) {
+    grid.innerHTML = '<div class="empty-state">\u30C7\u30FC\u30BF\u304C\u3042\u308A\u307E\u305B\u3093\u3002</div>';
+    return;
+  }
+
+  var phaseStats = [];
+
+  for (var pi = 0; pi < PHASES.length; pi++) {
+    var phase = PHASES[pi];
+    var totalPossible = phase.cards.length * allUsers.length;
+    var totalCompleted = 0;
+    var userBreakdown = [];
+
+    for (var ui = 0; ui < allUsers.length; ui++) {
+      var user = allUsers[ui];
+      var userCompleted = 0;
+      for (var ci = 0; ci < phase.cards.length; ci++) {
+        var cardId = 'card-' + phase.cards[ci];
+        var quizData = user.quiz[cardId];
+        if (quizData && ((quizData.history && quizData.history.length > 0) || quizData.latestGrade)) {
+          userCompleted++;
+          totalCompleted++;
+        }
+      }
+      userBreakdown.push({
+        name: user.name,
+        completed: userCompleted,
+        total: phase.cards.length,
+        pct: Math.round((userCompleted / phase.cards.length) * 100)
+      });
+    }
+
+    var overallPct = totalPossible > 0 ? Math.round((totalCompleted / totalPossible) * 100) : 0;
+    phaseStats.push({
+      phase: phase,
+      overallPct: overallPct,
+      totalCompleted: totalCompleted,
+      totalPossible: totalPossible,
+      userBreakdown: userBreakdown
+    });
+  }
+
+  // Find the lowest percentage phase (bottleneck)
+  var lowestPct = 101;
+  for (var si = 0; si < phaseStats.length; si++) {
+    if (phaseStats[si].overallPct < lowestPct) {
+      lowestPct = phaseStats[si].overallPct;
+    }
+  }
+
+  for (var ri = 0; ri < phaseStats.length; ri++) {
+    var stat = phaseStats[ri];
+    var isBottleneck = stat.overallPct === lowestPct && allUsers.length > 0;
+    var pctColor = stat.overallPct > 70 ? 'var(--green)' : (stat.overallPct >= 30 ? 'var(--yellow)' : 'var(--red)');
+
+    var row = document.createElement('div');
+    row.className = 'phase-row';
+
+    var breakdownHtml = '';
+    stat.userBreakdown.sort(function(a, b) { return b.pct - a.pct; });
+    for (var bi = 0; bi < stat.userBreakdown.length; bi++) {
+      var bu = stat.userBreakdown[bi];
+      var buColor = bu.pct > 70 ? 'var(--green)' : (bu.pct >= 30 ? 'var(--yellow)' : 'var(--red)');
+      breakdownHtml +=
+        '<span style="display:inline-flex;align-items:center;gap:4px;margin-right:12px;margin-bottom:4px;font-size:12px;">' +
+          '<span style="font-weight:600;">' + escHtml(bu.name) + '</span>' +
+          '<span style="color:' + buColor + ';font-weight:700;">' + bu.completed + '/' + bu.total + '</span>' +
+        '</span>';
+    }
+
+    row.innerHTML =
+      '<div class="phase-row-header">' +
+        '<div class="phase-row-name">' +
+          '<span class="phase-dot" style="background:' + stat.phase.color + ';"></span>' +
+          escHtml(stat.phase.name) +
+          (isBottleneck ? '<span class="bottleneck-tag">\u30DC\u30C8\u30EB\u30CD\u30C3\u30AF</span>' : '') +
+        '</div>' +
+        '<div class="phase-row-pct" style="color:' + pctColor + ';">' + stat.overallPct + '%</div>' +
+      '</div>' +
+      '<div class="phase-bar-bg">' +
+        '<div class="phase-bar-fill" style="width:' + stat.overallPct + '%;background:' + stat.phase.color + ';"></div>' +
+      '</div>' +
+      '<div class="phase-row-detail">' +
+        '<div style="margin-bottom:6px;">\u5168\u4F53: ' + stat.totalCompleted + ' / ' + stat.totalPossible + ' \u30B9\u30C6\u30C3\u30D7\u5B8C\u4E86 (' + stat.phase.cards.length + ' \u30B9\u30C6\u30C3\u30D7 x ' + allUsers.length + ' \u540D)</div>' +
+        '<div style="display:flex;flex-wrap:wrap;">' + breakdownHtml + '</div>' +
+      '</div>';
+
+    grid.appendChild(row);
+  }
+}
+
+// ==========================================================
+//  Utility
+// ==========================================================
+function escHtml(str) {
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// ==========================================================
+//  CSV Export
+// ==========================================================
+function exportCSV() {
+  if (allUsers.length === 0) {
+    alert('エクスポートするデータがありません。');
+    return;
+  }
+
+  var rows = [['名前', '進捗%', '完了数', 'S(完璧)', 'A(だいたい)', 'B(うっすら)', 'C(覚えてない)', '最終活動日', 'なぜ']];
+
+  allUsers.forEach(function(user) {
+    rows.push([
+      user.name,
+      String(user.progressPct),
+      String(user.completedCount) + '/' + TOTAL_STEPS,
+      String(user.grades.S),
+      String(user.grades.A),
+      String(user.grades.B),
+      String(user.grades.C),
+      user.latestDateStr || '',
+      user.why || ''
+    ]);
+  });
+
+  // Add detail rows
+  rows.push([]);
+  rows.push(['--- ステップ別詳細 ---']);
+  rows.push(['名前', 'ステップ番号', 'タイトル', '最新グレード', '最新日付', '回答', '回数']);
+
+  allUsers.forEach(function(user) {
+    for (var i = 0; i < TOTAL_STEPS; i++) {
+      var cardId = 'card-' + i;
+      var quizData = user.quiz[cardId];
+      if (quizData && quizData.history && quizData.history.length > 0) {
+        var latest = quizData.history[quizData.history.length - 1];
+        var gc = GRADE_CONF[latest.grade] || { label: '?' };
+        rows.push([
+          user.name,
+          String(i + 1),
+          STEP_TITLES[i] || ('Step ' + i),
+          gc.label + ' (' + (latest.grade || '') + ')',
+          latest.date || '',
+          latest.answer || '',
+          String(quizData.history.length)
+        ]);
+      }
+    }
+  });
+
+  var csv = rows.map(function(r) {
+    return r.map(function(c) {
+      return '"' + String(c).replace(/"/g, '""') + '"';
+    }).join(',');
+  }).join('\n');
+
+  var blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = '30day_admin_export_' + new Date().toISOString().slice(0, 10) + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ==========================================================
+//  Q&A History
+// ==========================================================
+var qaData = [];
+
+function loadQaHistory() {
+  fetch('qa_history.json?t=' + Date.now())
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      qaData = data || [];
+      renderQaHistory();
+    })
+    .catch(function(e) {
+      document.getElementById('qaHistoryList').innerHTML =
+        '<div style="padding:40px;text-align:center;color:var(--text-muted)">Q&A履歴はまだありません</div>';
+    });
+}
+
+function renderQaHistory() {
+  var filter = document.getElementById('qaFilter').value;
+  var search = (document.getElementById('qaSearch').value || '').trim().toLowerCase();
+  var list = document.getElementById('qaHistoryList');
+
+  var filtered = qaData.filter(function(q) {
+    if (filter !== 'all' && q.type !== filter) return false;
+    if (search) {
+      var hay = (q.userName + ' ' + q.question + ' ' + q.answer).toLowerCase();
+      return hay.indexOf(search) !== -1;
+    }
+    return true;
+  }).reverse();
+
+  if (filtered.length === 0) {
+    list.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-muted)">該当するQ&Aはありません</div>';
+    return;
+  }
+
+  var html = '';
+  filtered.forEach(function(q, idx) {
+    var typeLabel = q.type === 'grade' ? '<span style="background:#DBEAFE;color:#2563EB;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600">テスト採点</span>' :
+                                         '<span style="background:#DCFCE7;color:#16A34A;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600">質問チャット</span>';
+    var gradeHtml = q.grade ? ' <span style="background:#FEF9C3;color:#CA8A04;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700">' + q.grade + '</span>' : '';
+    var answeredBy = q.answeredBy === 'AI' ? '<span style="color:#2563EB;font-size:11px">AI回答</span>' : '<span style="color:#16A34A;font-size:11px">' + escHtml(q.answeredBy) + ' 回答</span>';
+
+    html += '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;margin-bottom:10px;box-shadow:var(--shadow)">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">' +
+        '<div style="display:flex;align-items:center;gap:8px">' +
+          '<strong style="font-size:14px">' + escHtml(q.userName) + '</strong>' +
+          typeLabel + gradeHtml +
+        '</div>' +
+        '<div style="display:flex;align-items:center;gap:10px">' +
+          answeredBy +
+          '<span style="font-size:11px;color:var(--text-muted)">' + escHtml(q.timestamp || '') + '</span>' +
+        '</div>' +
+      '</div>' +
+      '<div style="background:var(--bg);border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:8px;font-size:13px;color:var(--text);white-space:pre-wrap;border-left:3px solid var(--border)">' + escHtml(q.question) + '</div>' +
+      '<div style="background:#f0f4ff;border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:8px;font-size:13px;color:var(--text);white-space:pre-wrap;border-left:3px solid #2563EB">' + escHtml(q.answer) + '</div>' +
+      '<div style="display:flex;gap:8px;align-items:flex-start">' +
+        '<textarea id="manualReply-' + idx + '" placeholder="手動で回答を追加/上書き..." style="flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:12px;font-family:inherit;resize:vertical;min-height:36px"></textarea>' +
+        '<button onclick="submitManualReply(\'' + escAttr(q.id) + '\',' + idx + ')" style="padding:8px 16px;background:var(--green);color:#fff;border:none;border-radius:var(--radius-sm);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">手動回答</button>' +
+      '</div>' +
+    '</div>';
+  });
+
+  list.innerHTML = html;
+}
+
+function escAttr(s) { return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+function submitManualReply(qaId, idx) {
+  var textarea = document.getElementById('manualReply-' + idx);
+  var reply = textarea.value.trim();
+  if (!reply) { alert('回答を入力してください'); return; }
+
+  fetch('save_manual_reply.php', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password: ADMIN_PASSWORD, qaId: qaId, answer: reply, answeredBy: 'ほし' })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    if (res.success) {
+      textarea.value = '';
+      loadQaHistory();
+    } else {
+      alert('エラー: ' + (res.error || 'unknown'));
+    }
+  })
+  .catch(function(e) { alert('エラー: ' + e.message); });
+}
+
+// ==========================================================
+//  Course Editor
+// ==========================================================
+var courseSteps = [];
+var coursePhases = {};
+var phaseOrder = ['phaseIntro','phase0','step2','step3','step3b','step4','step5','step6','step7','step8','step9'];
+
+function loadCourseEditor() {
+  fetch('course_config.json?t=' + Date.now())
+    .then(function(r) { return r.json(); })
+    .then(function(cfg) {
+      courseSteps = cfg.steps || [];
+      coursePhases = cfg.phases || {};
+      // Ensure phaseOrder includes all phases
+      Object.keys(coursePhases).forEach(function(k) {
+        if (phaseOrder.indexOf(k) === -1) phaseOrder.push(k);
+      });
+      renderEditor();
+    })
+    .catch(function(e) {
+      document.getElementById('editorContainer').innerHTML =
+        '<div style="padding:40px;text-align:center;color:var(--red)">設定ファイルの読み込みに失敗しました: ' + e.message + '</div>';
+    });
+}
+
+function renderEditor() {
+  var container = document.getElementById('editorContainer');
+  container.innerHTML = '';
+
+  phaseOrder.forEach(function(phaseId, pi) {
+    var meta = coursePhases[phaseId] || { icon: '', title: phaseId, subtitle: '', color: '', desc: '' };
+    var steps = [];
+    courseSteps.forEach(function(s, i) {
+      if (s.phase === phaseId) steps.push({ step: s, globalIdx: i });
+    });
+
+    var div = document.createElement('div');
+    div.className = 'editor-phase';
+    div.id = 'editor-phase-' + phaseId;
+
+    div.innerHTML =
+      '<div class="editor-phase-header" onclick="togglePhaseEditor(\'' + phaseId + '\')">' +
+        '<span class="editor-phase-toggle" id="toggle-' + phaseId + '">&#9654;</span>' +
+        '<span class="editor-phase-title-display">' + escHtml(meta.icon + ' ' + meta.title) + '</span>' +
+        '<span class="editor-phase-count">' + steps.length + ' items</span>' +
+        '<div class="editor-phase-actions">' +
+          '<button onclick="event.stopPropagation();deletePhase(\'' + phaseId + '\')" class="danger" title="削除">&#128465;</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="editor-phase-body" id="body-' + phaseId + '">' +
+        '<div class="editor-phase-meta">' +
+          '<div><label>アイコン</label><input value="' + escAttr(meta.icon || '') + '" onchange="updatePhaseMeta(\'' + phaseId + '\',\'icon\',this.value)"></div>' +
+          '<div><label>タイトル</label><input value="' + escAttr(meta.title || '') + '" onchange="updatePhaseMeta(\'' + phaseId + '\',\'title\',this.value)"></div>' +
+          '<div><label>サブタイトル</label><input value="' + escAttr(meta.subtitle || '') + '" onchange="updatePhaseMeta(\'' + phaseId + '\',\'subtitle\',this.value)"></div>' +
+          '<div><label>カラー</label><input value="' + escAttr(meta.color || '') + '" onchange="updatePhaseMeta(\'' + phaseId + '\',\'color\',this.value)"></div>' +
+          '<div class="full-width"><label>説明（HTML可）</label><textarea rows="3" onchange="updatePhaseMeta(\'' + phaseId + '\',\'desc\',this.value)">' + escHtml(meta.desc || '') + '</textarea></div>' +
+        '</div>' +
+        renderStepsList(steps, phaseId) +
+        '<div class="editor-add-step"><button onclick="addStep(\'' + phaseId + '\')">+ ステップ追加</button></div>' +
+      '</div>';
+
+    container.appendChild(div);
+  });
+}
+
+function renderStepsList(steps, phaseId) {
+  var html = '';
+  steps.forEach(function(item, localIdx) {
+    var s = item.step;
+    var gi = item.globalIdx;
+    html +=
+      '<div class="editor-step" data-gi="' + gi + '">' +
+        '<div class="editor-step-num">' + (localIdx + 1) + '</div>' +
+        '<div class="editor-step-content">' +
+          '<div class="editor-step-title-row">' +
+            '<input class="editor-step-title-input" value="' + escAttr(s.title || '') + '" onchange="updateStep(' + gi + ',\'title\',this.value)" onclick="toggleStepFields(this)">' +
+          '</div>' +
+          '<div class="editor-step-fields" id="fields-' + gi + '">' +
+            '<div class="editor-step-field"><label>テスト質問</label><textarea rows="2" onchange="updateStep(' + gi + ',\'question\',this.value)">' + escHtml(s.question || '') + '</textarea></div>' +
+            '<div class="editor-step-field"><label>説明メモ</label><textarea rows="2" onchange="updateStep(' + gi + ',\'desc\',this.value)">' + escHtml(s.desc || '') + '</textarea></div>' +
+            '<div class="editor-step-field"><label>動画URL（カンマ区切り）</label><input value="' + escAttr((s.videos || []).join(', ')) + '" onchange="updateStepVideos(' + gi + ',this.value)"></div>' +
+            '<div class="editor-step-field"><label>リンク（URL|ラベル、カンマ区切り）</label><input value="' + escAttr((s.links || []).map(function(l){return l.url+'|'+l.label}).join(', ')) + '" onchange="updateStepLinks(' + gi + ',this.value)"></div>' +
+            '<div class="editor-step-field"><label>カードID</label><input value="' + escAttr(s.cid || '') + '" onchange="updateStep(' + gi + ',\'cid\',this.value)" placeholder="自動: card-' + gi + '"></div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="editor-step-actions">' +
+          '<button onclick="moveStep(' + gi + ',-1)" title="上へ">&#9650;</button>' +
+          '<button onclick="moveStep(' + gi + ',1)" title="下へ">&#9660;</button>' +
+          '<button onclick="deleteStep(' + gi + ')" class="danger" title="削除">&#10005;</button>' +
+        '</div>' +
+      '</div>';
+  });
+  return html;
+}
+
+function escAttr(s) { return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+
+function togglePhaseEditor(phaseId) {
+  var body = document.getElementById('body-' + phaseId);
+  var toggle = document.getElementById('toggle-' + phaseId);
+  var isOpen = body.classList.toggle('open');
+  toggle.classList.toggle('open', isOpen);
+}
+
+function toggleStepFields(input) {
+  var row = input.closest('.editor-step');
+  var gi = row.getAttribute('data-gi');
+  var fields = document.getElementById('fields-' + gi);
+  fields.classList.toggle('open');
+}
+
+function updatePhaseMeta(phaseId, key, value) {
+  if (!coursePhases[phaseId]) coursePhases[phaseId] = {};
+  coursePhases[phaseId][key] = value;
+  markDirty();
+}
+
+function updateStep(gi, key, value) {
+  courseSteps[gi][key] = value;
+  markDirty();
+}
+
+function updateStepVideos(gi, value) {
+  var urls = value.split(',').map(function(u){return u.trim()}).filter(Boolean);
+  courseSteps[gi].videos = urls.length ? urls : undefined;
+  markDirty();
+}
+
+function updateStepLinks(gi, value) {
+  if (!value.trim()) { courseSteps[gi].links = undefined; markDirty(); return; }
+  var links = value.split(',').map(function(part) {
+    var p = part.trim().split('|');
+    return { url: p[0].trim(), label: (p[1] || p[0]).trim() };
+  });
+  courseSteps[gi].links = links;
+  markDirty();
+}
+
+function moveStep(gi, dir) {
+  var newIdx = gi + dir;
+  if (newIdx < 0 || newIdx >= courseSteps.length) return;
+  var temp = courseSteps[gi];
+  courseSteps[gi] = courseSteps[newIdx];
+  courseSteps[newIdx] = temp;
+  renderEditor();
+  markDirty();
+}
+
+function deleteStep(gi) {
+  if (!confirm('「' + courseSteps[gi].title + '」を削除しますか？')) return;
+  courseSteps.splice(gi, 1);
+  renderEditor();
+  markDirty();
+}
+
+function addStep(phaseId) {
+  // Find last step of this phase and insert after it
+  var lastIdx = -1;
+  courseSteps.forEach(function(s, i) {
+    if (s.phase === phaseId) lastIdx = i;
+  });
+  var newStep = { phase: phaseId, title: '新しいステップ', question: '' };
+  if (lastIdx >= 0) {
+    courseSteps.splice(lastIdx + 1, 0, newStep);
+  } else {
+    courseSteps.push(newStep);
+  }
+  renderEditor();
+  markDirty();
+  // Open the phase
+  var body = document.getElementById('body-' + phaseId);
+  if (body && !body.classList.contains('open')) togglePhaseEditor(phaseId);
+}
+
+function addPhase() {
+  var id = prompt('フェーズID（英数字、例: step10）:');
+  if (!id || !id.trim()) return;
+  id = id.trim();
+  if (coursePhases[id]) { alert('このIDは既に存在します'); return; }
+  var title = prompt('フェーズタイトル:') || id;
+  coursePhases[id] = { icon: '', title: title, subtitle: '', color: 'var(--accent-phase0)', desc: '' };
+  phaseOrder.push(id);
+  renderEditor();
+  markDirty();
+}
+
+function deletePhase(phaseId) {
+  var steps = courseSteps.filter(function(s){return s.phase === phaseId});
+  if (!confirm('フェーズ「' + (coursePhases[phaseId] || {}).title + '」を削除しますか？\n（' + steps.length + ' ステップも削除されます）')) return;
+  courseSteps = courseSteps.filter(function(s){return s.phase !== phaseId});
+  delete coursePhases[phaseId];
+  phaseOrder = phaseOrder.filter(function(p){return p !== phaseId});
+  renderEditor();
+  markDirty();
+}
+
+function markDirty() {
+  var st = document.getElementById('editorStatus');
+  st.textContent = '未保存の変更があります';
+  st.style.color = 'var(--yellow)';
+}
+
+function saveCourseConfig() {
+  var st = document.getElementById('editorStatus');
+  st.textContent = '保存中...';
+  st.style.color = 'var(--text-muted)';
+
+  // Clean up undefined fields
+  var cleanSteps = courseSteps.map(function(s) {
+    var c = { phase: s.phase, title: s.title, question: s.question || '' };
+    if (s.desc) c.desc = s.desc;
+    if (s.videos && s.videos.length) c.videos = s.videos;
+    if (s.links && s.links.length) c.links = s.links;
+    if (s.cid) c.cid = s.cid;
+    return c;
+  });
+
+  var data = { steps: cleanSteps, phases: coursePhases };
+
+  fetch('save_config.php', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password: ADMIN_PASSWORD, data: data })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(res) {
+    if (res.success) {
+      st.textContent = '保存しました (' + res.updatedAt + ')';
+      st.style.color = 'var(--green)';
+    } else {
+      st.textContent = '保存失敗: ' + (res.error || 'unknown');
+      st.style.color = 'var(--red)';
+    }
+  })
+  .catch(function(e) {
+    st.textContent = '保存失敗: ' + e.message;
+    st.style.color = 'var(--red)';
+  });
+}
+
+// Override switchTab to load editor/qa on first switch
+var origSwitchTab = switchTab;
+switchTab = function(tabId, btn) {
+  origSwitchTab(tabId, btn);
+  if (tabId === 'editor' && !document.getElementById('editorContainer').innerHTML.trim()) {
+    loadCourseEditor();
+  }
+  if (tabId === 'qa' && qaData.length === 0) {
+    loadQaHistory();
+  }
+};
+
+</script>
+</body>
+</html>

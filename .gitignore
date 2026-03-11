@@ -1,0 +1,6 @@
+*.key
+.claude_api_key
+qa_history.json
+backups/
+.DS_Store
+node_modules/

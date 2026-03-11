@@ -1,0 +1,5 @@
+**/*.py
+**/*.csv
+**/*.md
+node_modules/**
+.git/**
