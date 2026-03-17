@@ -189,8 +189,10 @@ function doGet(e) {
       else if (fn === 'setupBotSheets') fnResult = setupBotSheets();
       else if (fn === 'importKB') fnResult = processStaging(params.sheet);
       else if (fn === 'testFeedback') fnResult = testFeedbackGeneration(params.roomId, params.msgBody);
+      else if (fn === 'getPaymentNewsOnly') fnResult = getPaymentNewsOnly_();
       else if (fn === 'renameMember') fnResult = renameMember(params.from, params.to);
       else if (fn === 'fixCell') fnResult = fixCell(params.gid, params.row, params.col, params.val, params.formula);
+      else if (fn === 'fixRankOnly') fnResult = fixRankOnly();
       else fnResult = { error: 'unknown fn: ' + fn };
       return ContentService.createTextOutput(JSON.stringify({ ok: true, result: fnResult }))
         .setMimeType(ContentService.MimeType.JSON);
@@ -237,13 +239,8 @@ function getDashboardData(targetMonth, targetYear) {
   // 当月 → 既存のリアルタイム処理
   var settingsSheet = ss.getSheetByName(SHEET_SETTINGS);
   if (settingsSheet) {
-    var summarySheet = ss.getSheetByName(SHEET_SUMMARY);
-    if (summarySheet) {
-      var summaryVal = summarySheet.getRange(SM_ROW_KPI_REVENUE, 2).getValue();
-      if (summaryVal === '' || summaryVal === null || summaryVal === undefined) {
-        try { updateSummary(); } catch (e) { /* フォールバックに進む */ }
-      }
-    }
+    // NOTE: サマリーが空でもupdateSummary()を呼ばない（syncFromOldSheet回避）
+    // updateSummaryはメニューまたはトリガーから手動実行すること
 
     if (isNewStructureReady_(ss)) {
       return getDashboardData_new_(ss);
@@ -599,6 +596,19 @@ function getPaymentNews_new_(ss, activeMembers) {
   });
 
   return news;
+}
+
+/**
+ * 着金速報だけ返す軽量API（syncを呼ばない）
+ */
+function getPaymentNewsOnly_() {
+  var ss = getSpreadsheet_();
+  var now = new Date();
+  var currentMonth = now.getMonth() + 1;
+  var sheet = getSheetByMonth_(ss, currentMonth);
+  if (!sheet) return [];
+  var allData = sheet.getDataRange().getValues();
+  return getPaymentNews_legacy_(sheet, allData);
 }
 
 // ============================================

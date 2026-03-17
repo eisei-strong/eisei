@@ -4,6 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>営業ダッシュボード</title>
+  <link rel="preconnect" href="https://lh3.googleusercontent.com" crossorigin>
+  <link rel="dns-prefetch" href="https://lh3.googleusercontent.com">
   <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
   <style>
     /* ===== Reset & Base ===== */
@@ -659,11 +661,46 @@
 
     .member-card.rank-1 {
       border-color: #FCD34D;
-      border-width: 2.5px;
+      border-width: 3px;
       background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 20%, #FFFFFF 60%);
+      box-shadow: 0 4px 20px rgba(252, 211, 77, 0.25);
     }
-    .member-card.rank-2 { border-color: #CBD5E1; border-width: 2px; background: linear-gradient(135deg, #F8FAFC 0%, #FFFFFF 40%); }
-    .member-card.rank-3 { border-color: #FDBA74; border-width: 2px; background: linear-gradient(135deg, #FFF7ED 0%, #FFFFFF 40%); }
+    .member-card.rank-2 { border-color: #94A3B8; border-width: 2.5px; background: linear-gradient(135deg, #F1F5F9 0%, #FFFFFF 40%); }
+    .member-card.rank-3 { border-color: #FB923C; border-width: 2.5px; background: linear-gradient(135deg, #FFF7ED 0%, #FFFFFF 40%); }
+    .member-card.rank-4 { border-left: 5px solid #60A5FA; }
+    .member-card.rank-5 { border-left: 5px solid #34D399; }
+    .member-card.rank-6 { border-left: 5px solid #A78BFA; }
+    .member-card.rank-7 { border-left: 5px solid #F472B6; }
+    .member-card.rank-8 { border-left: 5px solid #FBBF24; }
+    .member-card.rank-9 { border-left: 5px solid #FB7185; }
+    .member-card.rank-10 { border-left: 5px solid #9CA3AF; }
+
+    /* KGI達成カード装飾 */
+    .member-card.kgi-achieved {
+      border-color: #10B981;
+      border-width: 3px;
+      background: linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 15%, #FFFFFF 50%);
+      box-shadow: 0 0 20px rgba(16, 185, 129, 0.15), 0 4px 12px rgba(0, 0, 0, 0.05);
+    }
+    .member-card.kgi-achieved::before {
+      content: '\uD83C\uDF89 KGI達成！';
+      position: absolute;
+      top: -14px;
+      right: 16px;
+      background: linear-gradient(135deg, #10B981, #059669);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 4px 14px;
+      border-radius: 20px;
+      box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+      z-index: 2;
+      letter-spacing: 0.5px;
+    }
+    .member-card.kgi-achieved .member-icon {
+      border-color: #10B981;
+      box-shadow: 0 0 12px rgba(16, 185, 129, 0.3);
+    }
 
     .card-header {
       display: flex;
@@ -687,8 +724,15 @@
     }
 
     .member-card.rank-1 .member-icon { border-color: #FCD34D; }
-    .member-card.rank-2 .member-icon { border-color: #CBD5E1; }
-    .member-card.rank-3 .member-icon { border-color: #FDBA74; }
+    .member-card.rank-2 .member-icon { border-color: #94A3B8; }
+    .member-card.rank-3 .member-icon { border-color: #FB923C; }
+    .member-card.rank-4 .rank-badge { background: #DBEAFE; color: #2563EB; }
+    .member-card.rank-5 .rank-badge { background: #D1FAE5; color: #059669; }
+    .member-card.rank-6 .rank-badge { background: #EDE9FE; color: #7C3AED; }
+    .member-card.rank-7 .rank-badge { background: #FCE7F3; color: #DB2777; }
+    .member-card.rank-8 .rank-badge { background: #FEF3C7; color: #D97706; }
+    .member-card.rank-9 .rank-badge { background: #FFE4E6; color: #E11D48; }
+    .member-card.rank-10 .rank-badge { background: #F3F4F6; color: #6B7280; }
 
     .rank-badge {
       display: inline-flex;
@@ -1191,34 +1235,10 @@
     var GAS_API = 'api-proxy.php';
     var GOAL_SETTINGS_KEY = 'sales_dashboard_goals';
 
-    // ===== クライアント側名前・アイコンマッピング（GASデプロイ前の暫定対応） =====
-    var CLIENT_NAME_MAP = { 'ドライ': 'ポジティブ' };
-    var CLIENT_ICON_MAP = { 'ポジティブ': 'https://lh3.googleusercontent.com/d/1AdF_IRXMi_uGG7ctCjO7CkaJw7XUOb6y' };
-    // 前月データ取得用: 新名前 → 旧名前リスト
-    var CLIENT_PREV_LEGACY = { 'ポジティブ': ['ドライ', '勝友美'] };
-    // ポジティブ（旧ドライ）の2月実績を直接マッピング
-    var PREV_DATA_OVERRIDE = {
-      'ポジティブ': { revenue: 682.6, deals: 21, closed: 9, closeRate: 42.9 }
-    };
-    function mapName(name) { return CLIENT_NAME_MAP[name] || name; }
-    function mapMemberNames(data) {
+    // ===== 成約率キャップ（表示用：100%超を丸める） =====
+    function capCloseRates(data) {
       if (data.members) {
         data.members.forEach(function(m) {
-          m.name = mapName(m.name);
-          if (CLIENT_ICON_MAP[m.name]) m.icon = CLIENT_ICON_MAP[m.name];
-          // 前月データ補正（改名メンバー）
-          var ovr = PREV_DATA_OVERRIDE[m.name];
-          if (ovr && m.prevRevenue === 0 && m.prevDeals === 0) {
-            m.prevRevenue = ovr.revenue;
-            m.prevDeals = ovr.deals;
-            m.prevClosed = ovr.closed;
-            m.prevCloseRate = ovr.closeRate;
-            m.diffRevenue = m.revenue - ovr.revenue;
-            m.diffDeals = m.deals - ovr.deals;
-            m.diffClosed = m.closed - ovr.closed;
-            m.diffCloseRate = m.closeRate - ovr.closeRate;
-          }
-          // 成約率キャップ（前月繰越で100%超の場合）
           if (m.closeRate > 100) {
             m.rawCloseRate = m.closeRate;
             m.diffCloseRate = 100 - m.prevCloseRate;
@@ -1227,91 +1247,12 @@
           }
         });
       }
-      if (data.paymentNews) {
-        data.paymentNews.forEach(function(n) {
-          if (n.name) n.name = mapName(n.name);
-          if (n.name && CLIENT_ICON_MAP[n.name] && !n.icon) n.icon = CLIENT_ICON_MAP[n.name];
-        });
-      }
-      // localStorage KGI設定の移行
-      var gk = goalKey();
-      var settings = getGoalSettings();
-      var monthGoal = settings[gk] || {};
-      var memberKgi = monthGoal.memberKgi || {};
-      var migrated = false;
-      Object.keys(CLIENT_NAME_MAP).forEach(function(oldN) {
-        if (memberKgi[oldN] && !memberKgi[CLIENT_NAME_MAP[oldN]]) {
-          memberKgi[CLIENT_NAME_MAP[oldN]] = memberKgi[oldN];
-          delete memberKgi[oldN];
-          migrated = true;
-        }
-      });
-      if (migrated) {
-        monthGoal.memberKgi = memberKgi;
-        settings[gk] = monthGoal;
-        setGoalSettings(settings);
-      }
       return data;
     }
 
-    // 前月アーカイブから全メンバーの全フィールド前月データを取得
-    function enrichPrevMonthData(data) {
-      var curMonth = data.currentMonth || (new Date().getMonth() + 1);
-      var curYear = data.archiveYear || new Date().getFullYear();
-      var prevMonth = curMonth - 1;
-      var prevYear = curYear;
-      if (prevMonth <= 0) { prevMonth = 12; prevYear--; }
+    // (enrichPrevMonthData削除: 前月データはGAS APIが返すため不要)
 
-      var url = GAS_API + '?action=api&month=' + prevMonth + '&year=' + prevYear + '&t=' + Date.now();
-      fetch(url, { cache: 'no-store' })
-        .then(function(r) { return r.json(); })
-        .then(function(prevData) {
-          var prevMap = {};
-          (prevData.members || []).forEach(function(pm) { prevMap[pm.name] = pm; });
-
-          (data.members || []).forEach(function(m) {
-            // 改名メンバー対応
-            var pm = prevMap[m.name];
-            if (!pm && CLIENT_PREV_LEGACY[m.name]) {
-              var legacyNames = CLIENT_PREV_LEGACY[m.name];
-              for (var i = 0; i < legacyNames.length; i++) {
-                if (prevMap[legacyNames[i]]) { pm = prevMap[legacyNames[i]]; break; }
-              }
-            }
-            if (!pm) return;
-
-            // 基本4項目（APIから0の場合のみ上書き）
-            if (m.prevRevenue === 0 && pm.revenue > 0) {
-              m.prevRevenue = pm.revenue;
-              m.diffRevenue = m.revenue - pm.revenue;
-            }
-            if (m.prevDeals === 0 && pm.deals > 0) {
-              m.prevDeals = pm.deals;
-              m.diffDeals = m.deals - pm.deals;
-            }
-            if (m.prevClosed === 0 && pm.closed > 0) {
-              m.prevClosed = pm.closed;
-              m.diffClosed = m.closed - pm.closed;
-            }
-            if (m.prevCloseRate === 0 && pm.closeRate > 0) {
-              m.prevCloseRate = pm.closeRate;
-              m.diffCloseRate = m.closeRate - pm.closeRate;
-            }
-
-            // 全フィールドの前月データを追加
-            m.prevFundedDeals = pm.fundedDeals || 0;
-            m.prevSales = pm.sales || 0;
-            m.prevAvgPrice = pm.avgPrice || 0;
-            m.prevCoAmount = pm.coAmount || 0;
-            m.prevCoRevenue = pm.coRevenue || 0;
-            m.prevCreditCard = pm.creditCard || 0;
-            m.prevShinpan = pm.shinpan || 0;
-          });
-
-          updateMemberCards(data);
-        })
-        .catch(function(e) { console.error('enrichPrevMonthData error:', e); });
-    }
+    // (fixFromOldSheet削除: GAS APIがv2日別シートから正しいデータを返すため不要)
 
     // ===== Goal Settings (サーバー共有) =====
     var GOAL_API = 'goal-settings.php';
@@ -1560,9 +1501,15 @@
     }
 
     function onDataLoaded(data) {
-      data = mapMemberNames(data);
+      // 成約率キャップのみ適用（データ加工はPHP側で完了済み）
+      data = capCloseRates(data);
       lastData = data;
       lastMembers = data.members || [];
+
+      // アイコン即時プリロード（描画前に開始）
+      (data.members || []).forEach(function(m) {
+        if (m.icon) { var img = new Image(); img.src = m.icon; }
+      });
 
       // Hide loading, show app
       document.getElementById('loading').style.display = 'none';
@@ -1579,14 +1526,12 @@
 
       var isArchive = data.isArchive || false;
 
+      // 1回のrender pass（データの再取得・再描画なし）
       updateStrongestMembers(data);
       updateProgress(data, isArchive);
       updateBarChart(data);
       updateMemberCards(data);
       updatePaymentNews(data, isArchive);
-
-      // 全メンバーの前月データ補完
-      enrichPrevMonthData(data);
 
       // 過去月の着金速報・日割りセクションを非表示
       var newsTop = document.getElementById('newsTop');
@@ -2014,7 +1959,7 @@
         '<div class="kpi-breakdown-grid">' +
           '<div class="kpi-bd-item">' +
             '<div class="kpi-bd-label">現状成約率</div>' +
-            '<div class="kpi-bd-val">' + Math.min(m.closeRate, 100) + '%' + (m.closeRateOver ? '+' : '') + '</div>' +
+            '<div class="kpi-bd-val">' + (function(r){ r = Math.min(r,100); return r % 1 === 0 ? r + '.0' : r; })(m.closeRate) + '%' + (m.closeRateOver ? '+' : '') + '</div>' +
           '</div>' +
           '<div class="kpi-bd-item">' +
             '<div class="kpi-bd-label">現状単価</div>' +
@@ -2033,8 +1978,17 @@
       data.members.forEach(function(m, index) {
         var card = document.createElement('div');
         card.className = 'member-card fade-in-up';
-        if (m.rank <= 3) card.classList.add('rank-' + m.rank);
+        if (m.rank <= 10) card.classList.add('rank-' + m.rank);
         card.style.animationDelay = (isFirstLoad ? index * 0.08 : 0) + 's';
+
+        // KGI達成チェック → カード装飾
+        var gkCard = goalKey();
+        var settingsCard = getGoalSettings();
+        var monthGoalCard = settingsCard[gkCard] || {};
+        var memberKgiCard = monthGoalCard.memberKgi || {};
+        var kgiTargetCard = memberKgiCard[m.name];
+        if (!kgiTargetCard || kgiTargetCard <= 0) kgiTargetCard = 2000;
+        if (m.revenue >= kgiTargetCard) card.classList.add('kgi-achieved');
 
         // Icon
         var iconHtml = m.icon
@@ -2113,13 +2067,36 @@
               diffHtml(m.diffClosed, '件', m.prevClosed) +
             '</div>' +
           '</div>' +
+          (m.closed > 0 ?
+          '<div class="stats-row">' +
+            '<div class="stat-item">' +
+              '<div class="stat-label">コンサル</div>' +
+              '<div class="stat-value">' + (m.closedConsul || 0) + '件</div>' +
+            '</div>' +
+            '<div class="stat-item">' +
+              '<div class="stat-label">オンクラス</div>' +
+              '<div class="stat-value">' + (m.closedOnclass || 0) + '件</div>' +
+            '</div>' +
+          '</div>' : '') +
+          ((m.lost > 0 || m.lostByLfCbs > 0) ?
+          '<div class="stats-row">' +
+            '<div class="stat-item">' +
+              '<div class="stat-label">失注</div>' +
+              '<div class="stat-value" style="color:#EF4444;">' + (m.lost || 0) + '件</div>' +
+            '</div>' +
+            (m.lostByLfCbs > 0 ?
+            '<div class="stat-item">' +
+              '<div class="stat-label">LF/CBS否決失注</div>' +
+              '<div class="stat-value" style="color:#DC2626;">' + m.lostByLfCbs + '件</div>' +
+            '</div>' : '') +
+          '</div>' : '') +
 
           // 成約率・売上・単価
           '<div class="card-section-label">\u{1F4B5} 成約率・売上</div>' +
           '<div class="stats-row">' +
             '<div class="stat-item">' +
               '<div class="stat-label">成約率</div>' +
-              '<div class="stat-value"' + (m.closeRateOver ? ' style="color:#7C3AED;"' : '') + '>' + m.closeRate + '%' + (m.closeRateOver ? '+' : '') + '</div>' +
+              '<div class="stat-value"' + (m.closeRateOver ? ' style="color:#7C3AED;"' : '') + '>' + (m.closeRate % 1 === 0 ? m.closeRate + '.0' : m.closeRate) + '%' + (m.closeRateOver ? '+' : '') + '</div>' +
               diffHtml(m.diffCloseRate, '%', m.prevCloseRate) +
             '</div>' +
             '<div class="stat-item">' +

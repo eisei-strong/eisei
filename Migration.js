@@ -1671,7 +1671,7 @@ function fixOldSheetFormulas() {
     if (!rowMap.unfundedClosed && label.indexOf('資金なし成約数') !== -1) rowMap.unfundedClosed = r + 1;
     if (!rowMap.unfundedDeals && label.indexOf('資金なしの合計商談数') !== -1) rowMap.unfundedDeals = r + 1;
     if (!rowMap.coCount && label.indexOf('CO数') !== -1) rowMap.coCount = r + 1;
-    if (!rowMap.coAmount && label.indexOf('CO額') !== -1 || label.indexOf('CO金額') !== -1) rowMap.coAmount = r + 1;
+    if (!rowMap.coAmount && (label.indexOf('CO額') !== -1 || label.indexOf('CO金額') !== -1)) rowMap.coAmount = r + 1;
     if (!rowMap.currentRev && label.indexOf('当月着金額') !== -1) rowMap.currentRev = r + 1;
     if (!rowMap.carryoverRev && label.indexOf('前月繰り越し') !== -1) rowMap.carryoverRev = r + 1;
   }
@@ -1789,7 +1789,7 @@ function fixOldSheetFormulas() {
       fixed.push(ms.name + ' currentRev: ' + formula);
     }
 
-    // 合計着金額 = 当月着金額 + 前月繰り越し
+    // 合計着金額 = 当月着金額 + 前月繰り越し - CO額
     if (rowMap.revenue) {
       var formula;
       if (rowMap.currentRev && rowMap.carryoverRev) {
@@ -1800,9 +1800,58 @@ function fixOldSheetFormulas() {
           formula += '+' + scLetter + rowMap.carryoverRev;
         }
       }
+      // CO額を引く
+      if (rowMap.coAmount) {
+        formula += '-' + scLetter + rowMap.coAmount;
+      }
       oldSheet.getRange(rowMap.revenue, sc).setFormula(formula);
       fixed.push(ms.name + ' revenue: ' + formula);
     }
+  }
+
+  // === Row 5 着金ランキング（RANK数式）を修正 ===
+  if (rowMap.revenue) {
+    // 全メンバーのrevenue行セル参照リスト
+    var rankRefs = [];
+    for (var ri = 0; ri < memberSections.length; ri++) {
+      rankRefs.push(columnToLetter_(memberSections[ri].summaryCol) + rowMap.revenue);
+    }
+    var rankArray = '{' + rankRefs.join(',') + '}';
+    var rankRow = rowMap.revenue - 1; // ランキング行 = 着金額行の1つ上(row 5)
+    for (var ri = 0; ri < memberSections.length; ri++) {
+      var sc2 = memberSections[ri].summaryCol;
+      var cellRef = columnToLetter_(sc2) + rowMap.revenue;
+      var formula = '=RANK(' + cellRef + ',' + rankArray + ',0)';
+      oldSheet.getRange(rankRow, sc2).setFormula(formula);
+    }
+    // ランキング行に順位色をつける
+    var RANK_COLORS = {
+      1:  { bg: '#FEF3C7', fg: '#92400E' },  // 金
+      2:  { bg: '#F1F5F9', fg: '#475569' },  // 銀
+      3:  { bg: '#FFF7ED', fg: '#9A3412' },  // 銅
+      4:  { bg: '#DBEAFE', fg: '#1E40AF' },  // 青
+      5:  { bg: '#D1FAE5', fg: '#065F46' },  // 緑
+      6:  { bg: '#EDE9FE', fg: '#5B21B6' },  // 紫
+      7:  { bg: '#FCE7F3', fg: '#9D174D' },  // ピンク
+      8:  { bg: '#FEF9C3', fg: '#854D0E' },  // 黄
+      9:  { bg: '#FFE4E6', fg: '#9F1239' },  // 赤
+      10: { bg: '#F3F4F6', fg: '#6B7280' },  // グレー
+    };
+    SpreadsheetApp.flush(); // RANK数式を確定させてから値を取得
+    for (var ri = 0; ri < memberSections.length; ri++) {
+      var sc3 = memberSections[ri].summaryCol;
+      var rankCell = oldSheet.getRange(rankRow, sc3);
+      var rankVal = parseInt(rankCell.getValue()) || 0;
+      var rc = RANK_COLORS[rankVal] || RANK_COLORS[10];
+      rankCell.setBackground(rc.bg)
+             .setFontColor(rc.fg)
+             .setFontWeight('bold')
+             .setFontSize(14)
+             .setHorizontalAlignment('center');
+    }
+    // AG列（合計列）のランキング行
+    oldSheet.getRange(rankRow, 33).setBackground('#F9FAFB').setFontColor('#9CA3AF').setFontSize(10);
+    fixed.push('Row ' + rankRow + ' (ranking): RANK formulas + colors for all members');
   }
 
   // === AG列（合計）を修正 ===
@@ -2739,5 +2788,206 @@ function listSheets() {
       hidden: sheets[i].isSheetHidden()
     });
   }
+  return list;
+}
+
+/**
+ * Row6のCO引き数式とRow5のランキング数式を高速修復（トリガー用）
+ * v200のfixOldSheetFormulasがCO引きなしで上書きするため、1分トリガーで修復する
+ */
+function quickFixFormulas() {
+  var ss = getSpreadsheet_();
+  var settings = getGlobalSettings_(ss);
+  var oldSheet = getSheetByMonth_(ss, settings.month);
+  if (!oldSheet) return;
+
+  // Row6 C列の数式を確認 — CO引き（マイナス記号）があれば修復不要
+  var testFormula = oldSheet.getRange('C6').getFormula();
+  if (testFormula && testFormula.indexOf('-') !== -1) return;
+
+  // 修復が必要 → fixOldSheetFormulas(HEAD版 = CO引き + 全員ランキング)を実行
+  fixOldSheetFormulas();
+}
+
+/**
+ * Row 5（着金ランキング）にランキング順の色をつける
+ * Apps Scriptエディタから実行する
+ */
+function colorRankRow() {
+  var ss = getSpreadsheet_();
+  var settings = getGlobalSettings_(ss);
+  var oldSheet = getSheetByMonth_(ss, settings.month);
+  if (!oldSheet) return 'sheet not found';
+
+  var memberSections = detectMemberSections_(ss, oldSheet, settings);
+
+  // 行検出（detectRowMap_の代替）
+  var allData = oldSheet.getDataRange().getValues();
+  var revenueRow = 0;
+  for (var r = 0; r < allData.length; r++) {
+    var label = String(allData[r][0] || '').replace(/\s+/g, '').replace(/[\(\)（）]/g, '');
+    if (!label) label = String(allData[r][1] || '').replace(/\s+/g, '').replace(/[\(\)（）]/g, '');
+    if (label.indexOf('合計着金額') !== -1) { revenueRow = r + 1; break; }
+  }
+  if (!revenueRow) return 'revenue row not found';
+  var rankRow = revenueRow - 1; // ランキング行 = 着金額行の1つ上
+
+  // ランキング色マップ（1位=金, 2位=銀, 3位=銅, 4位以降=順位色）
+  var RANK_COLORS = {
+    1:  { bg: '#FEF3C7', fg: '#92400E' },  // 金
+    2:  { bg: '#F1F5F9', fg: '#475569' },  // 銀
+    3:  { bg: '#FFF7ED', fg: '#9A3412' },  // 銅
+    4:  { bg: '#DBEAFE', fg: '#1E40AF' },  // 青
+    5:  { bg: '#D1FAE5', fg: '#065F46' },  // 緑
+    6:  { bg: '#EDE9FE', fg: '#5B21B6' },  // 紫
+    7:  { bg: '#FCE7F3', fg: '#9D174D' },  // ピンク
+    8:  { bg: '#FEF9C3', fg: '#854D0E' },  // 黄
+    9:  { bg: '#FFE4E6', fg: '#9F1239' },  // 赤
+    10: { bg: '#F3F4F6', fg: '#6B7280' },  // グレー
+  };
+
+  var colored = [];
+  for (var i = 0; i < memberSections.length; i++) {
+    var sc = memberSections[i].summaryCol;
+    var cell = oldSheet.getRange(rankRow, sc);
+    var val = cell.getValue();
+    var rank = parseInt(val) || 0;
+    var color = RANK_COLORS[rank] || RANK_COLORS[10];
+    cell.setBackground(color.bg)
+        .setFontColor(color.fg)
+        .setFontWeight('bold')
+        .setFontSize(14)
+        .setHorizontalAlignment('center');
+    colored.push(memberSections[i].name + '=' + rank + '位');
+  }
+
+  // AG列（合計列）
+  var agCell = oldSheet.getRange(rankRow, 33);
+  agCell.setBackground('#F9FAFB').setFontColor('#9CA3AF').setFontSize(10);
+
+  SpreadsheetApp.flush();
+  return { colored: colored };
+}
+
+/**
+ * RANK数式だけを直接修正（検出ロジック不要）
+ * 10メンバーの列C,F,I,L,O,R,U,X,AA,AD のrow5にRANK数式を設定
+ */
+function fixRankOnly() {
+  var ss = getSpreadsheet_();
+  var settings = getGlobalSettings_(ss);
+  var oldSheet = getSheetByMonth_(ss, settings.month);
+  if (!oldSheet) return { error: 'sheet not found' };
+
+  var memberCols = [3, 6, 9, 12, 15, 18, 21, 24, 27, 30]; // C,F,I,L,O,R,U,X,AA,AD
+  var rankRow = 5;
+  var revRow = 6;
+
+  // RANK参照配列を構築
+  var refs = [];
+  for (var i = 0; i < memberCols.length; i++) {
+    refs.push(columnToLetter_(memberCols[i]) + revRow);
+  }
+  var rankArray = '{' + refs.join(',') + '}';
+
+  var results = [];
+  for (var i = 0; i < memberCols.length; i++) {
+    var col = memberCols[i];
+    var cellRef = columnToLetter_(col) + revRow;
+    var formula = '=RANK(' + cellRef + ',' + rankArray + ',0)';
+    oldSheet.getRange(rankRow, col).setFormula(formula);
+    results.push(columnToLetter_(col) + rankRow + ': ' + formula);
+  }
+
+  // RANK色つけ
+  var RANK_COLORS = {
+    1: { bg: '#FEF3C7', fg: '#92400E' },
+    2: { bg: '#F1F5F9', fg: '#475569' },
+    3: { bg: '#FFF7ED', fg: '#9A3412' },
+    4: { bg: '#DBEAFE', fg: '#1E40AF' },
+    5: { bg: '#D1FAE5', fg: '#065F46' },
+    6: { bg: '#EDE9FE', fg: '#5B21B6' },
+    7: { bg: '#FCE7F3', fg: '#9D174D' },
+    8: { bg: '#FEF9C3', fg: '#854D0E' },
+    9: { bg: '#FFE4E6', fg: '#9F1239' },
+    10: { bg: '#F3F4F6', fg: '#6B7280' }
+  };
+  SpreadsheetApp.flush();
+  for (var i = 0; i < memberCols.length; i++) {
+    var cell = oldSheet.getRange(rankRow, memberCols[i]);
+    var rankVal = parseInt(cell.getValue()) || 0;
+    var rc = RANK_COLORS[rankVal] || RANK_COLORS[10];
+    cell.setBackground(rc.bg).setFontColor(rc.fg).setFontWeight('bold').setFontSize(14).setHorizontalAlignment('center');
+  }
+
+  // 確認用: 書き込んだシートの情報
+  var verification = {};
+  for (var i = 0; i < memberCols.length; i++) {
+    var cell = oldSheet.getRange(rankRow, memberCols[i]);
+    verification[columnToLetter_(memberCols[i]) + rankRow] = {
+      formula: cell.getFormula(),
+      value: cell.getValue()
+    };
+  }
+
+  return { fixed: results, sheetName: oldSheet.getName(), sheetId: oldSheet.getSheetId(), verification: verification };
+}
+
+/**
+ * quickFixFormulasの1分トリガーをセットアップ
+ * Apps Scriptエディタから1回だけ実行する
+ */
+function setupQuickFixTrigger() {
+  // 既存のquickFixFormulasトリガーを削除
+  var triggers = ScriptApp.getProjectTriggers();
+  for (var i = 0; i < triggers.length; i++) {
+    if (triggers[i].getHandlerFunction() === 'quickFixFormulas') {
+      ScriptApp.deleteTrigger(triggers[i]);
+    }
+  }
+  // 1分ごとのトリガーを作成
+  ScriptApp.newTrigger('quickFixFormulas')
+    .timeBased()
+    .everyMinutes(1)
+    .create();
+  return 'quickFixFormulas trigger created (every 1 min)';
+}
+
+/**
+ * 不要トリガー一括削除（quickFixFormulas + updateSummary）
+ * Apps Scriptエディタから1回だけ実行する
+ */
+function deleteWriteTriggers() {
+  var triggers = ScriptApp.getProjectTriggers();
+  var deleted = [];
+  var kept = [];
+  for (var i = 0; i < triggers.length; i++) {
+    var fn = triggers[i].getHandlerFunction();
+    if (fn === 'quickFixFormulas' || fn === 'updateSummary') {
+      ScriptApp.deleteTrigger(triggers[i]);
+      deleted.push(fn);
+    } else {
+      kept.push(fn);
+    }
+  }
+  Logger.log('削除: ' + JSON.stringify(deleted));
+  Logger.log('残存: ' + JSON.stringify(kept));
+  return { deleted: deleted, kept: kept };
+}
+
+/**
+ * 全トリガー一覧を返す（確認用）
+ */
+function listAllTriggers() {
+  var triggers = ScriptApp.getProjectTriggers();
+  var list = [];
+  for (var i = 0; i < triggers.length; i++) {
+    list.push({
+      fn: triggers[i].getHandlerFunction(),
+      type: triggers[i].getEventType().toString(),
+      source: triggers[i].getTriggerSource().toString()
+    });
+  }
+  Logger.log(JSON.stringify(list, null, 2));
   return list;
 }

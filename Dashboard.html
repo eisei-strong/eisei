@@ -1352,7 +1352,7 @@
           '<div class="stats-row">' +
             '<div class="stat-item">' +
               '<div class="stat-label">成約率</div>' +
-              '<div class="stat-value">' + m.closeRate + '%</div>' +
+              '<div class="stat-value">' + (m.closeRate % 1 === 0 ? m.closeRate + '.0' : m.closeRate) + '%</div>' +
               diffHtml(m.diffCloseRate, '%') +
             '</div>' +
             '<div class="stat-item">' +

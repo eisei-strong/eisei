@@ -6,9 +6,10 @@ REMOTE="xserver"
 BASE="/home/kodaidai/giver.work/public_html"
 
 echo "== 30日間講座デプロイ =="
-scp /Users/kodai/営業講座/30day_program.html "$REMOTE:$BASE/30day/index.html"
-scp /Users/kodai/営業講座/30day_admin.html "$REMOTE:$BASE/30day/admin.html"
-scp /Users/kodai/営業講座/30day_scripts.html "$REMOTE:$BASE/30day/scripts.html"
+scp /Users/kodai/営業ダッシュボード/30day_program.html "$REMOTE:$BASE/30day/index.html"
+scp /Users/kodai/営業ダッシュボード/30day_admin.html "$REMOTE:$BASE/30day/admin.html"
+scp /Users/kodai/営業ダッシュボード/30day_scripts.html "$REMOTE:$BASE/30day/scripts.html"
+scp /Users/kodai/営業ダッシュボード/users.php "$REMOTE:$BASE/30day/users.php"
 
 echo "== ホープ数ダッシュボードデプロイ =="
 HOPE_DIR="/Users/kodai/Hope's Dashboard"
@@ -20,7 +21,7 @@ ssh "$REMOTE" "mkdir -p $BASE/post-ranking"
 scp "/Users/kodai/Hope's Dashboard/ranking.html" "$REMOTE:$BASE/post-ranking/index.html"
 
 echo "== 営業ダッシュボードデプロイ =="
-scp /Users/kodai/営業講座/Dashboard-wp.html "$REMOTE:$BASE/sales-dashboard/index.html"
+scp /Users/kodai/営業ダッシュボード/Dashboard-wp.html "$REMOTE:$BASE/sales-dashboard/index.html"
 
 echo ""
 echo "== 完了 =="
