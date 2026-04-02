@@ -20,6 +20,11 @@ echo "== 投稿ランキングデプロイ =="
 ssh "$REMOTE" "mkdir -p $BASE/post-ranking"
 scp "/Users/kodai/Hope's Dashboard/ranking.html" "$REMOTE:$BASE/post-ranking/index.html"
 
+echo "== 投稿入力デプロイ =="
+ssh "$REMOTE" "mkdir -p $BASE/post-input/cache"
+scp /Users/kodai/post-input/index.html "$REMOTE:$BASE/post-input/index.html"
+scp /Users/kodai/post-input/post-proxy.php "$REMOTE:$BASE/post-input/post-proxy.php"
+
 echo "== 営業ダッシュボードデプロイ =="
 scp /Users/kodai/営業ダッシュボード/Dashboard-wp.html "$REMOTE:$BASE/sales-dashboard/index.html"
 
@@ -30,4 +35,5 @@ echo "  台本スクリプト:   https://giver.work/30day/scripts.html"
 echo "  講座管理:       https://giver.work/30day/admin.html"
 echo "  ホープ数:       https://giver.work/hope-dashboard/"
 echo "  投稿ランキング:   https://giver.work/post-ranking/"
+echo "  投稿入力:       https://giver.work/post-input/"
 echo "  営業ダッシュボード: https://giver.work/sales-dashboard/"

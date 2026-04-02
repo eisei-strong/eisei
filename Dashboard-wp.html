@@ -4,16 +4,17 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>営業ダッシュボード</title>
-  <link rel="preconnect" href="https://lh3.googleusercontent.com" crossorigin>
-  <link rel="dns-prefetch" href="https://lh3.googleusercontent.com">
-  <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
   <style>
     /* ===== Reset & Base ===== */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN',
-                   'Noto Sans JP', 'Yu Gothic', 'Meiryo', sans-serif;
+      font-family: 'Noto Sans JP', -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN',
+                   'Yu Gothic', 'Meiryo', sans-serif;
       background: #F8FAFC;
       color: #1E293B;
       line-height: 1.6;
@@ -45,73 +46,71 @@
 
     /* ===== Container ===== */
     .container {
-      max-width: 1200px;
+      max-width: 1600px;
       margin: 0 auto;
       padding: 24px 16px;
     }
 
-    /* ===== Hero Header ===== */
-    .hero {
-      background: linear-gradient(135deg, #f97316, #ea580c, #dc2626);
-      border-radius: 14px;
-      padding: 16px 24px;
-      margin-bottom: 24px;
+    /* ===== ヘッダー ===== */
+    .header {
+      background: #C0380A;
+      border-radius: 12px;
+      padding: 6px 16px 10px;
+      margin-bottom: 12px;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
       position: relative;
       overflow: hidden;
-      box-shadow: 0 4px 20px rgba(249,115,22,0.3);
+      font-family: 'Noto Sans JP', sans-serif;
     }
 
-    .hero-title {
-      font-size: 20px;
-      font-weight: 800;
-      color: #FFFFFF;
-      letter-spacing: 0.5px;
-      white-space: nowrap;
+    /* キラン */
+    @keyframes kiran {
+      0%        { left: -60%; }
+      45%, 100% { left: 130%; }
+    }
+    .kiran {
+      position: absolute;
+      top: 0;
+      left: -60%;
+      width: 40%;
+      height: 100%;
+      background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.18) 50%, transparent 70%);
+      animation: kiran 3.5s ease-in-out infinite;
+      pointer-events: none;
+      z-index: 0;
     }
 
-    .hero-subtitle {
-      font-size: 13px;
-      font-weight: 500;
-      color: rgba(255,255,255,0.7);
-      margin-top: 2px;
-    }
-
-    .hero-top-bar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .month-nav {
+    /* 左：月ナビ */
+    .header-left {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
+      position: relative;
+      z-index: 1;
     }
-
-    .month-nav button {
-      background: rgba(255,255,255,0.2);
+    .nav-btn {
+      width: 26px;
+      height: 26px;
+      border-radius: 5px;
+      background: rgba(255,255,255,0.15);
       border: none;
       color: #fff;
-      font-size: 16px;
-      width: 32px;
-      height: 32px;
-      border-radius: 8px;
+      font-size: 11px;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
       transition: background 0.2s;
     }
-
-    .month-nav button:hover { background: rgba(255,255,255,0.35); }
-    .month-nav button:disabled { opacity: 0.3; cursor: default; }
-
-    .month-nav .month-label {
-      color: #fff;
-      font-size: 15px;
+    .nav-btn:hover { background: rgba(255,255,255,0.35); }
+    .nav-btn:disabled { opacity: 0.3; cursor: default; }
+    .nav-month {
+      font-size: 13px;
       font-weight: 700;
-      min-width: 80px;
+      color: #fff;
+      min-width: 28px;
       text-align: center;
     }
 
@@ -119,16 +118,328 @@
       display: inline-block;
       background: rgba(255,255,255,0.2);
       color: #fff;
-      font-size: 11px;
-      padding: 2px 8px;
+      font-size: 10px;
+      padding: 2px 6px;
       border-radius: 4px;
-      margin-left: 6px;
+      margin-left: 4px;
     }
 
-    .updated {
+    /* 中央：タイトル */
+    .header-center {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1px;
+      position: relative;
+      z-index: 1;
+    }
+    .tagline {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .tagline-word {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      color: rgba(255,255,255,0.55);
+    }
+    .tagline-x {
+      font-size: 8px;
+      color: rgba(255,255,255,0.35);
+    }
+    .tagline-sep {
+      width: 16px;
+      height: 0.5px;
+      background: rgba(255,255,255,0.3);
+    }
+    .header-title {
+      font-family: 'Noto Sans JP', sans-serif;
+      font-size: 18px;
+      font-weight: 800;
+      color: #fff;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .sword { font-size: 15px; }
+
+    /* 右：更新・ゴール設定 */
+    .header-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 4px;
+      position: relative;
+      z-index: 1;
+    }
+    .last-updated {
+      font-size: 9px;
+      color: rgba(255,255,255,0.5);
+    }
+    .goal-btn {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      background: transparent;
+      border: 1.5px solid rgba(255,255,255,0.6);
+      border-radius: 6px;
+      padding: 4px 12px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #ffffff;
+      cursor: pointer;
+      font-family: 'Noto Sans JP', sans-serif;
+      transition: all 0.2s;
+    }
+    .goal-btn:hover {
+      background: rgba(255,255,255,0.15);
+      border-color: rgba(255,255,255,0.8);
+    }
+
+    /* ===== 今日の必達バナー ===== */
+    @keyframes hissatsuShake {
+      0%, 100% { transform: translateX(0); }
+      10% { transform: translateX(-2px); }
+      20% { transform: translateX(2px); }
+      30% { transform: translateX(-2px); }
+      40% { transform: translateX(2px); }
+      50% { transform: translateX(0); }
+    }
+    @keyframes hissatsuBlink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+    @keyframes pulseRing {
+      0% { transform: scale(1); opacity: 0.4; }
+      100% { transform: scale(1.02); opacity: 0; }
+    }
+
+    .hissatsu-banner {
+      background: #EF4444;
+      border-radius: 10px;
+      padding: 10px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      position: relative;
+      overflow: hidden;
+    }
+    .hissatsu-banner::before {
+      content: '';
+      position: absolute;
+      inset: -2px;
+      border: 2px solid rgba(255,255,255,0.4);
+      border-radius: 12px;
+      animation: pulseRing 2s ease-out infinite;
+      pointer-events: none;
+    }
+    .hissatsu-left-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: rgba(255,255,255,0.75);
+    }
+    .hissatsu-left-amount {
+      font-family: 'Noto Sans JP', sans-serif;
+      font-size: 30px;
+      font-weight: 800;
+      color: #fff;
+      line-height: 1.1;
+    }
+    .hissatsu-left-amount .unit {
+      font-family: 'Noto Sans JP', sans-serif;
+      font-size: 14px;
+      color: rgba(255,255,255,0.8);
+    }
+    .hissatsu-col {
+      flex-shrink: 0;
+    }
+    .hissatsu-center {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+    .hissatsu-days {
+      display: flex;
+      align-items: baseline;
+      gap: 4px;
+      color: #fff;
+    }
+    .hissatsu-days-num {
+      font-family: 'Noto Sans JP', sans-serif;
+      font-size: 28px;
+      font-weight: 800;
+      display: inline-block;
+      animation: hissatsuShake 3s ease-in-out infinite;
+    }
+    .hissatsu-days-text {
+      font-size: 13px;
+      font-weight: 700;
+      color: rgba(255,255,255,0.85);
+    }
+    .hissatsu-tag {
+      background: rgba(0,0,0,0.2);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 4px;
+      animation: hissatsuBlink 1.4s ease-in-out infinite;
+    }
+    .hissatsu-quote {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      max-width: 220px;
+    }
+    .hissatsu-quote-text {
+      font-size: 11px;
+      font-weight: 700;
+      color: rgba(255,255,255,0.9);
+      line-height: 1.5;
+      text-align: right;
+    }
+
+    /* ===== ランキングタブ ===== */
+    .rank-tab {
+      padding: 4px 8px; border: 1px solid #CBD5E1; border-radius: 8px;
+      background: #F8FAFC; color: #64748B; font-size: 10px; font-weight: 700;
+      cursor: pointer; transition: all 0.2s; white-space: nowrap;
+    }
+    .rank-tab.active {
+      background: #1E40AF; color: #FFF; border-color: #1E40AF;
+    }
+    .rank-tab.glow {
+      animation: tabGlow 1.5s ease-in-out infinite alternate;
+    }
+    @keyframes tabGlow {
+      0% { box-shadow: 0 0 4px rgba(245,158,11,0.4); }
+      100% { box-shadow: 0 0 12px rgba(245,158,11,0.9), 0 0 20px rgba(245,158,11,0.4); }
+    }
+    .rank-tab:not(.active):hover { background: #E2E8F0; }
+    @media (max-width: 600px) {
+      .rank-tab { padding: 3px 6px; font-size: 9px; }
+    }
+
+    /* ===== チーム目標カード（共創） ===== */
+    .team-goal-divider {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .team-goal-divider span {
+      font-size: 10px;
+      font-weight: 700;
+      color: #94A3B8;
+      letter-spacing: 0.08em;
+      white-space: nowrap;
+    }
+    .team-goal-divider::before,
+    .team-goal-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: #E2E8F0;
+    }
+
+    .team-goal-card {
+      background: #FFFBEA;
+      border: 0.5px solid #EF9F27;
+      border-radius: 10px;
+      padding: 10px 14px;
+      margin-bottom: 16px;
+    }
+    .team-goal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .team-goal-header-left {
+      font-size: 11px;
+      font-weight: 700;
+      color: #854F0B;
+    }
+    .team-goal-header-right {
+      font-family: 'Noto Sans JP', sans-serif;
       font-size: 12px;
-      color: rgba(255,255,255,0.7);
-      font-weight: 500;
+      font-weight: 800;
+      color: #412402;
+    }
+    .team-goal-bar {
+      display: flex;
+      height: 32px;
+      border-radius: 8px;
+      overflow: hidden;
+      gap: 2px;
+    }
+    .team-goal-bar-done {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      padding: 0 10px;
+      background: #F59E0B;
+      color: #fff;
+      font-family: 'Noto Sans JP', sans-serif;
+      font-size: 13px;
+      font-weight: 800;
+      border-radius: 8px 0 0 8px;
+      min-width: 40px;
+    }
+    .team-goal-bar-remain {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 10px;
+      background: #EF4444;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      border-radius: 0 8px 8px 0;
+      min-width: 40px;
+    }
+    .team-goal-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .team-goal-stat {
+      background: #fff;
+      border: 0.5px solid #EF9F27;
+      border-radius: 6px;
+      padding: 8px 10px;
+      text-align: center;
+    }
+    .team-goal-stat.red {
+      background: #FFF1F1;
+      border-color: #EF4444;
+    }
+    .team-goal-stat-label {
+      font-size: 9px;
+      font-weight: 600;
+      color: #854F0B;
+    }
+    .team-goal-stat.red .team-goal-stat-label {
+      color: #991b1b;
+    }
+    .team-goal-stat-val {
+      font-family: 'Noto Sans JP', sans-serif;
+      font-size: 16px;
+      font-weight: 800;
+      color: #412402;
+    }
+    .team-goal-stat.red .team-goal-stat-val {
+      color: #C0392B;
+    }
+    .team-goal-stat-sub {
+      font-size: 9px;
+      color: #991b1b;
+      font-weight: 600;
     }
 
     .refresh-btn {
@@ -141,7 +452,6 @@
       color: #FFFFFF;
       font-weight: 500;
       transition: all 0.2s;
-      backdrop-filter: blur(4px);
     }
 
     .refresh-btn:hover {
@@ -174,7 +484,7 @@
     .members-bar {
       background: #FFFFFF;
       border-radius: 16px;
-      padding: 44px 28px 20px;
+      padding: 20px 28px;
       margin-bottom: 24px;
       box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06);
       overflow: visible;
@@ -185,12 +495,13 @@
       color: #EA580C;
       margin-bottom: 16px;
       letter-spacing: 0.05em;
-      text-transform: uppercase;
+      text-align: center;
     }
     .members-list {
       display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
+      justify-content: space-around;
+      align-items: flex-end;
+      padding-top: 24px;
       overflow: visible;
     }
     .member-item {
@@ -202,6 +513,15 @@
       min-width: 0;
       position: relative;
     }
+    .member-item:first-child .member-item-bubble {
+      left: 0;
+      transform: none;
+    }
+    .member-item:first-child .member-item-bubble::after {
+      left: 24px;
+    }
+    .member-item:nth-child(odd) { margin-bottom: 18px; }
+    .member-item:nth-child(even) { margin-bottom: 0; }
     .member-item-avatar {
       width: 80px;
       height: 80px;
@@ -212,72 +532,77 @@
       transition: transform 0.2s;
     }
     .member-item-avatar:hover { transform: scale(1.1); }
+    .member-item.is-off .member-item-avatar {
+      border-color: #CBD5E1;
+      filter: grayscale(80%) opacity(0.5);
+      box-shadow: none;
+    }
+    .member-item.is-half .member-item-avatar {
+      border-color: #FDBA74;
+      filter: grayscale(30%) opacity(0.7);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    }
+    .member-item.is-off .member-item-name,
+    .member-item.is-half .member-item-name { color: #94A3B8; }
+    .member-item.is-off .member-item-bubble { background: #F1F5F9; border-color: #CBD5E1; color: #94A3B8; }
+    .member-item.is-half .member-item-bubble { background: #FFFBEB; border-color: #FCD34D; color: #B45309; }
+    .members-divider {
+      width: 2px;
+      background: #E2E8F0;
+      align-self: stretch;
+      margin: 0 8px;
+      border-radius: 2px;
+    }
+    .cw-quote {
+      background: #F1F5F9;
+      border-left: 3px solid #CBD5E1;
+      border-radius: 4px;
+      padding: 8px 12px;
+      margin: 6px 0;
+      font-size: 11px;
+      color: #64748B;
+      line-height: 1.5;
+    }
+    @keyframes topGlow {
+      0%, 100% { box-shadow: 0 0 8px 2px rgba(251,191,36,0.4), 0 4px 12px rgba(249,115,22,0.25); }
+      50% { box-shadow: 0 0 18px 6px rgba(251,191,36,0.7), 0 4px 12px rgba(249,115,22,0.25); }
+    }
+    .member-item.is-top .member-item-avatar {
+      border-color: #FCD34D;
+      animation: topGlow 2s ease-in-out infinite;
+    }
     .member-item-name {
       font-size: 12px;
       font-weight: 600;
       color: #1E293B;
       text-align: center;
     }
-
-    /* メンバー吹き出しコメント */
-    .member-bubble {
+    .member-item-bubble {
       position: absolute;
-      bottom: calc(100% - 10px);
+      top: -28px;
       left: 50%;
       transform: translateX(-50%);
-      background: #FFFFFF;
-      border: 1.5px solid #F97316;
+      background: #FFF;
+      border: 1.5px solid #FDBA74;
       border-radius: 12px;
-      padding: 5px 10px;
-      font-size: 11px;
+      padding: 3px 10px;
+      font-size: 10px;
       font-weight: 700;
-      color: #1E293B;
+      color: #C2410C;
       white-space: nowrap;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-      animation: bubblePop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-      z-index: 5;
-      max-width: 140px;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
     }
-    .member-bubble::after {
-      content: '';
-      position: absolute;
-      bottom: -7px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 0;
-      height: 0;
-      border-left: 6px solid transparent;
-      border-right: 6px solid transparent;
-      border-top: 7px solid #F97316;
-    }
-    .member-bubble::before {
+    .member-item-bubble::after {
       content: '';
       position: absolute;
       bottom: -5px;
       left: 50%;
-      transform: translateX(-50%);
-      width: 0;
-      height: 0;
-      border-left: 5px solid transparent;
-      border-right: 5px solid transparent;
-      border-top: 6px solid #FFFFFF;
-      z-index: 1;
-    }
-    .member-bubble.payment { border-color: #10B981; color: #065F46; background: #ECFDF5; }
-    .member-bubble.payment::after { border-top-color: #10B981; }
-    .member-bubble.payment::before { border-top-color: #ECFDF5; }
-    .member-bubble.top { border-color: #F59E0B; color: #92400E; background: #FFFBEB; }
-    .member-bubble.top::after { border-top-color: #F59E0B; }
-    .member-bubble.top::before { border-top-color: #FFFBEB; }
-    .member-bubble.kgi { border-color: #8B5CF6; color: #5B21B6; background: #F5F3FF; }
-    .member-bubble.kgi::after { border-top-color: #8B5CF6; }
-    .member-bubble.kgi::before { border-top-color: #F5F3FF; }
-
-    @keyframes bubblePop {
-      0% { transform: translateX(-50%) scale(0); opacity: 0; }
-      100% { transform: translateX(-50%) scale(1); opacity: 1; }
+      transform: translateX(-50%) rotate(45deg);
+      width: 8px;
+      height: 8px;
+      background: #FFF;
+      border-right: 1.5px solid #FDBA74;
+      border-bottom: 1.5px solid #FDBA74;
     }
 
     @media (max-width: 768px) {
@@ -285,7 +610,8 @@
       .members-bar h3 { font-size: 12px; margin-bottom: 12px; }
       .member-item-avatar { width: 48px; height: 48px; border-width: 2px; }
       .member-item-name { font-size: 9px; }
-      .member-bubble { font-size: 9px; padding: 3px 7px; max-width: 100px; bottom: calc(100% - 14px); }
+      .member-item-bubble { font-size: 8px; padding: 2px 6px; top: -22px; }
+      .member-item:nth-child(odd) { margin-bottom: 12px; }
     }
 
     /* ===== Goal Progress ===== */
@@ -471,84 +797,6 @@
     .member-kgi-nums .current { color: #F97316; font-weight: 700; }
     .member-kgi-nums .target { color: #94A3B8; }
 
-    /* KGI逆算KPI */
-    .kpi-breakdown {
-      margin-top: 10px;
-      padding: 12px;
-      background: linear-gradient(135deg, #EFF6FF, #F0F9FF);
-      border: 1px solid #BFDBFE;
-      border-radius: 8px;
-    }
-    .kpi-breakdown-label {
-      font-size: 11px;
-      font-weight: 800;
-      color: #2563EB;
-      margin-bottom: 2px;
-      letter-spacing: 0.5px;
-    }
-    .kpi-breakdown-sub {
-      font-size: 13px;
-      font-weight: 800;
-      color: #DC2626;
-      margin-bottom: 8px;
-    }
-    .kpi-breakdown-hero {
-      background: linear-gradient(135deg, #FEF2F2, #FFF1F2);
-      border: 2px solid #FCA5A5;
-      border-radius: 10px;
-      padding: 12px;
-      text-align: center;
-      margin-bottom: 8px;
-    }
-    .kpi-breakdown-hero.achieved {
-      background: linear-gradient(135deg, #ECFDF5, #F0FDF4);
-      border-color: #86EFAC;
-    }
-    .kpi-hero-label {
-      font-size: 11px;
-      font-weight: 700;
-      color: #DC2626;
-      margin-bottom: 4px;
-    }
-    .kpi-breakdown-hero.achieved .kpi-hero-label { color: #059669; }
-    .kpi-hero-val {
-      font-size: 32px;
-      font-weight: 900;
-      color: #DC2626;
-      letter-spacing: -0.5px;
-    }
-    .kpi-breakdown-hero.achieved .kpi-hero-val { color: #059669; font-size: 24px; }
-    .kpi-breakdown-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 6px;
-    }
-    .kpi-bd-item {
-      text-align: center;
-      padding: 6px 4px;
-      background: #FFFFFF;
-      border-radius: 6px;
-      border: 1px solid #E2E8F0;
-    }
-    .kpi-bd-label {
-      font-size: 9px;
-      color: #64748B;
-      font-weight: 600;
-      margin-bottom: 2px;
-    }
-    .kpi-bd-val {
-      font-size: 15px;
-      font-weight: 900;
-      color: #1E40AF;
-    }
-    .kpi-bd-now {
-      font-size: 9px;
-      font-weight: 700;
-      margin-top: 2px;
-    }
-    .kpi-bd-now.ok { color: #059669; }
-    .kpi-bd-now.ng { color: #DC2626; }
-
     .progress-track {
       height: 40px;
       background: #F1F5F9;
@@ -586,11 +834,10 @@
       display: flex;
       gap: 24px;
       margin-bottom: 24px;
-      height: 420px;
     }
 
     .chart-news-left {
-      flex: 3;
+      flex: 2;
       min-width: 0;
       display: flex;
       flex-direction: column;
@@ -603,7 +850,7 @@
     }
 
     .chart-news-right {
-      flex: 2;
+      flex: 3;
       min-width: 0;
       margin-bottom: 0;
       display: flex;
@@ -640,16 +887,16 @@
 
     .cards-grid {
       display: grid;
-      grid-template-columns: 1fr;
-      gap: 20px;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 16px;
       margin-bottom: 24px;
     }
 
     .member-card {
       background: #FFFFFF;
       border-radius: 16px;
-      padding: 24px;
-      border: 2px solid #E2E8F0;
+      padding: 22px;
+      border: 1.5px solid #E2E8F0;
       transition: transform 0.25s ease, box-shadow 0.25s ease;
       position: relative;
     }
@@ -661,78 +908,75 @@
 
     .member-card.rank-1 {
       border-color: #FCD34D;
-      border-width: 3px;
+      border-width: 2.5px;
       background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 20%, #FFFFFF 60%);
-      box-shadow: 0 4px 20px rgba(252, 211, 77, 0.25);
+      grid-column: 1 / -1;
     }
-    .member-card.rank-2 { border-color: #94A3B8; border-width: 2.5px; background: linear-gradient(135deg, #F1F5F9 0%, #FFFFFF 40%); }
-    .member-card.rank-3 { border-color: #FB923C; border-width: 2.5px; background: linear-gradient(135deg, #FFF7ED 0%, #FFFFFF 40%); }
-    .member-card.rank-4 { border-left: 5px solid #60A5FA; }
-    .member-card.rank-5 { border-left: 5px solid #34D399; }
-    .member-card.rank-6 { border-left: 5px solid #A78BFA; }
-    .member-card.rank-7 { border-left: 5px solid #F472B6; }
-    .member-card.rank-8 { border-left: 5px solid #FBBF24; }
-    .member-card.rank-9 { border-left: 5px solid #FB7185; }
-    .member-card.rank-10 { border-left: 5px solid #9CA3AF; }
 
-    /* KGI達成カード装飾 */
-    .member-card.kgi-achieved {
-      border-color: #10B981;
-      border-width: 3px;
-      background: linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 15%, #FFFFFF 50%);
-      box-shadow: 0 0 20px rgba(16, 185, 129, 0.15), 0 4px 12px rgba(0, 0, 0, 0.05);
-    }
-    .member-card.kgi-achieved::before {
-      content: '\uD83C\uDF89 KGI達成！';
-      position: absolute;
-      top: -14px;
-      right: 16px;
-      background: linear-gradient(135deg, #10B981, #059669);
-      color: #fff;
-      font-size: 12px;
-      font-weight: 700;
-      padding: 4px 14px;
-      border-radius: 20px;
-      box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
-      z-index: 2;
-      letter-spacing: 0.5px;
-    }
-    .member-card.kgi-achieved .member-icon {
-      border-color: #10B981;
-      box-shadow: 0 0 12px rgba(16, 185, 129, 0.3);
-    }
+    .member-card.rank-1 .card-header { gap: 16px; margin-bottom: 18px; }
+    .member-card.rank-1 .member-icon { width: 64px; height: 64px; border-width: 3px; }
+    .member-card.rank-1 .medal { font-size: 48px; }
+    .member-card.rank-1 .member-name { font-size: 24px; }
+    .member-card.rank-1 .card-rank-label { font-size: 13px; }
+    .member-card.rank-1 .revenue-value { font-size: 40px; }
+    .member-card.rank-1 .stat-value { font-size: 19px; }
+    .member-card.rank-1 .stats-row { grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+    .member-card.rank-1 .card-section-label { font-size: 12px; }
+    .member-card.rank-2 { border-color: #CBD5E1; border-width: 2px; background: linear-gradient(135deg, #F8FAFC 0%, #FFFFFF 40%); }
+    .member-card.rank-3 { border-color: #FDBA74; border-width: 2px; background: linear-gradient(135deg, #FFF7ED 0%, #FFFFFF 40%); }
 
     .card-header {
       display: flex;
       align-items: center;
-      gap: 16px;
-      margin-bottom: 18px;
+      gap: 12px;
+      margin-bottom: 14px;
     }
 
     .medal {
-      font-size: 44px;
+      font-size: 36px;
       line-height: 1;
     }
 
     .member-icon {
-      width: 56px;
-      height: 56px;
+      width: 44px;
+      height: 44px;
       border-radius: 50%;
       object-fit: cover;
-      border: 3px solid #E2E8F0;
+      border: 2px solid #E2E8F0;
       flex-shrink: 0;
     }
 
     .member-card.rank-1 .member-icon { border-color: #FCD34D; }
-    .member-card.rank-2 .member-icon { border-color: #94A3B8; }
-    .member-card.rank-3 .member-icon { border-color: #FB923C; }
-    .member-card.rank-4 .rank-badge { background: #DBEAFE; color: #2563EB; }
-    .member-card.rank-5 .rank-badge { background: #D1FAE5; color: #059669; }
-    .member-card.rank-6 .rank-badge { background: #EDE9FE; color: #7C3AED; }
-    .member-card.rank-7 .rank-badge { background: #FCE7F3; color: #DB2777; }
-    .member-card.rank-8 .rank-badge { background: #FEF3C7; color: #D97706; }
-    .member-card.rank-9 .rank-badge { background: #FFE4E6; color: #E11D48; }
-    .member-card.rank-10 .rank-badge { background: #F3F4F6; color: #6B7280; }
+    .member-card.rank-2 .member-icon { border-color: #CBD5E1; }
+    .member-card.rank-3 .member-icon { border-color: #FDBA74; }
+
+    /* All member icons bounce */
+    @keyframes iconBounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-6px); }
+    }
+    .member-icon {
+      animation: iconBounce 2s ease-in-out infinite;
+    }
+    .member-card:nth-child(1) .member-icon { animation-delay: 0s; }
+    .member-card:nth-child(2) .member-icon { animation-delay: 0.2s; }
+    .member-card:nth-child(3) .member-icon { animation-delay: 0.4s; }
+    .member-card:nth-child(4) .member-icon { animation-delay: 0.6s; }
+    .member-card:nth-child(5) .member-icon { animation-delay: 0.8s; }
+    .member-card:nth-child(6) .member-icon { animation-delay: 1.0s; }
+    .member-card:nth-child(7) .member-icon { animation-delay: 1.2s; }
+    .member-card:nth-child(8) .member-icon { animation-delay: 1.4s; }
+    .member-card:nth-child(9) .member-icon { animation-delay: 1.6s; }
+    .member-card:nth-child(10) .member-icon { animation-delay: 1.8s; }
+
+    /* Top sales glow */
+    @keyframes topGlow {
+      0%, 100% { box-shadow: 0 0 8px 2px rgba(252,211,77,0.4); }
+      50% { box-shadow: 0 0 20px 6px rgba(252,211,77,0.8); }
+    }
+    .member-card.rank-1 .member-icon {
+      animation: iconBounce 2s ease-in-out infinite, topGlow 1.5s ease-in-out infinite;
+    }
 
     .rank-badge {
       display: inline-flex;
@@ -760,7 +1004,7 @@
     }
 
     .member-name {
-      font-size: 22px;
+      font-size: 18px;
       font-weight: 800;
       color: #0F172A;
       white-space: nowrap;
@@ -769,7 +1013,7 @@
     }
 
     .revenue-value {
-      font-size: 36px;
+      font-size: 30px;
       font-weight: 900;
       color: #2563EB;
       margin-bottom: 16px;
@@ -779,19 +1023,22 @@
     .stats-row {
       display: grid;
       grid-template-columns: 1fr 1fr 1fr;
-      gap: 10px;
+      gap: 8px;
       margin-bottom: 14px;
+    }
+    .stats-row-2 {
+      grid-template-columns: 1fr 1fr;
     }
 
     .stat-item {
       text-align: center;
-      padding: 10px 6px;
+      padding: 8px 4px;
       background: #F8FAFC;
       border-radius: 8px;
     }
 
     .stat-label {
-      font-size: 11px;
+      font-size: 10px;
       color: #94A3B8;
       font-weight: 600;
       letter-spacing: 0.5px;
@@ -799,7 +1046,7 @@
     }
 
     .stat-value {
-      font-size: 19px;
+      font-size: 17px;
       font-weight: 800;
       color: #334155;
     }
@@ -813,7 +1060,6 @@
     .stat-diff.up { color: #059669; }
     .stat-diff.down { color: #DC2626; }
     .stat-diff.even { color: #94A3B8; }
-    .stat-prev { color: #94A3B8; font-weight: 600; margin-right: 4px; }
 
     .card-section-label {
       font-size: 10px;
@@ -986,6 +1232,69 @@
       flex-shrink: 0;
     }
 
+    .news-date-group {
+      margin-bottom: 16px;
+      border: 1px solid #E2E8F0;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .news-date-group .news-item {
+      margin-bottom: 0;
+      border-radius: 0;
+      border-left: 3px solid #F97316;
+      border-bottom: 1px solid #F1F5F9;
+    }
+    .news-date-group .news-item:last-child {
+      border-bottom: none;
+    }
+    .news-date-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 4px;
+      padding: 8px 12px;
+      background: linear-gradient(90deg, #F1F5F9, #E8EDF4);
+      margin-bottom: 0;
+      font-weight: 800;
+      font-size: 13px;
+      color: #334155;
+      border-bottom: 1px solid #E2E8F0;
+    }
+    .news-date-total {
+      color: #EA580C;
+      font-size: 14px;
+      font-weight: 800;
+      margin-left: auto;
+    }
+    .news-holiday-badges {
+      display: inline-flex;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+    .news-holiday-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      background: #DBEAFE;
+      color: #1E40AF;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 12px;
+      white-space: nowrap;
+    }
+    .news-holiday-badge.half {
+      background: #FEF3C7;
+      color: #92400E;
+    }
+    .news-holiday-icon {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+
     .news-empty {
       text-align: center;
       padding: 32px 16px;
@@ -1003,34 +1312,98 @@
 
     /* ===== Responsive ===== */
     @media (max-width: 768px) {
-      .container { padding: 16px 12px; }
-      .hero { padding: 14px 16px; }
-      .hero-title { font-size: 16px; }
-      .hero-top-bar { flex-wrap: wrap; gap: 6px; }
-      .hero-subtitle { font-size: 11px; }
-      .goal-kpi-grid { gap: 8px; }
-      .goal-kpi-card { min-width: calc(50% - 4px); flex: 0 0 calc(50% - 4px); }
-      .goal-kpi-val { font-size: 18px; }
-      .progress-track { height: 32px; }
+      .container { padding: 12px 8px; }
+      /* ヘッダー */
+      .header { padding: 6px 10px 8px; }
+      .header-title { font-size: 14px; }
+      .header-title .sword { font-size: 12px; }
+      .tagline-word { font-size: 8px; }
+      .tagline-sep { width: 10px; }
+      .goal-btn { font-size: 10px; padding: 3px 8px; }
+      /* 必達バナー */
+      .hissatsu-left-amount { font-size: 22px; }
+      .hissatsu-days-num { font-size: 18px; }
+      .hissatsu-quote { max-width: 150px; }
+      .hissatsu-quote-text { font-size: 9px; }
+      /* チーム目標 */
+      .team-goal-stats { gap: 4px; }
+      .team-goal-stat-val { font-size: 13px; }
+      .team-goal-bar { height: 28px; }
+      /* メンバーアイコン名前非表示 */
+      .member-item-name { display: none; }
+      .member-item-bubble { font-size: 8px; padding: 2px 6px; top: -20px; }
+      .member-item-avatar { width: 48px; height: 48px; border-width: 2px; }
+      .members-bar { padding: 14px; }
+      .members-bar h3 { font-size: 12px; margin-bottom: 10px; }
+      /* カード */
       .cards-grid { grid-template-columns: 1fr; }
-      .chart-news-row { flex-direction: column; height: auto; }
+      .chart-news-row { flex-direction: column; height: auto; gap: 12px; }
       .chart-news-left, .chart-news-right { height: auto; }
-      .chart-container { height: 280px; }
-      .revenue-value { font-size: 28px; }
+      .chart-card { padding: 10px; }
+      .chart-container { min-width: auto; }
+      .news-item { padding: 5px 8px; gap: 6px; }
+      .news-icon { width: 24px; height: 24px; }
+      .news-amount { font-size: 12px; }
+      .news-date { font-size: 10px; }
+      .revenue-value { font-size: 24px; }
+      .member-card.rank-1 .revenue-value { font-size: 30px; }
       .card-message { font-size: 12px; }
+      /* テーブル */
+      .detail-table th, .detail-table td { font-size: 11px; padding: 6px 4px; }
     }
 
     @media (max-width: 480px) {
-      .container { padding: 10px 8px; }
-      .hero { padding: 12px 14px; border-radius: 12px; }
-      .hero-title { font-size: 15px; }
-      .hero-subtitle { font-size: 10px; }
+      .container { padding: 8px 6px; }
+      /* ヘッダー */
+      .header { padding: 4px 8px 6px; grid-template-columns: auto auto auto; gap: 4px; }
+      .header-title { font-size: 11px; }
+      .header-title .sword { font-size: 10px; }
+      .header-center { gap: 0px; }
+      .tagline { gap: 3px; }
+      .tagline-word { font-size: 7px; }
+      .tagline-sep { width: 8px; }
+      .last-updated { font-size: 7px; }
+      .goal-btn { font-size: 9px; padding: 3px 6px; }
+      .nav-btn { width: 22px; height: 22px; font-size: 9px; }
+      .nav-month { font-size: 11px; }
+      /* 必達バナー */
+      .hissatsu-banner { padding: 8px 10px; border-radius: 8px; gap: 6px; }
+      .hissatsu-left-label { font-size: 9px; }
+      .hissatsu-left-amount { font-size: 18px; }
+      .hissatsu-left-amount .unit { font-size: 10px; }
+      .hissatsu-days-num { font-size: 16px; }
+      .hissatsu-days-text { font-size: 9px; }
+      .hissatsu-tag { font-size: 8px; padding: 2px 6px; }
+      .hissatsu-quote { max-width: 100px; }
+      .hissatsu-quote-text { font-size: 8px; line-height: 1.3; }
+      /* チーム目標 */
+      .team-goal-card { padding: 8px 10px; }
+      .team-goal-header-left { font-size: 10px; }
+      .team-goal-header-right { font-size: 11px; }
+      .team-goal-bar { height: 26px; font-size: 11px; }
+      .team-goal-bar-done { font-size: 11px; }
+      .team-goal-bar-remain { font-size: 10px; }
+      .team-goal-stat { padding: 6px 4px; }
+      .team-goal-stat-val { font-size: 12px; }
+      .team-goal-stat-label { font-size: 8px; }
+      .team-goal-stat-sub { font-size: 8px; }
+      /* メンバーアイコン */
+      .member-item-avatar { width: 40px; height: 40px; }
+      .member-item-bubble { font-size: 7px; padding: 1px 4px; top: -18px; }
+      .members-list { padding-top: 16px; }
+      /* カード */
+      .member-card { padding: 12px; border-radius: 10px; }
+      .member-card.rank-1 .member-icon { width: 50px; height: 50px; }
+      .member-card.rank-1 .member-name { font-size: 18px; }
+      .member-card.rank-1 .revenue-value { font-size: 26px; }
       .section { padding: 14px; border-radius: 12px; }
       .chart-card { padding: 14px; border-radius: 12px; }
       .member-card { padding: 14px; border-radius: 12px; }
-      .member-name { font-size: 18px; }
-      .revenue-value { font-size: 24px; }
-      .stat-value { font-size: 15px; }
+      .member-name { font-size: 16px; }
+      .member-card.rank-1 .member-name { font-size: 20px; }
+      .revenue-value { font-size: 22px; }
+      .member-card.rank-1 .revenue-value { font-size: 28px; }
+      .stat-value { font-size: 14px; }
       .goal-kpi-card { min-width: 100%; flex: 0 0 100%; }
       .goal-kpi-val { font-size: 16px; }
       .goal-kpi-label { font-size: 10px; }
@@ -1048,70 +1421,90 @@
       animation: fadeInUp 0.4s ease forwards;
       opacity: 0;
     }
-
-    /* ===== チーム速報バナー ===== */
-    .team-flash {
-      background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 50%, #FEF3C7 100%);
-      border: 2.5px solid #F59E0B;
-      border-radius: 16px;
-      padding: 18px 24px;
-      margin-bottom: 16px;
+    /* ===== Detail Table ===== */
+    .detail-table-wrap {
+      overflow-x: auto;
+      margin: 20px 0;
+      border-radius: 12px;
+      background: #fff;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    }
+    .detail-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+    .detail-table th {
+      background: #F8FAFC;
+      color: #64748B;
+      font-weight: 600;
+      font-size: 11px;
+      padding: 10px 8px;
+      border-bottom: 2px solid #E2E8F0;
       text-align: center;
-      position: relative;
-      overflow: hidden;
-      animation: flashSlideIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
-      box-shadow: 0 4px 24px rgba(245,158,11,0.3);
     }
-    .team-flash.goal-complete {
-      background: linear-gradient(135deg, #ECFDF5 0%, #A7F3D0 50%, #ECFDF5 100%);
-      border-color: #10B981;
-      box-shadow: 0 4px 24px rgba(16,185,129,0.3);
+    .detail-table td {
+      padding: 10px 8px;
+      border-bottom: 1px solid #F1F5F9;
+      text-align: center;
+      color: #334155;
     }
-    .team-flash-label {
-      font-size: 12px;
+    .detail-table tr:hover td:not(.sticky-col) {
+      background: #F8FAFC;
+    }
+    /* Sticky left columns: #, icon, 着金額 */
+    .detail-table .sticky-col {
+      position: sticky;
+      background: #fff;
+      z-index: 2;
+    }
+    .detail-table thead .sticky-col {
+      background: #F8FAFC;
+      z-index: 3;
+    }
+    .detail-table tfoot .sticky-col {
+      background: #FFF1F2;
+      z-index: 3;
+    }
+    .detail-table tr:hover .sticky-col {
+      background: #F0F4FF;
+    }
+    .detail-table .sticky-rank { left: 0; width: 30px; min-width: 30px; }
+    .detail-table .sticky-icon { left: 30px; width: 36px; min-width: 36px; padding: 4px; }
+    .detail-table .sticky-revenue { left: 66px; min-width: 90px; border-right: 2px solid #E2E8F0; }
+    .detail-table .sticky-icon img { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; }
+    .detail-table .col-rank { font-weight: 700; color: #94A3B8; }
+    .detail-table .col-revenue { font-weight: 800; color: #1E293B; }
+    /* KGI columns shimmer */
+    @keyframes kgiShimmer {
+      0% { background-position: -200% center; }
+      100% { background-position: 200% center; }
+    }
+    .kgi-cell { cursor: pointer; }
+    .kgi-cell:hover { background: #FDDCAB !important; }
+    .kgi-cell .kgi-val {
+      background: linear-gradient(90deg, #C2410C, #EA580C, #F59E0B, #EA580C, #C2410C);
+      background-size: 200% auto;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: kgiShimmer 4s linear infinite;
       font-weight: 800;
-      color: #B45309;
-      letter-spacing: 2px;
-      margin-bottom: 4px;
+      font-size: 13px;
     }
-    .team-flash.goal-complete .team-flash-label { color: #047857; }
-    .team-flash-msg {
-      font-size: 28px;
-      font-weight: 900;
-      color: #92400E;
-      letter-spacing: 1px;
+    /* Color coding */
+    .detail-table .val-positive { color: #EA580C; font-weight: 700; }
+    .detail-table .val-negative { color: #3B82F6; font-weight: 700; }
+    .detail-table .col-highlight { background: #FFF7ED; font-weight: 700; color: #EA580C; }
+    .detail-table tfoot td {
+      font-weight: 800;
+      background: #FFF1F2;
+      border-top: 2px solid #FDA4AF;
+      color: #E11D48;
     }
-    .team-flash.goal-complete .team-flash-msg { color: #065F46; }
-    .team-flash-confetti {
-      position: absolute;
-      pointer-events: none;
-      animation: flashConfetti linear forwards;
-    }
-    .team-flash.fade-out {
-      animation: flashSlideOut 0.4s ease forwards;
-    }
-    @keyframes flashSlideIn {
-      0% { transform: translateY(-30px) scale(0.8); opacity: 0; }
-      60% { transform: translateY(4px) scale(1.02); }
-      100% { transform: translateY(0) scale(1); opacity: 1; }
-    }
-    @keyframes flashSlideOut {
-      to { transform: translateY(-20px); opacity: 0; }
-    }
-    @keyframes flashConfetti {
-      0% { transform: translateY(0) rotate(0deg); opacity: 1; }
-      100% { transform: translateY(60px) rotate(360deg); opacity: 0; }
-    }
-    @keyframes flashPulse {
-      0%, 100% { transform: scale(1); }
-      50% { transform: scale(1.05); }
-    }
-
-    @media (max-width: 480px) {
-      .team-flash { padding: 14px 16px; }
-      .team-flash-msg { font-size: 20px; }
-      .team-flash-label { font-size: 10px; }
-    }
+    .detail-table tfoot .col-revenue { color: #E11D48; }
   </style>
 </head>
 
@@ -1123,78 +1516,165 @@
     <p style="margin-top: 16px; color: #94A3B8; font-size: 14px;">データを読み込み中...</p>
   </div>
 
+  <!-- ========== Error Banner ========== -->
+  <div id="errorBanner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9999;background:#FEF2F2;border-bottom:2px solid #FCA5A5;padding:10px 16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+    <div style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;">
+      <span style="font-size:16px;">⚠️</span>
+      <span id="errorBannerMsg" style="font-size:13px;font-weight:700;color:#991B1B;"></span>
+      <button onclick="document.getElementById('errorBanner').style.display='none'" style="background:none;border:1px solid #FCA5A5;color:#991B1B;border-radius:6px;padding:2px 10px;font-size:12px;cursor:pointer;font-weight:600;">✕</button>
+    </div>
+  </div>
+
   <!-- ========== Main App ========== -->
   <div id="app" style="display: none;">
     <div class="container">
 
       <!-- Hero Header -->
-      <div class="hero">
-        <div class="hero-top-bar">
-          <div class="hero-title">Namaka ウォーリアーズ ⚔️</div>
-          <div style="display:flex;align-items:center;gap:8px;">
-            <div class="month-nav">
-              <button id="prevMonthBtn" onclick="changeMonth(-1)">&#9664;</button>
-              <span class="month-label" id="monthLabel">-</span>
-              <button id="nextMonthBtn" onclick="changeMonth(1)">&#9654;</button>
-            </div>
-            <span class="updated" id="updatedAt"></span>
-            <button class="goal-settings-btn" onclick="openGoalSettings()">ゴール設定</button>
-            <button class="refresh-btn" id="refreshBtn" onclick="refreshData()">更新</button>
+      <div class="header">
+        <div class="kiran"></div>
+        <div class="header-left">
+          <button class="nav-btn" id="prevMonthBtn" onclick="changeMonth(-1)">◀</button>
+          <span class="nav-month" id="monthLabel">-</span>
+          <button class="nav-btn" id="nextMonthBtn" onclick="changeMonth(1)">▶</button>
+        </div>
+        <div class="header-center">
+          <div class="tagline">
+            <div class="tagline-sep"></div>
+            <span class="tagline-word">競争</span>
+            <div class="tagline-sep"></div>
+            <span class="tagline-x">&times;</span>
+            <div class="tagline-sep"></div>
+            <span class="tagline-word">共創</span>
+            <div class="tagline-sep"></div>
+          </div>
+          <div class="header-title">
+            <span class="sword">⚔️</span>
+            Namakaウォーリアーズ
+            <span class="sword">⚔️</span>
           </div>
         </div>
-        <div class="hero-subtitle"></div>
+        <div class="header-right">
+          <span class="last-updated" id="updatedAt"></span>
+          <button class="goal-btn" onclick="openGoalSettings()">🚀 ゴール設定</button>
+        </div>
       </div>
 
-      <!-- チーム速報 -->
-      <div id="teamFlashContainer"></div>
+      <!-- 今日の必達バナー -->
+      <div class="hissatsu-banner" id="hissatsuBanner">
+        <div class="kiran"></div>
+        <div class="hissatsu-col" style="position:relative;z-index:1;">
+          <div class="hissatsu-left-label">⚡ 今日の必達</div>
+          <div class="hissatsu-left-amount" id="hissatsuAmount">-<span class="unit">万円</span></div>
+        </div>
+        <div class="hissatsu-col hissatsu-center" style="position:relative;z-index:1;">
+          <div class="hissatsu-days">
+            <span class="hissatsu-left-label">残り</span>
+            <span class="hissatsu-days-num" id="hissatsuDays">-</span>
+            <span class="hissatsu-days-text">日しかない</span>
+          </div>
+        </div>
+        <div class="hissatsu-col hissatsu-quote" style="position:relative;z-index:1;">
+          <div id="hissatsuQuote" class="hissatsu-quote-text"></div>
+        </div>
+      </div>
 
       <!-- Strongest Members -->
       <div class="members-bar" id="membersBar" style="display:none;">
-        <h3>全ての人を輝かせる戦士達</h3>
+        <h3>- 全ての人を輝かせる戦士たち -</h3>
         <div class="members-list" id="strongestMembers"></div>
       </div>
 
-      <!-- Goal Progress -->
-      <div class="section">
-        <div class="goal-target-big" id="goalTargetBig">ゴール: -</div>
-        <div class="goal-kpi-grid" id="goalKpiGrid">
-          <div class="goal-kpi-card">
-            <div class="goal-kpi-val" id="kpiCurrentTotal" style="color:#f97316;">-</div>
-            <div class="goal-kpi-label">現在合計</div>
-          </div>
-          <div class="goal-kpi-card fire" id="kpiRemainingCard">
-            <div class="goal-kpi-val" id="kpiRemaining" style="color:#EF4444;"><span class="fire-icon">🔥</span> -</div>
-            <div class="goal-kpi-label">残り</div>
-          </div>
-          <div class="goal-kpi-card">
-            <div class="goal-kpi-val" id="kpiDailyTarget" style="color:#ea580c;">-</div>
-            <div class="goal-kpi-label" id="kpiDailyLabel">日割り必要数</div>
-          </div>
+      <!-- チーム目標カード（共創） -->
+      <div class="team-goal-divider"><span>共創</span></div>
+      <div class="team-goal-card" id="teamGoalCard">
+        <div class="team-goal-header">
+          <div class="team-goal-header-left" id="teamGoalLabel">-月ゴール</div>
+          <div class="team-goal-header-right" id="teamGoalHeaderRight">- / -</div>
         </div>
-        <div class="progress-track">
-          <div class="progress-fill blue" id="progressFill" style="width: 0%;">
-            <span class="progress-percent" id="progressPercent">0%</span>
+        <div class="team-goal-bar" id="teamGoalBar">
+          <div class="team-goal-bar-done" id="teamGoalBarDone" style="flex:1;">-%</div>
+          <div class="team-goal-bar-remain" id="teamGoalBarRemain" style="flex:1;">🔥 残り -%</div>
+        </div>
+        <div class="team-goal-stats">
+          <div class="team-goal-stat">
+            <div class="team-goal-stat-label">現在合計</div>
+            <div class="team-goal-stat-val" id="tgStatCurrent">-</div>
+          </div>
+          <div class="team-goal-stat red">
+            <div class="team-goal-stat-label">残り</div>
+            <div class="team-goal-stat-val" id="tgStatRemain">-</div>
+          </div>
+          <div class="team-goal-stat red">
+            <div class="team-goal-stat-label">残り日数</div>
+            <div class="team-goal-stat-val" id="tgStatDays">-</div>
+            <div class="team-goal-stat-sub" id="tgStatDaily"></div>
           </div>
         </div>
       </div>
 
-      <!-- Chart + 着金速報 横並び -->
+      <!-- 着金速報 + ランキング 横並び -->
       <div class="chart-news-row">
-        <div class="chart-card chart-news-left">
-          <div class="section-title">着金額ランキング</div>
-          <div class="chart-container">
-            <canvas id="barChart"></canvas>
-          </div>
-        </div>
-        <div class="news-section chart-news-right" id="newsTop" style="display:none;">
+        <div class="news-section chart-news-left" id="newsTop" style="display:none;">
           <div class="section-title">📢 着金速報</div>
           <div class="news-feed" id="newsTopFeed"></div>
         </div>
+        <div class="chart-card chart-news-right" style="flex:3;" id="rankingSection">
+          <div class="section-title">🏆 各種ランキング</div>
+          <!-- ランキングタブ -->
+          <div id="rankingTabs" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px;">
+            <button class="rank-tab active glow" data-tab="revenue" onclick="switchRankTab('revenue')">💰着金額</button>
+            <button class="rank-tab" data-tab="closeRate" onclick="switchRankTab('closeRate')">🎯成約率</button>
+            <button class="rank-tab" data-tab="kyoso" onclick="switchRankTab('kyoso')">🤝共創</button>
+            <button class="rank-tab" data-tab="attendance" onclick="switchRankTab('attendance')">📅出勤</button>
+            <button class="rank-tab" data-tab="creditCard" onclick="switchRankTab('creditCard')">💳クレカ</button>
+            <button class="rank-tab" data-tab="avgPrice" onclick="switchRankTab('avgPrice')">📈平均単価</button>
+            <button class="rank-tab" data-tab="deals" onclick="switchRankTab('deals')">📞商談数</button>
+            <button class="rank-tab" data-tab="closed" onclick="switchRankTab('closed')">✅成約数</button>
+            <button class="rank-tab" data-tab="co" onclick="switchRankTab('co')">🚨CO</button>
+            <button class="rank-tab" data-tab="lifety" onclick="switchRankTab('lifety')">🏦ライフティ</button>
+          </div>
+          <div id="rankingContent"></div>
+        </div>
       </div>
 
-      <!-- Member Cards -->
-      <div class="cards-section-title">メンバー実績</div>
-      <div class="cards-grid" id="memberCards"></div>
+      <!-- Member Cards (非表示) -->
+      <div class="cards-grid" id="memberCards" style="display:none;"></div>
+
+      <!-- Detail Table -->
+      <!-- ボトルネック通知 -->
+      <div class="section" id="bottleneckSection" style="display:none;">
+        <div class="section-title">🚀 👑 ボトルネック通知</div>
+        <div id="bottleneckContent"></div>
+      </div>
+
+      <div class="detail-table-wrap" id="detailTableWrap" style="display:none;">
+        <table class="detail-table" id="detailTable">
+          <thead>
+            <tr>
+              <th class="sticky-col sticky-rank" rowspan="2">名前</th><th class="sticky-col sticky-icon" rowspan="2"></th><th class="sticky-col sticky-revenue" rowspan="2">着金額</th>
+              <th rowspan="2" style="background:#FEE8CD;">ゴール</th><th rowspan="2" style="background:#FEE8CD;">ゴールとの<br>差分</th><th rowspan="2" style="background:#FEE8CD;">1日必要な<br>着金</th><th rowspan="2" style="background:#FEE8CD;">現状の平均単価<br>×成約率の場合の<br>ゴールに必要な<br>プッシュ数</th><th rowspan="2" style="background:#FEE8CD;">現商談ペースでの<br>ゴールに必要な<br>出勤数</th>
+              <th rowspan="2">商談数</th>
+              <th colspan="3" style="border-bottom:1px solid #E2E8F0;">成約</th>
+              <th colspan="2" style="border-bottom:1px solid #E2E8F0;">失注</th>
+              <th rowspan="2">継続</th><th rowspan="2">成約率</th><th rowspan="2">平均着金額</th>
+              <th rowspan="2">CO数</th><th rowspan="2">CO額</th><th rowspan="2">クレカ着金</th><th rowspan="2">信販着金</th>
+              <th colspan="2" style="border-bottom:1px solid #E2E8F0;">当月</th>
+              <th rowspan="2">CBS</th><th rowspan="2">ライフティ</th><th rowspan="2">休み</th><th rowspan="2" style="background:#FFF7ED;color:#EA580C;">共創pt</th><th rowspan="2">売上</th>
+            </tr>
+            <tr>
+              <th style="font-size:10px;">合計</th>
+              <th style="font-size:10px;">コン</th>
+              <th style="font-size:10px;">オン</th>
+              <th style="font-size:10px;">合計</th>
+              <th style="font-size:10px;">継続</th>
+              <th style="font-size:10px;">前月以前<br>参加者着金</th>
+              <th style="font-size:10px;">過去着金</th>
+            </tr>
+          </thead>
+          <tbody id="detailTableBody"></tbody>
+          <tfoot id="detailTableFoot"></tfoot>
+        </table>
+      </div>
 
       <!-- 着金速報（全件） -->
       <div class="news-section" id="newsAll">
@@ -1202,6 +1682,12 @@
         <div class="news-feed" id="newsAllFeed">
           <div class="news-empty">着金データはまだありません</div>
         </div>
+      </div>
+
+      <!-- 共創メッセージ -->
+      <div class="section" id="kyosoSection" style="display:none;">
+        <div class="section-title">🤝 共創メッセージ🤝</div>
+        <div id="kyosoFeed"></div>
       </div>
 
       <!-- Footer -->
@@ -1217,7 +1703,7 @@
           <input type="number" id="goalTeamInput" placeholder="15000">
         </div>
         <hr class="goal-modal-divider">
-        <h3 style="font-size:14px;font-weight:700;margin-bottom:12px;">個人KGI（着地目標・万円）</h3>
+        <h3 style="font-size:14px;font-weight:700;margin-bottom:12px;">個人ゴール（着地目標・万円）</h3>
         <div id="goalMemberInputs"></div>
         <div class="goal-modal-actions">
           <button class="goal-modal-btn ghost" onclick="closeGoalSettings()">キャンセル</button>
@@ -1232,66 +1718,76 @@
   <!-- ========== JavaScript ========== -->
   <script>
     // ===== GAS API =====
-    var GAS_API = 'api-proxy.php';
+    var KATSU_QUOTES = [
+      '言い訳する暇があるなら手を動かせ',
+      '昨日の自分に勝て、それだけでいい',
+      'やると決めたらやり切れ',
+      '結果が全て。過程は自分だけが知ればいい',
+      'できない理由を探すな、できる方法を探せ',
+      '今日サボった分は明日倍になって返ってくる',
+      '本気の奴に不可能はない',
+      '悔しいなら数字で証明しろ',
+      '迷ったら攻めろ。守りに入るな',
+      '限界は自分が決めてるだけ',
+      '1件の電話が人生を変える',
+      'やらない後悔よりやる後悔',
+      '覚悟が決まれば行動が変わる',
+      '仲間の為に、自分の為に、今日も全力',
+      '数字は嘘をつかない',
+      '諦めた瞬間が本当の負け',
+      '全員で勝つ。それがウォーリアーズ',
+      '今この瞬間が一番若い。動け',
+      '圧倒的な量が質を生む',
+      '目の前の1件に全てを懸けろ'
+    ];
+    function getRandomQuote() {
+      return KATSU_QUOTES[Math.floor(Math.random() * KATSU_QUOTES.length)];
+    }
+
+    var GAS_API = '/sales-dashboard/api-proxy.php';
+    var GAS_DIRECT = 'https://script.google.com/macros/s/AKfycby6qaaiUoadCBnxHlUNKd-RkHxarE0WBGiitkdV0IbzL6ninM-df0FFx4SYRYVfdwcxqg/exec';
     var GOAL_SETTINGS_KEY = 'sales_dashboard_goals';
 
-    // ===== 成約率キャップ（表示用：100%超を丸める） =====
-    function capCloseRates(data) {
-      if (data.members) {
-        data.members.forEach(function(m) {
-          if (m.closeRate > 100) {
-            m.rawCloseRate = m.closeRate;
-            m.diffCloseRate = 100 - m.prevCloseRate;
-            m.closeRate = 100;
-            m.closeRateOver = true;
-          }
-        });
+    // フロントエンド名前マッピング（旧名→正規名+アイコン）
+    var FE_NAME_FIX = {};
+
+    function fixMemberNames(data) {
+      if (!data || !data.members) return data;
+      for (var i = 0; i < data.members.length; i++) {
+        var m = data.members[i];
+        var fix = FE_NAME_FIX[m.name];
+        if (fix) {
+          m.name = fix.name;
+          if (!m.icon) m.icon = fix.icon;
+        }
       }
       return data;
     }
 
-    // (enrichPrevMonthData削除: 前月データはGAS APIが返すため不要)
-
-    // (fixFromOldSheet削除: GAS APIがv2日別シートから正しいデータを返すため不要)
-
-    // ===== Goal Settings (サーバー共有) =====
-    var GOAL_API = 'goal-settings.php';
-    var _goalCache = null;
+    // ===== Goal Settings (API共有 + localStorage fallback) =====
+    var serverGoals = {}; // APIから取得したゴール設定
 
     function getGoalSettings() {
-      if (_goalCache) return _goalCache;
-      // 初回はlocalStorageフォールバック
-      try { return JSON.parse(localStorage.getItem(GOAL_SETTINGS_KEY)) || {}; } catch(e) { return {}; }
+      // サーバーデータを優先、なければlocalStorage
+      var merged = {};
+      try {
+        var local = JSON.parse(localStorage.getItem(GOAL_SETTINGS_KEY)) || {};
+        for (var k in local) merged[k] = local[k];
+      } catch(e) {}
+      for (var k in serverGoals) merged[k] = serverGoals[k];
+      return merged;
     }
-    function setGoalSettings(s) {
-      _goalCache = s;
-      localStorage.setItem(GOAL_SETTINGS_KEY, JSON.stringify(s));
-      // サーバーに同期
-      fetch(GOAL_API, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(s)
-      }).catch(function() {});
-    }
-    function loadGoalSettingsFromServer() {
-      return fetch(GOAL_API + '?t=' + Date.now(), { cache: 'no-store' })
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-          if (data && Object.keys(data).length > 0) {
-            _goalCache = data;
-            localStorage.setItem(GOAL_SETTINGS_KEY, JSON.stringify(data));
-          }
-        })
-        .catch(function() {});
-    }
+    function setGoalSettings(s) { localStorage.setItem(GOAL_SETTINGS_KEY, JSON.stringify(s)); }
 
     function goalKey() {
-      return (currentViewYear || new Date().getFullYear()) + '-' + (currentViewMonth || new Date().getMonth() + 1);
+      var y = currentViewYear || new Date().getFullYear();
+      var m = currentViewMonth || (new Date().getMonth() + 1);
+      return y + '_' + m;
     }
 
     var lastMembers = [];
 
-    function openGoalSettings() {
+    function openGoalSettings(focusMember) {
       var overlay = document.getElementById('goalModalOverlay');
       overlay.classList.add('open');
       var gk = goalKey();
@@ -1312,6 +1808,10 @@
           '</div>';
       });
       container.innerHTML = html;
+      if (focusMember) {
+        var inp = container.querySelector('input[data-member="' + focusMember + '"]');
+        if (inp) { setTimeout(function() { inp.focus(); inp.select(); }, 100); }
+      }
     }
 
     function closeGoalSettings() {
@@ -1320,7 +1820,6 @@
 
     function saveGoalSettings() {
       var gk = goalKey();
-      var settings = getGoalSettings();
       var teamVal = parseInt(document.getElementById('goalTeamInput').value);
       var memberKgi = {};
       var inputs = document.querySelectorAll('#goalMemberInputs input');
@@ -1329,9 +1828,20 @@
         var val = parseInt(inputs[i].value);
         if (name && val > 0) memberKgi[name] = val;
       }
-      settings[gk] = { teamGoal: teamVal || 0, memberKgi: memberKgi };
-      setGoalSettings(settings);
+      var goalData = { teamGoal: teamVal || 0, memberKgi: memberKgi };
+      // サーバーに保存（全端末共有）
+      serverGoals[gk] = goalData;
+      // localStorageにもフォールバック保存
+      var local = {};
+      try { local = JSON.parse(localStorage.getItem(GOAL_SETTINGS_KEY)) || {}; } catch(e) {}
+      local[gk] = goalData;
+      setGoalSettings(local);
       closeGoalSettings();
+      // GAS直接URLにPOST（全端末共有）
+      fetch(GAS_DIRECT, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'saveGoals', key: gk, teamGoal: goalData.teamGoal, memberKgi: goalData.memberKgi })
+      }).catch(function(e) { console.warn('Goal save failed:', e); });
       // 再描画
       if (lastData) {
         onDataLoaded(lastData);
@@ -1339,7 +1849,7 @@
     }
 
     // ===== Global State =====
-    var barChart = null;
+    // barChart removed — now uses CSS horizontal bars
     var isFirstLoad = true;
     var lastData = null;
 
@@ -1359,71 +1869,29 @@
     var availableMonths = [];
     var autoRefreshTimer = null;
 
-    // ===== Cache =====
-    var CACHE_DATA_KEY = 'sales_dashboard_cache';
-    var CACHE_MONTHS_KEY = 'sales_dashboard_months_cache';
-
-    function getCachedData() {
-      try { return JSON.parse(localStorage.getItem(CACHE_DATA_KEY)); } catch(e) { return null; }
-    }
-    function setCachedData(monthKey, data) {
-      try {
-        var cache = JSON.parse(localStorage.getItem(CACHE_DATA_KEY)) || {};
-        cache[monthKey] = { data: data, ts: Date.now() };
-        localStorage.setItem(CACHE_DATA_KEY, JSON.stringify(cache));
-      } catch(e) {}
-    }
-    function getCachedMonths() {
-      try { return JSON.parse(localStorage.getItem(CACHE_MONTHS_KEY)); } catch(e) { return null; }
-    }
-    function setCachedMonths(result) {
-      try { localStorage.setItem(CACHE_MONTHS_KEY, JSON.stringify(result)); } catch(e) {}
-    }
-
     // ===== Initialization =====
     document.addEventListener('DOMContentLoaded', function() {
-      // 1) キャッシュがあれば即表示
-      var cachedMonths = getCachedMonths();
-      if (cachedMonths) {
-        availableMonths = cachedMonths.months || [];
-        currentLiveMonth = cachedMonths.current.month;
-        currentLiveYear = cachedMonths.current.year;
-        currentViewMonth = currentLiveMonth;
-        currentViewYear = currentLiveYear;
-        updateMonthNav();
-        var mk = currentViewYear + '-' + currentViewMonth;
-        var allCache = getCachedData();
-        if (allCache && allCache[mk] && allCache[mk].data) {
-          onDataLoaded(allCache[mk].data);
-        }
-      }
+      // まず利用可能月一覧を取得してから初回データロード
+      fetch(GAS_API + '?action=api&type=months')
+        .then(function(r) { return r.json(); })
+        .then(function(result) {
+          availableMonths = result.months || [];
+          currentLiveMonth = result.current.month;
+          currentLiveYear = result.current.year;
+          currentViewMonth = currentLiveMonth;
+          currentViewYear = currentLiveYear;
+          updateMonthNav();
+          loadData();
+        })
+        .catch(function() {
+          // フォールバック: 月一覧なしでそのまま表示
+          loadData();
+        });
 
-      // 2) ゴール設定 + months + data を並列フェッチ
-      var goalP = loadGoalSettingsFromServer();
-      var monthsP = fetch(GAS_API + '?action=api&type=months').then(function(r) { return r.json(); });
-      var guessMonth = currentViewMonth || (new Date().getMonth() + 1);
-      var guessYear = currentViewYear || new Date().getFullYear();
-      var dataUrl = GAS_API + '?action=api&month=' + guessMonth + '&year=' + guessYear;
-      var dataP = fetch(dataUrl).then(function(r) { return r.json(); });
-
-      Promise.all([goalP, monthsP, dataP]).then(function(results) {
-        var monthsResult = results[1];
-        var dataResult = results[2];
-
-        availableMonths = monthsResult.months || [];
-        currentLiveMonth = monthsResult.current.month;
-        currentLiveYear = monthsResult.current.year;
-        currentViewMonth = currentLiveMonth;
-        currentViewYear = currentLiveYear;
-        setCachedMonths(monthsResult);
-        updateMonthNav();
-
-        var mk = currentViewYear + '-' + currentViewMonth;
-        setCachedData(mk, dataResult);
-        onDataLoaded(dataResult);
-      }).catch(function(err) {
-        // キャッシュで既に表示済みならエラーは無視
-        if (!lastData) onError(err);
+      // KGIセルタップでゴール編集
+      document.getElementById('detailTable').addEventListener('click', function(e) {
+        var cell = e.target.closest('.kgi-cell');
+        if (cell) openGoalSettings(cell.getAttribute('data-member'));
       });
 
       // 3分ごとに自動更新（当月のみ）
@@ -1440,25 +1908,16 @@
       if (currentViewMonth > 12) { currentViewMonth = 1; currentViewYear++; }
       updateMonthNav();
 
-      // キャッシュがあれば即表示（ローディング画面なし）
-      var mk = currentViewYear + '-' + currentViewMonth;
-      var allCache = getCachedData();
-      if (allCache && allCache[mk] && allCache[mk].data) {
-        onDataLoaded(allCache[mk].data);
-        // バックグラウンドで最新データも取得
-        loadData();
-      } else {
-        // キャッシュなし → ローディング表示
-        document.getElementById('loading').style.display = 'flex';
-        document.getElementById('app').style.display = 'none';
-        loadData();
-      }
+      // ローディング表示
+      document.getElementById('loading').style.display = 'flex';
+      document.getElementById('app').style.display = 'none';
+      loadData();
     }
 
     function updateMonthNav() {
       var label = currentViewYear + '年' + currentViewMonth + '月';
       var isLive = (currentViewMonth === currentLiveMonth && currentViewYear === currentLiveYear);
-      if (isLive) label = currentViewMonth + '月 (LIVE)';
+      if (isLive) label = currentViewMonth + '月';
       document.getElementById('monthLabel').textContent = label;
 
       // 次月ボタン: 当月を超えたら無効
@@ -1483,33 +1942,31 @@
         url += '&month=' + currentViewMonth + '&year=' + currentViewYear;
       }
       fetch(url)
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-          if (currentViewMonth && currentViewYear) {
-            setCachedData(currentViewYear + '-' + currentViewMonth, data);
-          }
-          onDataLoaded(data);
+        .then(function(r) {
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          return r.json();
         })
+        .then(onDataLoaded)
         .catch(function(err) { onError(err); });
     }
 
-    function refreshData() {
-      var btn = document.getElementById('refreshBtn');
-      btn.disabled = true;
-      btn.textContent = '更新中...';
-      loadData();
-    }
+    function refreshData() { loadData(); }
+    function syncAndRefresh() { loadData(); }
 
     function onDataLoaded(data) {
-      // 成約率キャップのみ適用（データ加工はPHP側で完了済み）
-      data = capCloseRates(data);
+      // APIエラーレスポンスチェック
+      if (data && data.error) {
+        showErrorBanner('スプレッドシートエラー: ' + data.error);
+        return;
+      }
+      hideErrorBanner();
+      data = fixMemberNames(data);
+      // サーバーのゴール設定を取り込み
+      if (data.goalSettings) {
+        serverGoals = data.goalSettings;
+      }
       lastData = data;
       lastMembers = data.members || [];
-
-      // アイコン即時プリロード（描画前に開始）
-      (data.members || []).forEach(function(m) {
-        if (m.icon) { var img = new Image(); img.src = m.icon; }
-      });
 
       // Hide loading, show app
       document.getElementById('loading').style.display = 'none';
@@ -1526,12 +1983,14 @@
 
       var isArchive = data.isArchive || false;
 
-      // 1回のrender pass（データの再取得・再描画なし）
       updateStrongestMembers(data);
       updateProgress(data, isArchive);
       updateBarChart(data);
       updateMemberCards(data);
+      updateDetailTable(data);
       updatePaymentNews(data, isArchive);
+      updateKyosoMessages(data);
+      updateBottleneck(data);
 
       // 過去月の着金速報・日割りセクションを非表示
       var newsTop = document.getElementById('newsTop');
@@ -1541,13 +2000,10 @@
         if (newsAll) newsAll.style.display = 'none';
       }
 
-      // Timestamp
-      document.getElementById('updatedAt').textContent = '最終更新: ' + data.updatedAt;
-
-      // Reset refresh button
-      var btn = document.getElementById('refreshBtn');
-      btn.disabled = false;
-      btn.textContent = '更新';
+      // Timestamp (秒数不要、YYYY/MM/DD HH:MM形式)
+      var ts = data.updatedAt || '';
+      var tsClean = ts.replace(/:\d{2}$/, '').replace(/^\d{4}\//, '');
+      document.getElementById('updatedAt').textContent = '最終更新: ' + tsClean;
 
       // Footer
       var footer = document.getElementById('footerMsg');
@@ -1558,21 +2014,120 @@
       isFirstLoad = false;
     }
 
+    function showErrorBanner(msg) {
+      var banner = document.getElementById('errorBanner');
+      var bannerMsg = document.getElementById('errorBannerMsg');
+      bannerMsg.textContent = msg;
+      banner.style.display = 'block';
+    }
+
+    function hideErrorBanner() {
+      document.getElementById('errorBanner').style.display = 'none';
+    }
+
     function onError(err) {
       console.error('Error:', err);
-      var loadingEl = document.getElementById('loading');
-      loadingEl.innerHTML =
-        '<div style="text-align:center;">' +
-        '<p style="color:#EF4444;font-size:18px;font-weight:700;margin-bottom:8px;">データの取得に失敗しました</p>' +
-        '<p style="color:#94A3B8;font-size:13px;margin-bottom:20px;">' + (err.message || err) + '</p>' +
-        '<button onclick="location.reload()" style="padding:10px 24px;border:none;background:#2563EB;color:#FFF;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">再読み込み</button>' +
-        '</div>';
+      var msg = 'スプレッドシートとの接続に失敗しました';
+      if (err && err.message) msg += '（' + err.message + '）';
+      // 初回ロード中（appがまだ非表示）
+      if (document.getElementById('app').style.display === 'none') {
+        var loadingEl = document.getElementById('loading');
+        loadingEl.innerHTML =
+          '<div style="text-align:center;">' +
+          '<p style="color:#EF4444;font-size:18px;font-weight:700;margin-bottom:8px;">' + msg + '</p>' +
+          '<button onclick="location.reload()" style="padding:10px 24px;border:none;background:#2563EB;color:#FFF;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">再読み込み</button>' +
+          '</div>';
+      } else {
+        // データ表示済み → 上部バナーで通知
+        showErrorBanner(msg);
+      }
     }
 
     // ===== Formatting（データは万円単位） =====
     function formatManYen(amount) {
       if (amount % 1 === 0) return amount.toLocaleString() + '万円';
       return amount.toLocaleString(undefined, {minimumFractionDigits: 1, maximumFractionDigits: 1}) + '万円';
+    }
+
+    function formatRank(rank) {
+      if (rank === 1) return '\uD83E\uDD47';
+      if (rank === 2) return '\uD83E\uDD48';
+      if (rank === 3) return '\uD83E\uDD49';
+      return rank;
+    }
+
+    function formatHolidays(val) {
+      var v = val || 0;
+      if (v === 0) return '0日';
+      var str = (v % 1 === 0) ? v + '日' : v.toFixed(1) + '日';
+      if (v > 8) str += ' \uD83D\uDEA8';
+      return str;
+    }
+
+    function getBusinessDaysElapsed(year, month) {
+      var today = new Date();
+      var y = year || today.getFullYear();
+      var mo = (month || (today.getMonth() + 1)) - 1;
+      var lastDay = (y === today.getFullYear() && mo === today.getMonth()) ? today.getDate() : new Date(y, mo + 1, 0).getDate();
+      var count = 0;
+      for (var d = 1; d <= lastDay; d++) {
+        var dow = new Date(y, mo, d).getDay();
+        if (dow !== 0 && dow !== 6) count++;
+      }
+      return count;
+    }
+
+    function getBusinessDaysRemaining(year, month) {
+      var today = new Date();
+      var y = year || today.getFullYear();
+      var mo = (month || (today.getMonth() + 1)) - 1;
+      var endDay = new Date(y, mo + 1, 0).getDate();
+      var startDay = (y === today.getFullYear() && mo === today.getMonth()) ? today.getDate() + 1 : 1;
+      var count = 0;
+      for (var d = startDay; d <= endDay; d++) {
+        var dow = new Date(y, mo, d).getDay();
+        if (dow !== 0 && dow !== 6) count++;
+      }
+      return count;
+    }
+
+    function calcPushCols(m, memberKgi) {
+      var kgi = memberKgi[m.name] || 0;
+      var S = 'background:#FEE8CD;';
+      if (!kgi) return '<td style="' + S + '" class="kgi-cell" data-member="' + escapeHtml(m.name) + '" colspan="5"><button onclick="openGoalSettings(\'' + escapeHtml(m.name).replace(/'/g, "\\'") + '\')" style="background:#F97316;color:#fff;border:none;border-radius:6px;padding:4px 12px;font-size:11px;font-weight:700;cursor:pointer;">🎯 ゴール入力</button></td>';
+      var remaining = Math.max(0, kgi - (m.revenue || 0));
+      var remainDays = getBusinessDaysRemaining(currentViewYear, currentViewMonth);
+      var dailyNeed = remainDays > 0 ? remaining / remainDays : 0;
+      if (remaining === 0) {
+        return '<td style="' + S + '" class="kgi-cell" data-member="' + escapeHtml(m.name) + '"><span class="kgi-val">' + formatManYen(kgi) + '</span></td>' +
+          '<td style="' + S + ';color:#10B981;font-weight:700;">達成!</td>' +
+          '<td style="' + S + ';color:#10B981;font-weight:700;">達成!</td>' +
+          '<td style="' + S + ';color:#10B981;font-weight:700;">達成!</td>' +
+          '<td style="' + S + ';color:#10B981;font-weight:700;">達成!</td>';
+      }
+      var avg = m.avgPrice || 0;
+      var rate = m.closeRate || 0;
+      var pushHtml, daysHtml;
+      if (avg > 0 && rate > 0) {
+        var needClosed = remaining / avg;
+        var needPush = Math.ceil(needClosed / (rate / 100));
+        var bizDays = getBusinessDaysElapsed(currentViewYear, currentViewMonth);
+        var dailyRate = (bizDays > 0 && m.deals > 0) ? (m.deals / bizDays) : 0;
+        pushHtml = '<td style="' + S + '">' + needPush + '<br><span style="font-size:10px;color:#94A3B8;">' + formatManYen(avg) + '×' + rate + '%</span></td>';
+        if (dailyRate > 0) {
+          var needWorkDays = Math.ceil(needPush / dailyRate);
+          daysHtml = '<td style="' + S + '">' + needWorkDays + '日<br><span style="font-size:10px;color:#94A3B8;">1日' + dailyRate.toFixed(1) + 'プッシュ</span></td>';
+        } else {
+          daysHtml = '<td style="' + S + '">-</td>';
+        }
+      } else {
+        pushHtml = '<td style="' + S + '">-</td>';
+        daysHtml = '<td style="' + S + '">-</td>';
+      }
+      return '<td style="' + S + '" class="kgi-cell" data-member="' + escapeHtml(m.name) + '"><span class="kgi-val">' + formatManYen(kgi) + '</span></td>' +
+        '<td style="' + S + '">' + formatManYen(remaining) + '</td>' +
+        '<td style="' + S + '">' + (remainDays > 0 ? formatManYen(Math.round(dailyNeed * 10) / 10) : '-') + '</td>' +
+        pushHtml + daysHtml;
     }
 
     function formatOkuManYen(amount) {
@@ -1598,298 +2153,402 @@
     }
 
     // ===== Strongest Members =====
-    function getMemberBubble(m, data) {
-      // 直近の着金があるか（paymentNewsから今日/昨日の着金を探す）
-      var news = data.paymentNews || [];
-      var today = new Date();
-      var todayStr = (today.getMonth() + 1) + '/' + today.getDate();
-      var yest = new Date(today); yest.setDate(yest.getDate() - 1);
-      var yestStr = (yest.getMonth() + 1) + '/' + yest.getDate();
-
-      // この人の最新着金を探す
-      var latestPayment = null;
-      for (var i = 0; i < news.length; i++) {
-        if (news[i].name === m.name) {
-          latestPayment = news[i];
-          break; // newsは日付降順なので最初のが最新
-        }
-      }
-
-      // KGI達成チェック
-      var gk = goalKey();
-      var settings = getGoalSettings();
-      var monthGoal = settings[gk] || {};
-      var memberKgi = monthGoal.memberKgi || {};
-      var kgiTarget = memberKgi[m.name];
-      var kgiAchieved = kgiTarget && kgiTarget > 0 && m.revenue >= kgiTarget;
-
-      // 優先順位: 1.今日着金 → 2.KGI達成 → 3.トップ → 4.昨日着金 → 5.前月比アップ
-      if (latestPayment && latestPayment.dateShort === todayStr) {
-        return { text: '\uD83D\uDCB0 着金したよー！', cls: 'payment' };
-      }
-      if (kgiAchieved) {
-        return { text: '\uD83C\uDFAF KGI達成！', cls: 'kgi' };
-      }
-      if (m.rank === 1) {
-        return { text: '\uD83D\uDC51 トップ独走中！', cls: 'top' };
-      }
-      if (latestPayment && latestPayment.dateShort === yestStr) {
-        return { text: '\uD83D\uDCB0 ' + formatManYen(latestPayment.amount) + '着金！', cls: 'payment' };
-      }
-      if (m.diffRevenue > 0 && m.prevRevenue > 0) {
-        return { text: '\uD83D\uDD25 前月超え！', cls: 'top' };
-      }
-      if (latestPayment) {
-        return { text: '\uD83D\uDCB0 ' + latestPayment.dateShort + ' 着金！', cls: 'payment' };
-      }
-      return null;
-    }
-
     function updateStrongestMembers(data) {
       var bar = document.getElementById('membersBar');
       var container = document.getElementById('strongestMembers');
       if (!data.members || !data.members.length) { bar.style.display = 'none'; return; }
       bar.style.display = '';
-      var html = '';
+
+      var daysLeft = data.daysLeft || 0;
+
+      // 今日の休みマップを構築 { name: 'full'|'half' }
+      var todayOff = {};
+      var hbd = data.holidayByDate || {};
+      var now = new Date();
+      var todayKey = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
+      if (hbd[todayKey]) {
+        hbd[todayKey].forEach(function(h) { todayOff[h.name] = h.type || 'full'; });
+      }
+
+      function makeBubble(m, idx, offType) {
+        if (offType === 'full') return '休み';
+        if (offType === 'half') return '半休';
+        if (idx === 0) return formatManYen(m.revenue) + ' でトップ独走！';
+        if (m.gapToTop > 0 && m.gapToTop < 200) return 'あと' + formatManYen(m.gapToTop) + '！';
+        if (m.closeRate >= 60) return '成約率' + m.closeRate + '%！';
+        if (daysLeft > 0 && daysLeft <= 10) return '残り' + daysLeft + '日 全力！';
+        return formatManYen(m.revenue) + ' チェックイン';
+      }
+
+      // 出勤 / 半休 / 全休に分類
+      var working = [], halfOff = [], fullOff = [];
       data.members.forEach(function(m, idx) {
         if (!m.icon) return;
-        var bubble = getMemberBubble(m, data);
-        html += '<div class="member-item">';
-        if (bubble) {
-          html += '<div class="member-bubble ' + bubble.cls + '" style="animation-delay:' + (idx * 0.1) + 's">' + bubble.text + '</div>';
-        }
-        html += '<img class="member-item-avatar" src="' + m.icon + '" alt="' + m.name + '" onerror="this.style.display=\'none\'">';
-        html += '<span class="member-item-name">' + m.name + '</span>';
-        html += '</div>';
+        var off = todayOff[m.name];
+        if (off === 'full') fullOff.push({m:m, idx:idx});
+        else if (off === 'half') halfOff.push({m:m, idx:idx});
+        else working.push({m:m, idx:idx});
       });
+
+      function renderItem(item, offType) {
+        var m = item.m, idx = item.idx;
+        var cls = 'member-item';
+        if (idx === 0 && !offType) cls += ' is-top';
+        if (offType === 'full') cls += ' is-off';
+        if (offType === 'half') cls += ' is-half';
+        var bubble = makeBubble(m, idx, offType);
+        return '<div class="' + cls + '">' +
+          '<div class="member-item-bubble">' + bubble + '</div>' +
+          '<img class="member-item-avatar" src="' + m.icon + '" alt="' + escapeHtml(m.name) + '" onerror="this.style.display=\'none\'">' +
+          '<span class="member-item-name">' + escapeHtml(m.name) + '</span>' +
+          '</div>';
+      }
+
+      var html = '';
+      working.forEach(function(item) { html += renderItem(item, null); });
+      halfOff.forEach(function(item) { html += renderItem(item, 'half'); });
+      if (fullOff.length > 0 && (working.length > 0 || halfOff.length > 0)) {
+        html += '<div class="members-divider"></div>';
+      }
+      fullOff.forEach(function(item) { html += renderItem(item, 'full'); });
       container.innerHTML = html;
     }
 
     // ===== Progress Section =====
     function updateProgress(data, isArchive) {
-      // localStorage のゴール設定を反映
       var gk = goalKey();
       var settings = getGoalSettings();
       var monthGoal = settings[gk] || {};
       var teamGoal = (monthGoal.teamGoal > 0) ? monthGoal.teamGoal : data.teamGoal;
       var remaining = Math.max(0, teamGoal - data.totalRevenue);
       var pct = teamGoal > 0 ? Math.round((data.totalRevenue / teamGoal) * 100) : 0;
+      var remainPct = Math.max(0, 100 - pct);
       var daysLeft = data.daysLeft || 0;
       var dailyTarget = (daysLeft > 0 && remaining > 0) ? Math.round(remaining / daysLeft * 10) / 10 : 0;
 
-      var monthLabel = (data.archiveYear ? data.archiveYear + '年' : '') + data.currentMonth + '月';
-      document.getElementById('goalTargetBig').textContent = '\uD83D\uDE80 ' + monthLabel + 'ゴール ' + formatOkuManYen(teamGoal);
+      var monthNum = data.currentMonth || '';
 
-      // KPI Card 1: 現在合計
-      document.getElementById('kpiCurrentTotal').textContent = formatManYen(data.totalRevenue);
+      // 必達バナー
+      var banner = document.getElementById('hissatsuBanner');
+      if (isArchive || remaining <= 0) {
+        banner.style.display = 'none';
+      } else {
+        banner.style.display = '';
+        var dtNum = (dailyTarget % 1 === 0) ? dailyTarget.toLocaleString() : dailyTarget.toLocaleString(undefined, {minimumFractionDigits:1, maximumFractionDigits:1});
+        document.getElementById('hissatsuAmount').innerHTML = dtNum + '<span class="unit">万円</span>';
+        document.getElementById('hissatsuDays').textContent = daysLeft;
+        document.getElementById('hissatsuQuote').textContent = '「' + getRandomQuote() + '」';
+      }
 
-      // KPI Card 2: 残り（炎エフェクト）
-      var remainingEl = document.getElementById('kpiRemaining');
-      var remainingCard = document.getElementById('kpiRemainingCard');
+      // チーム目標カード
+      document.getElementById('teamGoalLabel').textContent = monthNum + '月ゴール';
+      document.getElementById('teamGoalHeaderRight').textContent = formatOkuManYen(data.totalRevenue) + ' / ' + formatOkuManYen(teamGoal);
+
+      var barDone = document.getElementById('teamGoalBarDone');
+      var barRemain = document.getElementById('teamGoalBarRemain');
+      barDone.style.flex = Math.max(pct, 3);
+      barDone.textContent = pct + '%';
+      barRemain.style.flex = Math.max(remainPct, 3);
+      barRemain.innerHTML = '\uD83D\uDD25 残り ' + remainPct + '%';
+
       if (remaining <= 0) {
-        remainingEl.innerHTML = '\uD83C\uDF89 達成！';
-        remainingEl.style.color = '#10B981';
-        remainingCard.classList.remove('fire');
-        remainingCard.style.background = '#ECFDF5';
-        remainingCard.style.borderColor = '#A7F3D0';
+        barDone.style.flex = 100;
+        barDone.textContent = '達成!';
+        barDone.style.background = '#10B981';
+        barDone.style.borderRadius = '8px';
+        barRemain.style.display = 'none';
       } else {
-        remainingEl.innerHTML = '<span class="fire-icon">\uD83D\uDD25</span> ' + formatManYen(remaining);
-        remainingEl.style.color = '#EF4444';
-        remainingCard.classList.add('fire');
-        remainingCard.style.background = '';
-        remainingCard.style.borderColor = '';
+        barDone.style.background = '';
+        barDone.style.borderRadius = '';
+        barRemain.style.display = '';
       }
 
-      // KPI Card 3: 日割り必要数
-      var dailyEl = document.getElementById('kpiDailyTarget');
-      var dailyLabelEl = document.getElementById('kpiDailyLabel');
-      if (isArchive) {
-        dailyEl.textContent = '-';
-        dailyEl.style.color = '#ea580c';
-        dailyLabelEl.textContent = '日割り必要数';
-      } else if (remaining <= 0) {
-        dailyEl.textContent = '\u2705 0';
-        dailyEl.style.color = '#10B981';
-        dailyLabelEl.textContent = '日割り必要数';
-      } else {
-        dailyEl.textContent = formatManYen(dailyTarget);
-        dailyEl.style.color = '#ea580c';
-        dailyLabelEl.textContent = '残り' + daysLeft + '日 \u00D7 日割り';
-      }
-
-      // Progress bar
-      var fill = document.getElementById('progressFill');
-      setTimeout(function() { fill.style.width = Math.max(pct, 3) + '%'; }, 50);
-      fill.className = 'progress-fill';
-      if (pct >= 100)     fill.classList.add('green');
-      else if (pct >= 70) fill.classList.add('blue');
-      else if (pct >= 40) fill.classList.add('amber');
-      else                fill.classList.add('red');
-      document.getElementById('progressPercent').textContent = pct + '%';
-
-      // マイルストーン達成チェック（チーム速報バナー）
-      if (data.totalRevenue > 0) {
-        checkMilestones(data.totalRevenue, teamGoal);
-      } else {
-        document.getElementById('teamFlashContainer').innerHTML = '';
-      }
+      document.getElementById('tgStatCurrent').textContent = formatManYen(data.totalRevenue);
+      document.getElementById('tgStatRemain').textContent = remaining > 0 ? formatManYen(remaining) : '達成!';
+      document.getElementById('tgStatDays').textContent = isArchive ? '-' : daysLeft + '日';
+      document.getElementById('tgStatDaily').textContent = (dailyTarget > 0 && !isArchive) ? '\u26A1 ' + formatManYen(dailyTarget) + '/日' : '';
     }
 
     // ===== Bar Chart =====
-    var pendingChartData = null;
+    var currentRankTab = 'revenue';
+    var lastRankData = null;
+
+    function switchRankTab(tab) {
+      currentRankTab = tab;
+      var tabs = document.querySelectorAll('.rank-tab');
+      for (var i = 0; i < tabs.length; i++) {
+        tabs[i].classList.toggle('active', tabs[i].getAttribute('data-tab') === tab);
+      }
+      if (lastRankData) renderRanking(lastRankData);
+    }
+
     function updateBarChart(data) {
-      if (typeof Chart === 'undefined') {
-        // Chart.jsがまだ読み込まれていない → 準備できたら描画
-        pendingChartData = data;
+      lastRankData = data;
+      renderRanking(data);
+    }
+
+    function parseLifetyRate_(s) {
+      if (!s || s === '-') return -1;
+      var parts = String(s).split('/');
+      if (parts.length !== 2) return -1;
+      var a = parseInt(parts[0]), t = parseInt(parts[1]);
+      if (!t || isNaN(a)) return -1;
+      return Math.round((a / t) * 100);
+    }
+
+    function renderRanking(data) {
+      var container = document.getElementById('rankingContent');
+      var members = data.members || [];
+      var cwPoints = data.chatworkPoints || {};
+      var tab = currentRankTab;
+
+      // ランキングデータ生成
+      var items = members.map(function(m) {
+        var val, label, sortVal;
+        if (tab === 'revenue') {
+          val = m.revenue || 0; label = formatManYen(val); sortVal = val;
+        } else if (tab === 'closeRate') {
+          val = m.closeRate || 0; label = val + '%'; sortVal = val;
+        } else if (tab === 'kyoso') {
+          val = cwPoints[m.name] || 0; label = val + 'pt'; sortVal = val;
+        } else if (tab === 'attendance') {
+          val = m.holidays || 0; label = val + '日休み'; sortVal = -val; // 休み少ない順
+        } else if (tab === 'creditCard') {
+          val = m.creditCard || 0; label = formatManYen(val); sortVal = val;
+        } else if (tab === 'avgPrice') {
+          val = m.avgPrice || 0; label = formatManYen(val); sortVal = val;
+        } else if (tab === 'deals') {
+          val = m.deals || 0; label = val + '件'; sortVal = val;
+        } else if (tab === 'closed') {
+          val = m.closed || 0; label = val + '件'; sortVal = val;
+        } else if (tab === 'co') {
+          val = m.coRevenue || m.coCount || 0; label = val + '件'; sortVal = -val; // CO多い=最下位
+        } else if (tab === 'lifety') {
+          var rate = parseLifetyRate_(m.lifety);
+          val = rate >= 0 ? rate : -1;
+          label = rate >= 0 ? rate + '%' + ' (' + m.lifety + ')' : (m.lifety || '-');
+          sortVal = rate >= 0 ? rate : -999;
+        }
+        return { name: m.name, icon: m.icon, val: val, label: label, sortVal: sortVal };
+      });
+
+      // ソート（降順、attendanceは休み少ない順=昇順なのでsortValを-valにしてある）
+      items.sort(function(a, b) { return b.sortVal - a.sortVal; });
+
+      var tabConfig = {
+        revenue:    { title: '💰 着金額ランキング', bg: '#EFF6FF', border: '#BFDBFE', titleColor: '#1E40AF', valColor: '#2563EB', trackBg: '#DBEAFE', barDefault: 'linear-gradient(90deg,#93C5FD,#3B82F6)' },
+        closeRate:  { title: '🎯 成約率ランキング', bg: '#F0FDF4', border: '#BBF7D0', titleColor: '#166534', valColor: '#16A34A', trackBg: '#DCFCE7', barDefault: 'linear-gradient(90deg,#86EFAC,#22C55E)' },
+        kyoso:      { title: '🤝 共創ptランキング', bg: '#FFF7ED', border: '#FED7AA', titleColor: '#854F0B', valColor: '#EA580C', trackBg: '#FEF3C7', barDefault: 'linear-gradient(90deg,#FDBA74,#F97316)' },
+        attendance: { title: '📅 出勤ランキング（休み少ない順）', bg: '#FDF4FF', border: '#E9D5FF', titleColor: '#6B21A8', valColor: '#9333EA', trackBg: '#F3E8FF', barDefault: 'linear-gradient(90deg,#C084FC,#9333EA)' },
+        creditCard: { title: '💳 クレカ着金ランキング', bg: '#EFF6FF', border: '#BFDBFE', titleColor: '#1E40AF', valColor: '#2563EB', trackBg: '#DBEAFE', barDefault: 'linear-gradient(90deg,#93C5FD,#3B82F6)' },
+        avgPrice:   { title: '📈 平均単価ランキング', bg: '#FFFBEB', border: '#FDE68A', titleColor: '#92400E', valColor: '#D97706', trackBg: '#FEF3C7', barDefault: 'linear-gradient(90deg,#FCD34D,#F59E0B)' },
+        deals:      { title: '📞 商談数ランキング', bg: '#FDF4FF', border: '#E9D5FF', titleColor: '#6B21A8', valColor: '#9333EA', trackBg: '#F3E8FF', barDefault: 'linear-gradient(90deg,#C084FC,#9333EA)' },
+        closed:     { title: '✅ 成約数ランキング', bg: '#F0FDF4', border: '#BBF7D0', titleColor: '#166534', valColor: '#16A34A', trackBg: '#DCFCE7', barDefault: 'linear-gradient(90deg,#86EFAC,#22C55E)' },
+        co:         { title: '🚨 COランキング（少ない順）', bg: '#FEF2F2', border: '#FECACA', titleColor: '#991B1B', valColor: '#DC2626', trackBg: '#FEE2E2', barDefault: 'linear-gradient(90deg,#FCA5A5,#EF4444)' },
+        lifety:     { title: '🏦 ライフティ承認率ランキング', bg: '#F0F9FF', border: '#BAE6FD', titleColor: '#0C4A6E', valColor: '#0284C7', trackBg: '#E0F2FE', barDefault: 'linear-gradient(90deg,#7DD3FC,#0EA5E9)' }
+      };
+      var c = tabConfig[tab];
+      var medals = ['🥇', '🥈', '🥉'];
+      var medalBars = [
+        'linear-gradient(90deg,#F59E0B,#F97316)',
+        'linear-gradient(90deg,#94A3B8,#CBD5E1)',
+        'linear-gradient(90deg,#FDBA74,#FB923C)'
+      ];
+
+      // バー計算用: 通常は最大値ベース、attendance/coは反転
+      var isReverse = (tab === 'attendance' || tab === 'co');
+      var barMax;
+      if (isReverse) {
+        var minH = items.length > 0 ? items[0].val : 0;
+        var maxH = items.length > 0 ? items[items.length - 1].val : 1;
+        barMax = maxH - minH > 0 ? maxH - minH : 1;
+      } else {
+        barMax = items.length > 0 ? items[0].val : 1;
+        if (barMax <= 0) barMax = 1;
+      }
+
+      var html = '<div style="background:' + c.bg + ';border:1px solid ' + c.border + ';border-radius:10px;padding:10px 12px;">';
+      html += '<div style="display:flex;flex-direction:column;gap:4px;">';
+
+      for (var i = 0; i < items.length; i++) {
+        var p = items[i];
+        var medal = i < 3 ? medals[i] : (i + 1) + '位';
+        var barPct;
+        if (isReverse) {
+          barPct = Math.min(100, Math.max(2, Math.round(((items[items.length - 1].val - p.val) / barMax) * 100)));
+          if (items.length === 1) barPct = 100;
+        } else {
+          barPct = Math.min(100, Math.max(2, Math.round((p.val / barMax) * 100)));
+        }
+        var barBg = i < 3 ? medalBars[i] : c.barDefault;
+        var iconEl = p.icon
+          ? '<img src="' + p.icon + '" style="width:22px;height:22px;border-radius:50%;object-fit:cover;border:1.5px solid ' + c.border + ';" onerror="this.style.display=\'none\'">'
+          : '';
+        var isZero = p.val <= 0 && !isReverse;
+        html += '<div style="display:flex;align-items:center;gap:4px;">' +
+          '<span style="font-size:11px;min-width:22px;text-align:center;">' + medal + '</span>' +
+          iconEl +
+          '<div style="flex:1;height:20px;background:' + c.trackBg + ';border-radius:6px;overflow:hidden;">' +
+            '<div style="width:' + barPct + '%;height:100%;background:' + barBg + ';border-radius:6px;transition:width 0.6s ease;"></div>' +
+          '</div>' +
+          '<span style="font-size:12px;font-weight:800;min-width:48px;text-align:right;color:' + (isZero ? '#EF4444' : c.valColor) + ';">' + (isZero ? '0⚠️' : escapeHtml(p.label)) + '</span>' +
+        '</div>';
+      }
+      html += '</div></div>';
+      container.innerHTML = html;
+    }
+
+    function updateBottleneck(data) {
+      var section = document.getElementById('bottleneckSection');
+      var container = document.getElementById('bottleneckContent');
+      var members = data.members || [];
+      var cwPoints = data.chatworkPoints || {};
+      if (!members.length) { section.style.display = 'none'; return; }
+
+      // 全員商談0ならボトルネック非表示
+      var totalDeals = 0;
+      members.forEach(function(m) { totalDeals += (m.deals || 0); });
+      if (totalDeals === 0) { section.style.display = 'none'; return; }
+
+      var metrics = [
+        { key: 'revenue',   label: '着金額',     icon: '💰', get: function(m) { return m.revenue || 0; } },
+        { key: 'closeRate', label: '成約率',     icon: '🎯', get: function(m) { return m.closeRate || 0; } },
+        { key: 'avgPrice',  label: '平均単価',   icon: '📈', get: function(m) { return m.avgPrice || 0; } },
+        { key: 'deals',     label: '商談数',     icon: '📞', get: function(m) { return m.deals || 0; } },
+        { key: 'closed',    label: '成約数',     icon: '✅', get: function(m) { return m.closed || 0; } },
+        { key: 'kyoso',     label: '共創pt',     icon: '🤝', get: function(m) { return cwPoints[m.name] || 0; } }
+      ];
+      var rankMap = {};
+      members.forEach(function(m) { rankMap[m.name] = {}; });
+      metrics.forEach(function(met) {
+        var sorted = members.slice().sort(function(a, b) { return met.get(b) - met.get(a); });
+        sorted.forEach(function(m, idx) { rankMap[m.name][met.key] = idx + 1; });
+      });
+
+      // 着金1位の休み日数
+      var topHolidays = members.length > 0 ? (members[0].holidays || 0) : 0;
+
+      // 診断ルール: 指標の組み合わせからボトルネック原因を特定
+      function diagnose(m, ranks, n) {
+        var results = [];
+        var rRev = ranks.revenue, rClose = ranks.closeRate, rAvg = ranks.avgPrice;
+        var rDeals = ranks.deals, rClosed = ranks.closed, rKyoso = ranks.kyoso;
+
+        // 成約数多い + 平均単価低い → アンカリングにボトルネック
+        if (rClosed <= Math.ceil(n * 0.4) && rAvg > Math.ceil(n * 0.6)) {
+          results.push({ tag: '📈 平均単価 ' + rAvg + '位', fact: '成約数' + rClosed + '位に対して平均単価が' + rAvg + '位', action: 'アンカリングを見直せ。提示価格を上げろ。安売りするな。お前の成約力があれば単価を上げるだけで一気にトップ狙える。' });
+        }
+        // 着金3位以内で平均単価150万未満 → アンカリング改善
+        var avgP = m.avgPrice || 0;
+        if (rRev <= 3 && avgP < 150 && avgP > 0) {
+          var already = results.some(function(res) { return res.tag.indexOf('平均単価') >= 0; });
+          if (!already) {
+            results.push({ tag: '📈 平均単価 ' + formatManYen(avgP), fact: '着金' + rRev + '位なのに平均単価が' + formatManYen(avgP) + '（150万未満）', action: 'アンカリングを上げろ。お前の実力なら単価150万以上いける。安売りで数を稼ぐな。' });
+          }
+        }
+        // 商談数多い + 成約率低い → ヒアリングにボトルネック
+        if (rDeals <= Math.ceil(n * 0.4) && rClose > Math.ceil(n * 0.6)) {
+          results.push({ tag: '🎯 成約率 ' + rClose + '位', fact: '商談数' + rDeals + '位に対して成約率が' + rClose + '位', action: 'ヒアリングを徹底しろ。相手の理想と現実のギャップを明確にしろ。お前の商談数でヒアリングが噛み合えば一気にブレイクする。' });
+        }
+        // 成約率高い + 商談数少ない → プッシュ量にボトルネック
+        if (rClose <= Math.ceil(n * 0.4) && rDeals > Math.ceil(n * 0.6)) {
+          results.push({ tag: '📞 商談数 ' + rDeals + '位', fact: '成約率' + rClose + '位に対して商談数が' + rDeals + '位', action: '商談数が少ない。顧客選ぶな、休みのタイミングを賢く調整しろ（周りが休んでる時出勤しろ）。お前の成約率なら商談数を増やすだけで着金は爆伸びする。' });
+        }
+        // 商談数多い + 着金低い → アンカリングorクロージングの質
+        if (rDeals <= Math.ceil(n * 0.3) && rRev > Math.ceil(n * 0.6)) {
+          results.push({ tag: '💰 着金額 ' + rRev + '位', fact: '商談数' + rDeals + '位に対して着金が' + rRev + '位', action: '単価を上げろ。アンカリングとクロージングの質を見直せ。お前の行動量があれば質を上げるだけで結果は変わる。' });
+        }
+        // CO率20%以上 → COがボトルネック
+        var coCount = m.coCount || 0;
+        var totalDealsForCo = m.deals || 0;
+        if (totalDealsForCo > 0 && coCount > 0) {
+          var coRate = Math.round(coCount / totalDealsForCo * 100);
+          if (coRate >= 20) {
+            results.push({ tag: '🚫 CO率 ' + coRate + '%', fact: '商談' + totalDealsForCo + '件中' + coCount + '件がCO（' + coRate + '%）', action: 'ZOOMを切る前に「これから先辞めたいと思うことが絶対来る」のように、これから起こる挫折を先に伝えろ。先に言っておけば挫折が来ても「あの時言われた通りだ」と踏み留まれる。言わなければ「聞いてない」でCOになる。' });
+          }
+        }
+        // 共創ptが平均以下
+        var myKyosoPt = cwPoints[m.name] || 0;
+        var totalKyoso = 0;
+        lastMembers.forEach(function(lm) { totalKyoso += cwPoints[lm.name] || 0; });
+        var avgKyoso = n > 0 ? totalKyoso / n : 0;
+        if (myKyosoPt < avgKyoso) {
+          results.push({ tag: '🤝 共創 ' + rKyoso + '位', fact: '共創ptが' + rKyoso + '位(' + myKyosoPt + 'pt)でチーム平均(' + Math.round(avgKyoso) + 'pt)を下回っている', action: '今の俺じゃ人に言えることはない？ちげえだろ、人に言うから自分が磨かれて言えるようになるんだろ。自分のためだけに生きてるからいつまで経っても自分の人生すら豊かにできねえんだよ。仲間に発信しろ。お前の言葉がお前と仲間を強くする。' });
+        }
+        // 出勤日数: 着金1位より休みが多い
+        var myHolidays = m.holidays || 0;
+        if (myHolidays > topHolidays + 2 && rRev > 1) {
+          var diff = myHolidays - topHolidays;
+          results.push({ tag: '📅 休み ' + myHolidays + '日', fact: '着金1位（' + topHolidays + '日休み）より' + diff + '日多く休んでいる', action: '休みを減らせ。あと' + diff + '日稼働を増やせ。お前のスキルなら稼働日が増えるだけで数字は確実に伸びる。' });
+        }
+        // ライフティ承認率50%未満
+        var lfRate = parseLifetyRate_(m.lifety);
+        if (lfRate >= 0 && lfRate < 50) {
+          results.push({ tag: '🏦 ライフティ ' + lfRate + '%', fact: 'ライフティ承認率が' + lfRate + '%（' + m.lifety + '）で50%を切っている', action: 'ライフティの審査通過率を上げろ。申込前の事前確認を徹底しろ。お前の営業力があれば通る案件を見極められる。' });
+        }
+        // 汎用: 着金順位に比べて大幅に低い指標
+        metrics.forEach(function(met) {
+          if (met.key === 'revenue') return;
+          var r = ranks[met.key];
+          if (r - rRev >= 4) {
+            var already = results.some(function(res) { return res.tag.indexOf(met.label) >= 0; });
+            if (!already) {
+              var genAction = met.label + 'を改善しろ。ここを伸ばせばお前の数字は確実に上がる。';
+              if (met.key === 'closeRate') genAction = 'ヒアリングを徹底しろ。相手の理想と現実のギャップを明確にしろ。お前の商談数でヒアリングが噛み合えば一気にブレイクする。';
+              if (met.key === 'avgPrice') genAction = 'アンカリングを見直せ。提示価格を上げろ。お前の成約力があれば単価を上げるだけで一気にトップ狙える。';
+              if (met.key === 'deals') genAction = '商談数が少ない。顧客選ぶな、休みのタイミングを賢く調整しろ（周りが休んでる時出勤しろ）。お前の成約率なら商談数を増やすだけで着金は爆伸びする。';
+              results.push({ tag: met.icon + ' ' + met.label + ' ' + r + '位', fact: '着金' + rRev + '位に対して' + met.label + 'が' + r + '位', action: genAction });
+            }
+          }
+        });
+        // フォールバック: ボトルネックが見つからない場合、最も弱い指標を検出
+        if (results.length === 0) {
+          var worstRank = 0, worstLabel = '', worstIcon = '';
+          metrics.forEach(function(met) {
+            if (met.key === 'revenue') return;
+            var r = ranks[met.key];
+            if (r > worstRank) { worstRank = r; worstLabel = met.label; worstIcon = met.icon; }
+          });
+          if (worstLabel) {
+            results.push({ tag: worstIcon + ' ' + worstLabel + ' ' + worstRank + '位', fact: worstLabel + 'が' + worstRank + '位（全指標で最も低い順位）', action: worstLabel + 'を改善しろ。ここを伸ばせばお前の数字は確実に上がる。伸びしろがあるのは武器だ。' });
+          }
+        }
+        return results;
+      }
+
+      var html = '';
+      var hasAny = false;
+      members.forEach(function(m) {
+        var ranks = rankMap[m.name];
+        var n = members.length;
+        var diag = diagnose(m, ranks, n);
+        // 全員必ずボトルネックあり（フォールバック済み）
+        hasAny = true;
+
+        var iconEl = m.icon ? '<img src="' + m.icon + '" style="width:28px;height:28px;border-radius:50%;object-fit:cover;border:1.5px solid #FECACA;" onerror="this.style.display=\'none\'">' : '';
+        html += '<div style="background:#FFF;border:1px solid #FECACA;border-radius:8px;padding:10px 12px;margin-bottom:8px;">';
+        html += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">' + iconEl +
+          '<span style="font-size:13px;font-weight:800;color:#1E293B;">' + escapeHtml(m.name) + '</span>' +
+          '<span style="font-size:10px;color:#94A3B8;margin-left:auto;">着金' + ranks.revenue + '位</span></div>';
+        diag.forEach(function(d) {
+          html += '<div style="margin-bottom:6px;background:#FEF2F2;border-radius:6px;padding:6px 8px;">' +
+            '<div style="display:flex;align-items:center;gap:4px;margin-bottom:3px;">' +
+              '<span style="font-size:10px;background:#FEE2E2;color:#991B1B;border-radius:4px;padding:2px 6px;font-weight:700;">' + d.tag + ' ⚠️</span>' +
+            '</div>' +
+            '<div style="font-size:11px;color:#64748B;padding-left:2px;">🌀事実：' + d.fact + '</div>' +
+            '<div style="font-size:11px;color:#DC2626;font-weight:700;padding-left:2px;margin-top:3px;">🔸アクションプラン</div>' +
+            '<div style="font-size:11px;color:#7F1D1D;padding-left:14px;margin-top:1px;">' + d.action + '</div>' +
+          '</div>';
+        });
+        html += '</div>';
+      });
+
+      if (!hasAny) {
+        section.style.display = 'none';
         return;
       }
-      pendingChartData = null;
-      var ctx = document.getElementById('barChart').getContext('2d');
-      if (barChart) barChart.destroy();
-
-      var members = data.members;
-      var isMobile = window.innerWidth <= 768;
-      var RANK_COLORS = ['#F59E0B', '#94A3B8', '#CD7F32'];
-      var colors = members.map(function(m, i) {
-        return i < 3 ? RANK_COLORS[i] : '#3B82F6';
-      });
-
-      // Preload icon images
-      var chartIcons = [];
-      members.forEach(function(m) {
-        var img = new Image();
-        img.crossOrigin = 'anonymous';
-        if (m.icon) img.src = m.icon;
-        chartIcons.push(m.icon ? img : null);
-      });
-
-      barChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels: members.map(function(m) { return m.name; }),
-          datasets: [{
-            data: members.map(function(m) { return m.revenue; }),
-            backgroundColor: colors,
-            borderRadius: isMobile ? 4 : 8,
-            borderSkipped: false,
-            maxBarThickness: isMobile ? 28 : 56
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          layout: { padding: { top: isMobile ? 60 : 28, bottom: isMobile ? 36 : 48 } },
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              backgroundColor: '#0F172A',
-              titleFont: { size: 13, weight: '700' },
-              bodyFont: { size: 12 },
-              padding: 12,
-              cornerRadius: 8,
-              callbacks: {
-                label: function(context) {
-                  return ' ' + formatManYen(context.raw);
-                }
-              }
-            }
-          },
-          scales: {
-            y: {
-              beginAtZero: true,
-              grid: { color: '#F1F5F9' },
-              border: { display: false },
-              ticks: {
-                stepSize: isMobile ? 50 : undefined,
-                font: { size: isMobile ? 9 : 11 },
-                color: '#94A3B8',
-                callback: function(value) {
-                  return formatMan(value);
-                }
-              }
-            },
-            x: {
-              grid: { display: false },
-              border: { display: false },
-              ticks: { display: false }
-            }
-          }
-        },
-        plugins: [{
-          id: 'barValueLabels',
-          afterDatasetsDraw: function(chart) {
-            var ctx2 = chart.ctx;
-            var meta = chart.getDatasetMeta(0);
-            var small = window.innerWidth <= 768;
-            var rankLabels = ['\uD83E\uDD47', '\uD83E\uDD48', '\uD83E\uDD49'];
-            var rankColors = ['#92400E', '#475569', '#9A3412'];
-            meta.data.forEach(function(bar, i) {
-              var value = chart.data.datasets[0].data[i];
-              ctx2.save();
-              var label = formatMan(value);
-              if (small) {
-                // モバイル: バーの上に縦書き（常時表示）+ メダル
-                if (i < 3) {
-                  ctx2.font = '12px -apple-system, BlinkMacSystemFont, sans-serif';
-                  ctx2.textAlign = 'center';
-                  ctx2.textBaseline = 'bottom';
-                  ctx2.fillText(rankLabels[i], bar.x, bar.y - 4);
-                }
-                ctx2.translate(bar.x, bar.y - (i < 3 ? 18 : 4));
-                ctx2.rotate(-Math.PI / 2);
-                ctx2.textAlign = 'left';
-                ctx2.textBaseline = 'middle';
-                if (i < 3) {
-                  ctx2.fillStyle = rankColors[i];
-                  ctx2.font = 'bold 10px -apple-system, BlinkMacSystemFont, sans-serif';
-                } else {
-                  ctx2.fillStyle = '#334155';
-                  ctx2.font = 'bold 9px -apple-system, BlinkMacSystemFont, sans-serif';
-                }
-                ctx2.fillText(label, 2, 0);
-              } else {
-                // PC: 従来通り横書き
-                ctx2.textAlign = 'center';
-                ctx2.textBaseline = 'bottom';
-                if (i < 3) {
-                  ctx2.fillStyle = rankColors[i];
-                  ctx2.font = 'bold 12px -apple-system, BlinkMacSystemFont, sans-serif';
-                  label = rankLabels[i] + ' ' + label;
-                } else {
-                  ctx2.fillStyle = '#334155';
-                  ctx2.font = 'bold 11px -apple-system, BlinkMacSystemFont, sans-serif';
-                }
-                ctx2.fillText(label, bar.x, bar.y - 6);
-              }
-              ctx2.restore();
-            });
-          }
-        },
-        {
-          id: 'xAxisIcons',
-          afterDraw: function(chart) {
-            var ctx2 = chart.ctx;
-            var xAxis = chart.scales.x;
-            var meta = chart.getDatasetMeta(0);
-            var small = window.innerWidth <= 768;
-            var iconSize = small ? 20 : 32;
-            meta.data.forEach(function(bar, i) {
-              var img = chartIcons[i];
-              if (img && img.complete && img.naturalWidth > 0) {
-                ctx2.save();
-                var x = bar.x - iconSize / 2;
-                var y = xAxis.bottom + (small ? 3 : 6);
-                ctx2.beginPath();
-                ctx2.arc(bar.x, y + iconSize / 2, iconSize / 2, 0, Math.PI * 2);
-                ctx2.closePath();
-                ctx2.clip();
-                ctx2.drawImage(img, x, y, iconSize, iconSize);
-                ctx2.restore();
-              }
-            });
-          }
-        }]
-      });
+      section.style.display = '';
+      container.innerHTML = html;
     }
 
     // ===== Member KGI =====
@@ -1898,74 +2557,18 @@
       var settings = getGoalSettings();
       var monthGoal = settings[gk] || {};
       var memberKgi = monthGoal.memberKgi || {};
-      var DEFAULT_KGI = 2000;
       var target = memberKgi[m.name];
-      var isAutoKgi = !target || target <= 0;
-      if (isAutoKgi) target = DEFAULT_KGI;
+      if (!target || target <= 0) return '';
       var pctKgi = Math.min(100, Math.round((m.revenue / target) * 100));
       var achieved = m.revenue >= target;
       return '<div class="member-kgi">' +
-        '<div class="member-kgi-label">' + (achieved ? '\u2705' : '\uD83C\uDFAF') + ' 当月KGI' + (isAutoKgi ? '（デフォルト）' : '') + '</div>' +
+        '<div class="member-kgi-label">' + (achieved ? '\u2705' : '\uD83C\uDFAF') + ' 当月ゴール</div>' +
         '<div class="member-kgi-bar-track">' +
           '<div class="member-kgi-bar-fill' + (achieved ? ' achieved' : '') + '" style="width:' + pctKgi + '%;"></div>' +
         '</div>' +
         '<div class="member-kgi-nums">' +
           '<span class="current">' + formatManYen(m.revenue) + ' (' + pctKgi + '%)</span>' +
           '<span class="target">目標: ' + formatManYen(target) + '</span>' +
-        '</div>' +
-      '</div>';
-    }
-
-    // ===== KGI逆算KPI =====
-    function buildKpiBreakdown(m) {
-      var gk = goalKey();
-      var settings = getGoalSettings();
-      var monthGoal = settings[gk] || {};
-      var memberKgi = monthGoal.memberKgi || {};
-      var DEFAULT_KGI = 2000;
-      var target = memberKgi[m.name];
-      if (!target || target <= 0) {
-        target = DEFAULT_KGI;
-      }
-
-      var closeRate = m.closeRate > 0 ? Math.min(m.closeRate, 100) : 30;
-
-      // 着金ベース単価 = 着金額 / 成約数（計上ではなく実際の回収額）
-      var revenuePerDeal = m.closed > 0 ? Math.round((m.revenue / m.closed) * 10) / 10 : 200;
-      // 計上ベース単価（参考）
-      var salesPrice = m.avgPrice > 0 ? m.avgPrice : 200;
-      // 借金額 = 計上 - 着金
-      var debt = Math.max(0, m.sales - m.revenue);
-
-      var remainTarget = Math.max(0, target - m.revenue);
-      var revenueOk = m.revenue >= target;
-
-      // 着金ベース単価で逆算
-      var remainClosed = (remainTarget > 0 && revenuePerDeal > 0) ? Math.ceil(remainTarget / revenuePerDeal) : 0;
-      var remainDeals = remainClosed > 0 ? Math.ceil(remainClosed / (closeRate / 100)) : 0;
-
-      var isAuto = !(memberKgi[m.name] && memberKgi[m.name] > 0);
-      var titleSuffix = isAuto ? '(デフォルト: 2,000万)' : '';
-
-      var remainLabel = revenueOk ? '\u2705 達成！' : '残り ' + formatManYen(remainTarget);
-
-      return '<div class="kpi-breakdown">' +
-        '<div class="kpi-breakdown-label">\uD83D\uDCCB ゴール逆算KPI（' + formatManYen(target) + '）' + titleSuffix + '</div>' +
-        '<div class="kpi-breakdown-sub">' + remainLabel + '</div>' +
-        '<div class="kpi-breakdown-hero ' + (revenueOk ? 'achieved' : '') + '">' +
-          '<div class="kpi-hero-label">\uD83D\uDCA5 必要プッシュ数</div>' +
-          '<div class="kpi-hero-val">' + (revenueOk ? '\u2705 達成！' : remainDeals + '件') + '</div>' +
-        '</div>' +
-        '<div class="kpi-breakdown-grid">' +
-          '<div class="kpi-bd-item">' +
-            '<div class="kpi-bd-label">現状成約率</div>' +
-            '<div class="kpi-bd-val">' + (function(r){ r = Math.min(r,100); return r % 1 === 0 ? r + '.0' : r; })(m.closeRate) + '%' + (m.closeRateOver ? '+' : '') + '</div>' +
-          '</div>' +
-          '<div class="kpi-bd-item">' +
-            '<div class="kpi-bd-label">現状単価</div>' +
-            '<div class="kpi-bd-val">' + revenuePerDeal.toLocaleString(undefined, {minimumFractionDigits: 1, maximumFractionDigits: 1}) + '万円</div>' +
-            (m.prevAvgPrice ? '<div class="kpi-bd-now">前月 ' + formatManYen(m.prevAvgPrice) + '</div>' : '') +
-          '</div>' +
         '</div>' +
       '</div>';
     }
@@ -1978,17 +2581,8 @@
       data.members.forEach(function(m, index) {
         var card = document.createElement('div');
         card.className = 'member-card fade-in-up';
-        if (m.rank <= 10) card.classList.add('rank-' + m.rank);
+        if (m.rank <= 3) card.classList.add('rank-' + m.rank);
         card.style.animationDelay = (isFirstLoad ? index * 0.08 : 0) + 's';
-
-        // KGI達成チェック → カード装飾
-        var gkCard = goalKey();
-        var settingsCard = getGoalSettings();
-        var monthGoalCard = settingsCard[gkCard] || {};
-        var memberKgiCard = monthGoalCard.memberKgi || {};
-        var kgiTargetCard = memberKgiCard[m.name];
-        if (!kgiTargetCard || kgiTargetCard <= 0) kgiTargetCard = 2000;
-        if (m.revenue >= kgiTargetCard) card.classList.add('kgi-achieved');
 
         // Icon
         var iconHtml = m.icon
@@ -2014,11 +2608,10 @@
           message = '<div class="card-message chase">\uD83D\uDD25 あと' + formatManYen(m.gapToTop) + 'でトップセールス！</div>';
         }
 
-        // Diff helper: prev=前月値, diff=差分
-        function diffHtml(diff, unit, prev) {
-          var cls = diff > 0 ? 'up' : (diff < 0 ? 'down' : 'even');
-          var prevStr = prev !== undefined ? '<span class="stat-prev">前月 ' + prev + unit + '</span> ' : '';
-          return '<div class="stat-diff ' + cls + '">' + prevStr + (diff > 0 ? '+' : '') + diff + unit + '</div>';
+        // Diff helper
+        function diffHtml(val, unit) {
+          var cls = val > 0 ? 'up' : (val < 0 ? 'down' : 'even');
+          return '<div class="stat-diff ' + cls + '">' + (val > 0 ? '+' : '') + val + unit + '</div>';
         }
 
         card.innerHTML =
@@ -2031,9 +2624,93 @@
             '</div>' +
           '</div>' +
           '<div class="revenue-value">' + formatManYen(m.revenue) + '</div>' +
+
+          // 着金内訳
+          '<div class="stats-row stats-row-2">' +
+            '<div class="stat-item">' +
+              '<div class="stat-label">クレカ着金</div>' +
+              '<div class="stat-value">' + formatManYen(m.creditCard) + '</div>' +
+            '</div>' +
+            '<div class="stat-item">' +
+              '<div class="stat-label">信販着金</div>' +
+              '<div class="stat-value">' + formatManYen(m.shinpan) + '</div>' +
+            '</div>' +
+          '</div>' +
+
+          // 商談・成約
+          '<div class="card-section-label">\u{1F4CA} 商談・成約</div>' +
+          '<div class="stats-row">' +
+            '<div class="stat-item">' +
+              '<div class="stat-label">商談数</div>' +
+              '<div class="stat-value">' + m.deals + '件</div>' +
+              diffHtml(m.diffDeals, '件') +
+            '</div>' +
+            '<div class="stat-item">' +
+              '<div class="stat-label">成約数</div>' +
+              '<div class="stat-value">' + m.closed + '件</div>' +
+              diffHtml(m.diffClosed, '件') +
+            '</div>' +
+            '<div class="stat-item">' +
+              '<div class="stat-label">失注</div>' +
+              '<div class="stat-value">' + (m.lost || 0) + '件</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="stats-row">' +
+            '<div class="stat-item">' +
+              '<div class="stat-label">成約率</div>' +
+              '<div class="stat-value">' + m.closeRate + '%</div>' +
+              diffHtml(m.diffCloseRate, '%') +
+            '</div>' +
+            '<div class="stat-item">' +
+              '<div class="stat-label">平均着金額</div>' +
+              '<div class="stat-value">' + formatManYen(m.avgPrice) + '</div>' +
+            '</div>' +
+            '<div class="stat-item">' +
+              '<div class="stat-label">売上</div>' +
+              '<div class="stat-value">' + formatManYen(m.sales) + '</div>' +
+            '</div>' +
+          '</div>' +
+
+          // CO・継続
+          '<div class="card-section-label">\u{1F4B0} CO・継続</div>' +
+          '<div class="stats-row stats-row-2">' +
+            '<div class="stat-item">' +
+              '<div class="stat-label">CO額</div>' +
+              '<div class="stat-value">' + formatManYen(m.coAmount) + '</div>' +
+            '</div>' +
+            '<div class="stat-item">' +
+              '<div class="stat-label">CO数</div>' +
+              '<div class="stat-value">' + (m.coRevenue || 0) + '件</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="stats-row stats-row-2">' +
+            '<div class="stat-item">' +
+              '<div class="stat-label">失注(継続)</div>' +
+              '<div class="stat-value">' + (m.lostCont || 0) + '件</div>' +
+            '</div>' +
+            '<div class="stat-item">' +
+              '<div class="stat-label">継続数</div>' +
+              '<div class="stat-value">' + (m.cont || 0) + '件</div>' +
+            '</div>' +
+          '</div>' +
+
+          // 信販・審査
+          '<div class="card-section-label">\u{1F3E6} 信販・審査</div>' +
+          '<div class="stats-row stats-row-2">' +
+            '<div class="stat-item">' +
+              '<div class="stat-label">ライフティ</div>' +
+              '<div class="stat-value">' + escapeHtml(m.lifety) + '</div>' +
+            '</div>' +
+            '<div class="stat-item">' +
+              '<div class="stat-label">CBS</div>' +
+              '<div class="stat-value">' + escapeHtml(m.cbs) + '</div>' +
+            '</div>' +
+          '</div>' +
+
+          // 前月比較
           '<div class="prev-compare">' +
             '<div class="prev-compare-row">' +
-              '<span class="prev-label">前月着金額</span>' +
+              '<span class="prev-label">前月着金</span>' +
               '<span class="prev-value">' + formatManYen(m.prevRevenue) + '</span>' +
             '</div>' +
             '<div class="prev-compare-row">' +
@@ -2045,117 +2722,148 @@
             '</div>' +
           '</div>' +
 
-          buildMemberKgi(m) +
-          buildKpiBreakdown(m) +
-
-          // 商談・成約
-          '<div class="card-section-label">\u{1F4CA} 商談・成約</div>' +
-          '<div class="stats-row">' +
-            '<div class="stat-item">' +
-              '<div class="stat-label">全体商談数</div>' +
-              '<div class="stat-value">' + m.deals + '件</div>' +
-              diffHtml(m.diffDeals, '件', m.prevDeals) +
-            '</div>' +
-            '<div class="stat-item">' +
-              '<div class="stat-label">資金有り</div>' +
-              '<div class="stat-value">' + m.fundedDeals + '件</div>' +
-              (m.prevFundedDeals !== undefined ? diffHtml(m.fundedDeals - m.prevFundedDeals, '件', m.prevFundedDeals) : '') +
-            '</div>' +
-            '<div class="stat-item">' +
-              '<div class="stat-label">成約数</div>' +
-              '<div class="stat-value">' + m.closed + '件</div>' +
-              diffHtml(m.diffClosed, '件', m.prevClosed) +
-            '</div>' +
-          '</div>' +
-          (m.closed > 0 ?
-          '<div class="stats-row">' +
-            '<div class="stat-item">' +
-              '<div class="stat-label">コンサル</div>' +
-              '<div class="stat-value">' + (m.closedConsul || 0) + '件</div>' +
-            '</div>' +
-            '<div class="stat-item">' +
-              '<div class="stat-label">オンクラス</div>' +
-              '<div class="stat-value">' + (m.closedOnclass || 0) + '件</div>' +
-            '</div>' +
-          '</div>' : '') +
-          ((m.lost > 0 || m.lostByLfCbs > 0) ?
-          '<div class="stats-row">' +
-            '<div class="stat-item">' +
-              '<div class="stat-label">失注</div>' +
-              '<div class="stat-value" style="color:#EF4444;">' + (m.lost || 0) + '件</div>' +
-            '</div>' +
-            (m.lostByLfCbs > 0 ?
-            '<div class="stat-item">' +
-              '<div class="stat-label">LF/CBS否決失注</div>' +
-              '<div class="stat-value" style="color:#DC2626;">' + m.lostByLfCbs + '件</div>' +
-            '</div>' : '') +
-          '</div>' : '') +
-
-          // 成約率・売上・単価
-          '<div class="card-section-label">\u{1F4B5} 成約率・売上</div>' +
-          '<div class="stats-row">' +
-            '<div class="stat-item">' +
-              '<div class="stat-label">成約率</div>' +
-              '<div class="stat-value"' + (m.closeRateOver ? ' style="color:#7C3AED;"' : '') + '>' + (m.closeRate % 1 === 0 ? m.closeRate + '.0' : m.closeRate) + '%' + (m.closeRateOver ? '+' : '') + '</div>' +
-              diffHtml(m.diffCloseRate, '%', m.prevCloseRate) +
-            '</div>' +
-            '<div class="stat-item">' +
-              '<div class="stat-label">売上</div>' +
-              '<div class="stat-value">' + formatManYen(m.sales) + '</div>' +
-              (m.prevSales !== undefined ? diffHtml(Math.round((m.sales - m.prevSales) * 10) / 10, '万', m.prevSales) : '') +
-            '</div>' +
-            '<div class="stat-item">' +
-              '<div class="stat-label">平均単価</div>' +
-              '<div class="stat-value">' + formatManYen(m.avgPrice) + '</div>' +
-              (m.prevAvgPrice !== undefined ? diffHtml(Math.round((m.avgPrice - m.prevAvgPrice) * 10) / 10, '万', m.prevAvgPrice) : '') +
-            '</div>' +
-          '</div>' +
-
-          // CO・着金
-          '<div class="card-section-label">\u{1F4B0} CO・着金</div>' +
-          '<div class="stats-row">' +
-            '<div class="stat-item">' +
-              '<div class="stat-label">CO額</div>' +
-              '<div class="stat-value">' + formatManYen(m.coAmount) + '</div>' +
-              (m.prevCoAmount !== undefined ? diffHtml(Math.round((m.coAmount - m.prevCoAmount) * 10) / 10, '万', m.prevCoAmount) : '') +
-            '</div>' +
-            '<div class="stat-item">' +
-              '<div class="stat-label">クレカ着金</div>' +
-              '<div class="stat-value">' + formatManYen(m.creditCard) + '</div>' +
-              (m.prevCreditCard !== undefined ? diffHtml(Math.round((m.creditCard - m.prevCreditCard) * 10) / 10, '万', m.prevCreditCard) : '') +
-            '</div>' +
-            '<div class="stat-item">' +
-              '<div class="stat-label">信販着金</div>' +
-              '<div class="stat-value">' + formatManYen(m.shinpan) + '</div>' +
-              (m.prevShinpan !== undefined ? diffHtml(Math.round((m.shinpan - m.prevShinpan) * 10) / 10, '万', m.prevShinpan) : '') +
-            '</div>' +
-          '</div>' +
-
-          // 信販・審査
-          '<div class="card-section-label">\u{1F3E6} 信販・審査</div>' +
-          '<div class="stats-row">' +
-            '<div class="stat-item">' +
-              '<div class="stat-label">CO含着金</div>' +
-              '<div class="stat-value">' + formatManYen(m.coRevenue) + '</div>' +
-              (m.prevCoRevenue !== undefined ? diffHtml(Math.round((m.coRevenue - m.prevCoRevenue) * 10) / 10, '万', m.prevCoRevenue) : '') +
-            '</div>' +
-            '<div class="stat-item">' +
-              '<div class="stat-label">CBS</div>' +
-              '<div class="stat-value">' + escapeHtml(m.cbs) + '</div>' +
-            '</div>' +
-            '<div class="stat-item">' +
-              '<div class="stat-label">ライフティ</div>' +
-              '<div class="stat-value">' + escapeHtml(m.lifety) + '</div>' +
-            '</div>' +
-          '</div>' +
-
           '<div class="mini-progress-track">' +
             '<div class="mini-progress-fill ' + rateClass + '" style="width:' + Math.min(100, m.closeRate) + '%;"></div>' +
           '</div>' +
-          message;
+          message +
+          buildMemberKgi(m);
 
         container.appendChild(card);
       });
+    }
+
+    // ===== Detail Table =====
+    function updateDetailTable(data) {
+      var members = data.members || [];
+      var tbody = document.getElementById('detailTableBody');
+      var tfoot = document.getElementById('detailTableFoot');
+      var wrap = document.getElementById('detailTableWrap');
+      if (!members.length) { wrap.style.display = 'none'; return; }
+      wrap.style.display = '';
+
+      // ライフティ承認率を解析（"2/4" → 50）
+      function parseLifetyRate(s) {
+        if (!s || s === '-') return -1;
+        var parts = String(s).split('/');
+        if (parts.length !== 2) return -1;
+        var approved = parseInt(parts[0]);
+        var total = parseInt(parts[1]);
+        if (!total || isNaN(approved)) return -1;
+        return (approved / total) * 100;
+      }
+
+      var totals = { revenue:0, deals:0, closed:0, conClosed:0, onClosed:0, lost:0, lostCont:0, cont:0, sales:0, coCount:0, coAmount:0, creditCard:0, shinpan:0, prevRevenue:0, pastRevenue:0, cbsApplied:0, lfApplied:0, holidays:0, goalTotal:0 };
+      var gk = goalKey();
+      var gs = getGoalSettings();
+      var monthGoal = gs[gk] || {};
+      var memberKgi = monthGoal.memberKgi || {};
+      var cwPoints = data.chatworkPoints || {};
+
+      var rows = '';
+      for (var i = 0; i < members.length; i++) {
+        var m = members[i];
+        var iconHtml = m.icon ? '<img src="' + m.icon + '" alt="" onerror="this.style.display=\'none\'">' : '';
+
+        // プロキシ(closedConsul/closedOnclass) と GAS(conClosed/onClosed) 両対応
+        var conClosed = m.closedConsul || m.conClosed || 0;
+        var onClosed = m.closedOnclass || m.onClosed || 0;
+        var lost = (m.lost || 0) + (m.lostByLfCbs || 0);
+        var lostCont = m.lostContinuing || m.lostCont || 0;
+        var cont = m.continuing || m.cont || 0;
+        var coCount = m.coCount || m.coRevenue || 0;
+        var prevMRevenue = m.prevMonthRevenue || m.prevRevenue || 0;
+
+        // 成約率: ≥70→orange, ≤50→blue, else black
+        var rateClass = m.closeRate >= 70 ? 'val-positive' : (m.closeRate <= 50 ? 'val-negative' : '');
+        var rateWarn = rateClass === 'val-negative' ? ' \u26A0\uFE0F' : '';
+        // 平均着金: ≥150→orange, ≤100→blue, else black
+        var avgClass = m.avgPrice >= 150 ? 'val-positive' : (m.avgPrice <= 100 ? 'val-negative' : '');
+        var avgWarn = avgClass === 'val-negative' ? ' \u26A0\uFE0F' : '';
+        // ライフティ承認率: ≤50→blue
+        var lfRate = parseLifetyRate(m.lifety);
+        var lfClass = (lfRate >= 0 && lfRate <= 50) ? 'val-negative' : '';
+        var lfWarn = lfClass === 'val-negative' ? ' \u26A0\uFE0F' : '';
+        // CO額: 常に青
+        var coWarn = m.coAmount > 0 ? ' \u26A0\uFE0F' : '';
+
+        rows += '<tr>' +
+          '<td class="sticky-col sticky-rank col-rank">' + formatRank(m.rank) + '</td>' +
+          '<td class="sticky-col sticky-icon">' + iconHtml + '</td>' +
+          '<td class="sticky-col sticky-revenue col-revenue">' + formatManYen(m.revenue) + '</td>' +
+          calcPushCols(m, memberKgi) +
+          '<td>' + m.deals + '</td>' +
+          '<td>' + m.closed + '</td>' +
+          '<td>' + conClosed + '</td>' +
+          '<td>' + onClosed + '</td>' +
+          '<td class="' + (rateClass === 'val-negative' ? 'val-negative' : '') + '">' + lost + (rateClass === 'val-negative' && lost > 0 ? ' \u26A0\uFE0F' : '') + '</td>' +
+          '<td class="' + (rateClass === 'val-negative' ? 'val-negative' : '') + '">' + lostCont + (rateClass === 'val-negative' && lostCont > 0 ? ' \u26A0\uFE0F' : '') + '</td>' +
+          '<td>' + cont + '</td>' +
+          '<td class="' + rateClass + '">' + m.closeRate + '%' + rateWarn + '</td>' +
+          '<td class="' + avgClass + '">' + formatManYen(m.avgPrice) + avgWarn + '</td>' +
+          '<td>' + coCount + '</td>' +
+          '<td class="val-negative">' + formatManYen(m.coAmount) + coWarn + '</td>' +
+          '<td>' + formatManYen(m.creditCard) + '</td>' +
+          '<td>' + formatManYen(m.shinpan) + '</td>' +
+          '<td>' + formatManYen(prevMRevenue) + '</td>' +
+          '<td>' + formatManYen(m.pastRevenue || 0) + '</td>' +
+          '<td>' + escapeHtml(m.cbs) + '</td>' +
+          '<td class="' + lfClass + '">' + escapeHtml(m.lifety) + lfWarn + '</td>' +
+          '<td' + ((m.holidays || 0) > 8 ? ' class="val-negative"' : '') + '>' + formatHolidays(m.holidays) + '</td>' +
+          '<td style="background:#FFF7ED;font-weight:700;color:#EA580C;">' + ((cwPoints[m.name] || 0) === 0 ? '<span style="color:#EF4444;">0 ⚠️</span>' : cwPoints[m.name]) + '</td>' +
+          '<td>' + formatManYen(m.sales) + '</td>' +
+        '</tr>';
+        totals.goalTotal += (memberKgi[m.name] || 0);
+        totals.revenue += m.revenue || 0;
+        totals.deals += m.deals || 0;
+        totals.closed += m.closed || 0;
+        totals.conClosed += conClosed;
+        totals.onClosed += onClosed;
+        totals.lost += lost;
+        totals.lostCont += lostCont;
+        totals.cont += cont;
+        totals.sales += m.sales || 0;
+        totals.holidays += m.holidays || 0;
+        totals.coCount += coCount;
+        totals.coAmount += m.coAmount || 0;
+        totals.creditCard += m.creditCard || 0;
+        totals.shinpan += m.shinpan || 0;
+        totals.prevRevenue += prevMRevenue;
+        totals.pastRevenue += (m.pastRevenue || 0);
+        // CBS/ライフティ申請数を集計（"承認/申請"形式から申請数を取得）
+        var cbsParts = String(m.cbs || '').split('/');
+        if (cbsParts.length === 2 && !isNaN(parseInt(cbsParts[1]))) totals.cbsApplied += parseInt(cbsParts[1]);
+        var lfParts = String(m.lifety || '').split('/');
+        if (lfParts.length === 2 && !isNaN(parseInt(lfParts[1]))) totals.lfApplied += parseInt(lfParts[1]);
+      }
+      var totalCloseRate = totals.deals > 0 ? Math.round((totals.closed / totals.deals) * 1000) / 10 : 0;
+      var totalAvgPrice = totals.closed > 0 ? Math.round((totals.revenue / totals.closed) * 10) / 10 : 0;
+      tbody.innerHTML = rows;
+      tfoot.innerHTML = '<tr>' +
+        '<td class="sticky-col sticky-rank" colspan="1"></td>' +
+        '<td class="sticky-col sticky-icon">合計</td>' +
+        '<td class="sticky-col sticky-revenue col-revenue">' + formatManYen(totals.revenue) + '</td>' +
+        '<td style="background:#FEE8CD;"><span class="kgi-val">' + (totals.goalTotal > 0 ? formatManYen(totals.goalTotal) : '-') + '</span></td><td style="background:#FEE8CD;">' + (totals.goalTotal > 0 ? formatManYen(Math.max(0, totals.goalTotal - totals.revenue)) : '-') + '</td><td style="background:#FEE8CD;"></td><td style="background:#FEE8CD;"></td><td style="background:#FEE8CD;"></td>' +
+        '<td>' + totals.deals + '</td>' +
+        '<td>' + totals.closed + '</td>' +
+        '<td>' + totals.conClosed + '</td>' +
+        '<td>' + totals.onClosed + '</td>' +
+        '<td>' + totals.lost + '</td>' +
+        '<td>' + totals.lostCont + '</td>' +
+        '<td>' + totals.cont + '</td>' +
+        '<td>' + totalCloseRate + '%</td>' +
+        '<td>' + formatManYen(totalAvgPrice) + '</td>' +
+        '<td>' + totals.coCount + '</td>' +
+        '<td>' + formatManYen(totals.coAmount) + '</td>' +
+        '<td>' + formatManYen(totals.creditCard) + '</td>' +
+        '<td>' + formatManYen(totals.shinpan) + '</td>' +
+        '<td>' + formatManYen(totals.prevRevenue) + '</td>' +
+        '<td>' + formatManYen(totals.pastRevenue) + '</td>' +
+        '<td>' + totals.cbsApplied + '件</td>' +
+        '<td>' + totals.lfApplied + '件</td>' +
+        '<td>' + (totals.holidays % 1 === 0 ? totals.holidays : totals.holidays.toFixed(1)) + '日</td>' +
+        '<td style="background:#FFF7ED;font-weight:700;color:#EA580C;">' + (function(){ var t=0; for(var k in cwPoints) t+=cwPoints[k]; return t; })() + '</td>' +
+        '<td>' + formatManYen(totals.sales) + '</td>' +
+      '</tr>';
     }
 
     // ===== Payment News =====
@@ -2178,140 +2886,268 @@
       return html;
     }
 
+    function renderNewsGrouped(items, viewMonth, viewYear, holidayByDate, dailyPushes) {
+      // 日付ごとにグループ化
+      var groups = {};
+      for (var i = 0; i < items.length; i++) {
+        var key = items[i].date;
+        if (!groups[key]) {
+          groups[key] = { dateShort: items[i].dateShort, items: [], total: 0 };
+        }
+        groups[key].items.push(items[i]);
+        groups[key].total += items[i].amount;
+      }
+
+      // 当月1日〜今日（or月末）まで全日付を生成
+      var now = new Date();
+      var yr = viewYear || now.getFullYear();
+      var mo = viewMonth || (now.getMonth() + 1);
+      var lastDay = (yr === now.getFullYear() && mo === now.getMonth() + 1)
+        ? now.getDate()
+        : new Date(yr, mo, 0).getDate();
+
+      var hbd = holidayByDate || {};
+
+      function renderHolidayIcons(dateKey) {
+        var hols = hbd[dateKey];
+        if (!hols || hols.length === 0) return '';
+        // 営業メンバーのみ表示
+        var salesNames = {};
+        lastMembers.forEach(function(m) { salesNames[m.name] = true; });
+        hols = hols.filter(function(ho) { return salesNames[ho.name]; });
+        if (hols.length === 0) return '';
+        var h = '<span class="news-holiday-badges">';
+        for (var hi = 0; hi < hols.length; hi++) {
+          var ho = hols[hi];
+          var label = ho.type === 'half' ? '半休' : '休み';
+          var badgeCls = ho.type === 'half' ? 'news-holiday-badge half' : 'news-holiday-badge';
+          h += '<span class="' + badgeCls + '">';
+          if (ho.icon) {
+            h += '<img src="' + ho.icon + '" alt="" class="news-holiday-icon" onerror="this.style.display=\'none\'">';
+          }
+          h += '<span>' + escapeHtml(ho.name) + ' ' + label + '</span></span>';
+        }
+        h += '</span>';
+        return h;
+      }
+
+      var dpRaw = dailyPushes || {};
+      var dpTotals = dpRaw.totals || dpRaw;
+      var dpByMember = dpRaw.byMember || {};
+      var html = '';
+      var idx = 0;
+      for (var d = lastDay; d >= 1; d--) {
+        var dateKey = yr + '-' + String(mo).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+        var dateShort = mo + '/' + d;
+        var g = groups[dateKey];
+        var holHtml = renderHolidayIcons(dateKey);
+        var pushCount = dpTotals[dateKey] || 0;
+        var memberPushes = dpByMember[dateKey] || [];
+        var pushDetail = '';
+        if (memberPushes.length > 0) {
+          var parts = [];
+          for (var pi = 0; pi < memberPushes.length; pi++) {
+            parts.push(memberPushes[pi].name + ':' + memberPushes[pi].count);
+          }
+          pushDetail = '（' + parts.join(' / ') + '）';
+        }
+        // 下段: プッシュ行 + 休み行（それぞれ左寄せで統一）
+        var subLine = '';
+        if (pushCount > 0) {
+          subLine += '<div style="display:flex;align-items:center;gap:4px;padding:3px 12px;background:#EFF6FF;border-bottom:1px solid #E2E8F0;font-size:10px;">' +
+            '<span style="background:#3B82F6;color:#fff;font-weight:700;padding:1px 6px;border-radius:4px;">💪 プッシュ数 ' + pushCount + '</span>' +
+            '<span style="color:#64748B;">' + pushDetail + '</span>' +
+          '</div>';
+        }
+        if (holHtml) {
+          subLine += '<div style="display:flex;align-items:center;gap:4px;padding:3px 12px;background:#F8FAFC;border-bottom:1px solid #E2E8F0;font-size:10px;">' +
+            holHtml +
+          '</div>';
+        }
+
+        if (g) {
+          html += '<div class="news-date-group">' +
+            '<div class="news-date-header">' +
+              '<span>\u{1F4C5} ' + g.dateShort + '</span>' +
+              '<span class="news-date-total">合計 ' + formatManYen(Math.round(g.total * 10) / 10) + '</span>' +
+            '</div>' +
+            subLine;
+          for (var j = 0; j < g.items.length; j++) {
+            var item = g.items[j];
+            var iconImg = item.icon
+              ? '<img class="news-icon" src="' + item.icon + '" alt="" onerror="this.style.display=\'none\'">'
+              : '<div class="news-icon" style="background:#F1F5F9;display:flex;align-items:center;justify-content:center;font-size:14px;">\u{1F4B0}</div>';
+            html += '<div class="news-item fade-in-up" style="animation-delay:' + (isFirstLoad ? idx * 0.04 : 0) + 's;">' +
+                iconImg +
+              '<div class="news-content">' +
+                '<div class="news-amount"><strong>' + formatManYen(item.amount) + '</strong> \u7740\u91D1\uFF01</div>' +
+                '<div class="news-date">' + escapeHtml(item.name) + '</div>' +
+              '</div>' +
+            '</div>';
+            idx++;
+          }
+          html += '</div>';
+        } else {
+          html += '<div class="news-date-group">' +
+            '<div class="news-date-header">' +
+              '<span>\u{1F4C5} ' + dateShort + '</span>' +
+              '<span class="news-date-total" style="color:#94A3B8;font-weight:700;">0円</span>' +
+            '</div>' +
+            subLine +
+          '</div>';
+        }
+      }
+      return html;
+    }
+
+    function linkify(text) {
+      // cw-quoteタグを一時退避してからescapeし、戻す
+      var quoteOpen = [], quoteClose = 0;
+      var safe = text.replace(/<div class="cw-quote">/g, function() { quoteOpen.push(1); return '\x00QOPEN\x00'; })
+                     .replace(/<\/div>/g, function() { quoteClose++; return '\x00QCLOSE\x00'; });
+      var escaped = escapeHtml(safe);
+      escaped = escaped.replace(/\x00QOPEN\x00/g, '<div class="cw-quote">');
+      escaped = escaped.replace(/\x00QCLOSE\x00/g, '</div>');
+      return escaped.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener" style="color:#2563EB;word-break:break-all;">$1</a>');
+    }
+
+    function getMemberIcon(name) {
+      for (var i = 0; i < lastMembers.length; i++) {
+        var mn = lastMembers[i].name;
+        if ((mn === name || mn.indexOf(name) >= 0 || name.indexOf(mn) >= 0) && lastMembers[i].icon) return lastMembers[i].icon;
+      }
+      return '';
+    }
+
+    function updateKyosoMessages(data) {
+      var viewMonth = currentViewMonth || (new Date().getMonth() + 1);
+      var allMsgs = data.chatworkMessages || [];
+      // 表示中の月のメッセージだけフィルタ（time "MM/dd HH:mm"）
+      var msgs = allMsgs.filter(function(m) {
+        if (!m.time) return false;
+        var msgMonth = parseInt(m.time.split('/')[0]);
+        return msgMonth === viewMonth;
+      });
+      var cwPoints = data.chatworkPoints || {};
+      var section = document.getElementById('kyosoSection');
+      var feed = document.getElementById('kyosoFeed');
+      if (!msgs.length && !Object.keys(cwPoints).length) { section.style.display = 'none'; return; }
+      section.style.display = '';
+      var html = '';
+
+      // 共創ptランキング
+      var salesNames = {};
+      lastMembers.forEach(function(m) { salesNames[m.name] = true; });
+      var pointsArr = lastMembers.map(function(m) {
+        return { name: m.name, pts: cwPoints[m.name] || 0, icon: m.icon || getMemberIcon(m.name) || '' };
+      });
+      pointsArr.sort(function(a, b) { return b.pts - a.pts; });
+      var medals = ['🥇', '🥈', '🥉'];
+      var maxPts = pointsArr.length > 0 && pointsArr[0].pts > 0 ? pointsArr[0].pts : 1;
+      var medalBars = [
+        'linear-gradient(90deg,#F59E0B,#F97316)',
+        'linear-gradient(90deg,#94A3B8,#CBD5E1)',
+        'linear-gradient(90deg,#FDBA74,#FB923C)'
+      ];
+      html += '<div style="background:#FFF7ED;border:1px solid #FED7AA;border-radius:10px;padding:10px 12px;margin-bottom:14px;">';
+      html += '<div style="font-size:13px;font-weight:800;color:#854F0B;margin-bottom:8px;">🏆 共創ptランキング</div>';
+      html += '<div style="display:flex;flex-direction:column;gap:4px;">';
+      for (var r = 0; r < pointsArr.length; r++) {
+        var p = pointsArr[r];
+        var medal = r < 3 ? medals[r] : (r + 1) + '位';
+        var barPct = Math.min(100, Math.max(2, Math.round((p.pts / maxPts) * 100)));
+        var barBg = r < 3 ? medalBars[r] : 'linear-gradient(90deg,#FDBA74,#F97316)';
+        var iconEl = p.icon
+          ? '<img src="' + p.icon + '" style="width:22px;height:22px;border-radius:50%;object-fit:cover;border:1.5px solid #FED7AA;" onerror="this.style.display=\'none\'">'
+          : '';
+        html += '<div style="display:flex;align-items:center;gap:4px;">' +
+          '<span style="font-size:11px;min-width:22px;text-align:center;">' + medal + '</span>' +
+          iconEl +
+          '<div style="flex:1;height:20px;background:#FEF3C7;border-radius:6px;overflow:hidden;">' +
+            '<div style="width:' + barPct + '%;height:100%;background:' + barBg + ';border-radius:6px;transition:width 0.6s ease;"></div>' +
+          '</div>' +
+          '<span style="font-size:12px;font-weight:800;min-width:40px;text-align:right;color:' + (p.pts === 0 ? '#EF4444' : '#EA580C') + ';">' + (p.pts === 0 ? '0⚠️' : p.pts + 'pt') + '</span>' +
+        '</div>';
+      }
+      html += '</div></div>';
+
+      for (var i = 0; i < msgs.length; i++) {
+        var m = msgs[i];
+        var iconSrc = getMemberIcon(m.name) || m.icon || '';
+        var iconHtml = iconSrc
+          ? '<img src="' + iconSrc + '" alt="" style="width:28px;height:28px;border-radius:50%;object-fit:cover;border:1.5px solid #FED7AA;flex-shrink:0;" onerror="this.style.display=\'none\'">'
+          : '<div style="width:28px;height:28px;border-radius:50%;background:#F1F5F9;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">⚔️</div>';
+        html += '<div style="padding:10px 12px;border-left:3px solid #F59E0B;background:#FFFBEB;border-radius:8px;margin-bottom:6px;">' +
+          '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">' +
+            iconHtml +
+            '<span style="font-weight:700;color:#854F0B;font-size:13px;flex:1;">' + escapeHtml(m.name) + '</span>' +
+            '<span style="font-size:10px;color:#94A3B8;flex-shrink:0;">' + escapeHtml(m.time) + '</span>' +
+          '</div>' +
+          (function() {
+            var tos = m.to || [];
+            if (!tos.length) return '';
+            var th = '<div style="display:flex;align-items:center;gap:4px;margin-bottom:6px;flex-wrap:wrap;"><span style="font-size:10px;font-weight:700;color:#3B82F6;">To:</span>';
+            for (var ti = 0; ti < tos.length; ti++) {
+              var toIconSrc = getMemberIcon(tos[ti].name) || tos[ti].icon || '';
+              var toIconEl = toIconSrc ? '<img src="' + toIconSrc + '" style="width:20px;height:20px;border-radius:50%;object-fit:cover;border:1px solid #93C5FD;">' : '';
+              th += '<span style="display:inline-flex;align-items:center;gap:3px;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:6px;padding:2px 6px;font-size:11px;font-weight:600;color:#1D4ED8;">' + toIconEl + escapeHtml(tos[ti].name) + '</span>';
+            }
+            return th + '</div>';
+          })() +
+          '<div style="font-size:12px;color:#1E293B;line-height:1.6;white-space:pre-wrap;">' + linkify(m.body) + '</div>' +
+        '</div>';
+      }
+      feed.innerHTML = html;
+    }
+
     function updatePaymentNews(data, isArchive) {
       var topSection = document.getElementById('newsTop');
       var topFeed = document.getElementById('newsTopFeed');
       var allSection = document.getElementById('newsAll');
       var allFeed = document.getElementById('newsAllFeed');
 
-      if (isArchive || !data.paymentNews || data.paymentNews.length === 0) {
+      if (isArchive) {
         topSection.style.display = 'none';
-        if (isArchive) {
-          allSection.style.display = 'none';
-        } else {
-          allSection.style.display = '';
-          allFeed.innerHTML = '<div class="news-empty">まだ着金データがありません。日々の入力をお待ちしています！</div>';
-        }
+        allSection.style.display = 'none';
         return;
       }
 
-      // 当月: 着金速報を通常表示
+      // 当月: 着金速報を通常表示（データなしでも全日付表示）
       allSection.style.display = '';
-      topSection.style.display = 'block';
-      topFeed.innerHTML = renderNewsItems(data.paymentNews.slice(0, 7), 0);
-      allFeed.innerHTML = renderNewsItems(data.paymentNews, 0);
-    }
-    // ===== Chart.js defer対応: 読み込み完了後にペンディング描画 =====
-    window.addEventListener('load', function() {
-      if (pendingChartData && typeof Chart !== 'undefined') {
-        updateBarChart(pendingChartData);
+      var news = data.paymentNews || [];
+      if (news.length > 0) {
+        topSection.style.display = 'block';
+        topFeed.innerHTML = renderNewsItems(news.slice(0, 7), 0);
+      } else {
+        topSection.style.display = 'none';
       }
+      allFeed.innerHTML = renderNewsGrouped(news, currentViewMonth, currentViewYear, data.holidayByDate || {}, data.dailyPushes || {});
+    }
+  </script>
+
+  <!-- 右下固定 目次FAB -->
+  <div id="tocFab" style="position:fixed;bottom:20px;right:20px;z-index:9998;">
+    <div id="tocMenu" style="display:none;background:#FFF;border:1px solid #E2E8F0;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.15);padding:10px;margin-bottom:8px;min-width:160px;">
+      <a href="#membersBar" onclick="closeToc()" style="display:block;padding:6px 10px;font-size:12px;font-weight:600;color:#334155;text-decoration:none;border-radius:6px;">👥 メンバー</a>
+      <a href="#rankingSection" onclick="closeToc()" style="display:block;padding:6px 10px;font-size:12px;font-weight:600;color:#334155;text-decoration:none;border-radius:6px;">🏆 ランキング</a>
+      <a href="#detailTableWrap" onclick="closeToc()" style="display:block;padding:6px 10px;font-size:12px;font-weight:600;color:#334155;text-decoration:none;border-radius:6px;">📊 詳細テーブル</a>
+      <a href="#newsAll" onclick="closeToc()" style="display:block;padding:6px 10px;font-size:12px;font-weight:600;color:#334155;text-decoration:none;border-radius:6px;">📢 着金速報</a>
+      <a href="#bottleneckSection" onclick="closeToc()" style="display:block;padding:6px 10px;font-size:12px;font-weight:600;color:#334155;text-decoration:none;border-radius:6px;">🚀 👑 ボトルネック通知</a>
+      <a href="#kyosoSection" onclick="closeToc()" style="display:block;padding:6px 10px;font-size:12px;font-weight:600;color:#334155;text-decoration:none;border-radius:6px;">🤝 共創メッセージ</a>
+    </div>
+    <button onclick="toggleToc()" style="width:48px;height:48px;border-radius:50%;background:#1E40AF;color:#FFF;border:none;font-size:20px;box-shadow:0 2px 12px rgba(30,64,175,0.4);cursor:pointer;">📋</button>
+  </div>
+  <script>
+    function toggleToc() {
+      var m = document.getElementById('tocMenu');
+      m.style.display = m.style.display === 'none' ? 'block' : 'none';
+    }
+    function closeToc() {
+      document.getElementById('tocMenu').style.display = 'none';
+    }
+    document.addEventListener('click', function(e) {
+      if (!document.getElementById('tocFab').contains(e.target)) closeToc();
     });
-
-    // ===== チーム速報 System =====
-    var CELEBRATION_KEY = 'sales_dashboard_celebrations';
-
-    function getCelebrated() {
-      try { return JSON.parse(localStorage.getItem(CELEBRATION_KEY)) || {}; } catch(e) { return {}; }
-    }
-
-    function setCelebrated(data) {
-      localStorage.setItem(CELEBRATION_KEY, JSON.stringify(data));
-    }
-
-    function showTeamFlash(message, isGoalComplete) {
-      var container = document.getElementById('teamFlashContainer');
-      // 既存のバナーを削除
-      container.innerHTML = '';
-
-      var banner = document.createElement('div');
-      banner.className = 'team-flash' + (isGoalComplete ? ' goal-complete' : '');
-
-      var emojis = isGoalComplete
-        ? '\uD83C\uDF86\uD83C\uDF89\uD83C\uDF86'   // 🎆🎉🎆
-        : '\uD83C\uDF89\u2728\uD83C\uDF89';          // 🎉✨🎉
-
-      banner.innerHTML =
-        '<div class="team-flash-label">' + emojis + ' チーム速報！ ' + emojis + '</div>' +
-        '<div class="team-flash-msg">' + message + '</div>';
-
-      // 紙吹雪パーティクル
-      var confettiEmojis = ['\uD83C\uDF89', '\uD83C\uDF8A', '\u2728', '\u2B50', '\uD83C\uDF1F'];
-      var particleCount = window.innerWidth <= 768 ? 12 : 20;
-      for (var i = 0; i < particleCount; i++) {
-        var p = document.createElement('div');
-        p.className = 'team-flash-confetti';
-        p.textContent = confettiEmojis[Math.floor(Math.random() * confettiEmojis.length)];
-        p.style.left = Math.random() * 100 + '%';
-        p.style.top = '-10px';
-        p.style.fontSize = (10 + Math.random() * 14) + 'px';
-        p.style.animationDelay = (Math.random() * 1.5) + 's';
-        p.style.animationDuration = (1.5 + Math.random() * 2) + 's';
-        banner.appendChild(p);
-      }
-
-      container.appendChild(banner);
-
-      // スクロールして見えるようにする
-      banner.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-
-      // 自動で消さない（ずっと表示）→ 次の更新で消えるか新しい速報に置き換わる
-    }
-
-    function checkMilestones(totalRevenue, teamGoal) {
-      var gk = goalKey();
-      var celebrated = getCelebrated();
-      var monthCelebrated = celebrated[gk] || [];
-
-      // マイルストーン: 500万ごと + チームゴール
-      var milestones = [];
-      for (var m = 500; m <= Math.max(teamGoal, totalRevenue) + 500; m += 500) {
-        milestones.push(m);
-      }
-      if (milestones.indexOf(teamGoal) === -1 && teamGoal > 0) {
-        milestones.push(teamGoal);
-        milestones.sort(function(a, b) { return a - b; });
-      }
-
-      // 最も高い到達済みマイルストーンを探す
-      var highestReached = null;
-      for (var i = milestones.length - 1; i >= 0; i--) {
-        if (totalRevenue >= milestones[i]) {
-          highestReached = milestones[i];
-          break;
-        }
-      }
-
-      // 未祝のマイルストーンがあれば速報表示
-      var hasNew = false;
-      if (highestReached && monthCelebrated.indexOf(highestReached) === -1) {
-        hasNew = true;
-      }
-
-      if (hasNew) {
-        // 到達済みマイルストーンを全て記録
-        for (var j = 0; j < milestones.length; j++) {
-          if (milestones[j] <= totalRevenue && monthCelebrated.indexOf(milestones[j]) === -1) {
-            monthCelebrated.push(milestones[j]);
-          }
-        }
-        celebrated[gk] = monthCelebrated;
-        setCelebrated(celebrated);
-
-        var isGoalComplete = highestReached >= teamGoal;
-        var msg = isGoalComplete
-          ? '\uD83C\uDFC6 ゴール達成！ ' + formatOkuManYen(teamGoal) + ' \uD83C\uDFC6'
-          : formatOkuManYen(highestReached) + ' 突破！！！';
-        showTeamFlash(msg, isGoalComplete);
-      } else if (highestReached) {
-        // 既に祝済み → 最新の到達マイルストーンを常に表示
-        var isGoalComplete2 = highestReached >= teamGoal;
-        var msg2 = isGoalComplete2
-          ? '\uD83C\uDFC6 ゴール達成！ ' + formatOkuManYen(teamGoal) + ' \uD83C\uDFC6'
-          : formatOkuManYen(highestReached) + ' 突破！！！';
-        showTeamFlash(msg2, isGoalComplete2);
-      }
-    }
   </script>
 </body>
 </html>

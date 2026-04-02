@@ -1,9 +1,7 @@
 <?php
-// 営業ダッシュボード API プロキシ v5
-// revenue: 旧シート(debugSheetByGid) = スプシの数式が正
-// deals/closed: マスターCSV(フォーム回答) = GAS日別より正確
+// 営業ダッシュボード API プロキシ v6
+// 全データソース: マスターCSV（旧シート debugSheetByGid 廃止）
 // paymentNews/prev月: GAS action=api
-// syncFromOldSheetは走らせない
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 header('Cache-Control: public, max-age=60');
@@ -11,7 +9,6 @@ header('Cache-Control: public, max-age=60');
 // ===== 設定 =====
 $GAS_URL = 'https://script.google.com/macros/s/AKfycbwojGHuvzycc07FJKwBdbBJJQZpssF6lYz0DbNJlu6zsVuXkAj8V8w3XNBPieo2wsYbFg/exec';
 $MASTER_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1KxHeLmrpdaw1IUhBaQ46UWSHu-8SCRZqcrHOE2hMwDo/export?format=csv&gid=326094286';
-$OLD_SHEET_GID = '1235299010';
 $CACHE_DIR = __DIR__ . '/cache';
 $CACHE_TTL_LIVE = 180;
 $CACHE_TTL_ARCHIVE = 3600;
@@ -19,16 +16,70 @@ $CACHE_TTL_OTHER = 600;
 
 if (!is_dir($CACHE_DIR)) mkdir($CACHE_DIR, 0755, true);
 
-// 旧シートの列（メンバー位置）
-$COLS = ['C','F','I','L','O','R','U','X','AA','AD'];
+// ===== 共創pt（Chatwork投稿回数カウント） =====
+$CW_TOKEN = '561f22f75377bfa3c9a5c1ba18d38342';
+$KYOSO_ROOM_ID = '419910408';
+$KYOSO_FILE = $CACHE_DIR . '/kyoso_counts.json';
 
-// 旧シート表示名の補正
-$NAME_MAP = [
-    'スクリプト通りに営業' => 'スクリプトくん',
-    'スクリプト通りに営業するくん' => 'スクリプトくん',
+// Chatwork表示名 → ダッシュボード名マッピング
+$CW_NAME_MAP = [
+    // ビッグマウス
+    'ありのままを捨てる' => 'ビッグマウス',
+    'ありのまま' => 'ビッグマウス',
+    '桓齮' => 'ビッグマウス',
+    '桓騎' => 'ビッグマウス',
+    '首斬り桓騎' => 'ビッグマウス',
+    '辻阪' => 'ビッグマウス',
+    '辻坂' => 'ビッグマウス',
+    // AをAでやる
+    '意思決定' => 'AをAでやる',
+    '阿部' => 'AをAでやる',
+    '李信' => 'AをAでやる',
+    '信' => 'AをAでやる',
+    // ポジティブ
     'ドライ' => 'ポジティブ',
     '勝友美' => 'ポジティブ',
+    '伊東' => 'ポジティブ',
+    '勝' => 'ポジティブ',
+    // ぜんぶり
+    '五十嵐' => 'ぜんぶり',
+    '本田圭佑' => 'ぜんぶり',
+    // ヒトコト
+    '流川' => 'ヒトコト',
+    '久保田' => 'ヒトコト',
+    // スクリプトくん
+    'スクリプト通りに営業' => 'スクリプトくん',
+    'スクリプト通りに営業するくん' => 'スクリプトくん',
+    '新居' => 'スクリプトくん',
+    // ワントーン
+    'スマイル' => 'ワントーン',
+    '佐々木' => 'ワントーン',
+    '佐々木心雪' => 'ワントーン',
+    // けつだん
+    '福島' => 'けつだん',
+    // ゴン
+    '大久保' => 'ゴン',
+    '大久保友佑悟' => 'ゴン',
+    // トニー
+    '矢吹' => 'トニー',
+    '矢吹友一' => 'トニー',
+    // ダイレクトマッチ
+    'AをAでやる' => 'AをAでやる',
+    'ポジティブ' => 'ポジティブ',
+    'ヒトコト' => 'ヒトコト',
+    'ビッグマウス' => 'ビッグマウス',
+    'ぜんぶり' => 'ぜんぶり',
+    'スクリプトくん' => 'スクリプトくん',
+    'ワントーン' => 'ワントーン',
+    'けつだん' => 'けつだん',
+    'ゴン' => 'ゴン',
+    'トニー' => 'トニー',
 ];
+
+// 属性列インデックス（マスターシート列追加後に実際の値に更新）
+$COL_SEIKATSU_HOGO = 89;      // 生活保護
+$COL_SEISHIN_SHIKKAN = 90;    // 精神疾患
+$COL_SHOUGAISHA_TECHOU = 91;  // 障害者手帳
 
 // 本名 → v2メンバー名（マスターCSV用）
 $REAL_NAME_MAP = [
@@ -38,19 +89,17 @@ $REAL_NAME_MAP = [
     '辻阪' => 'ビッグマウス',
     '五十嵐' => 'ぜんぶり',
     '新居' => 'スクリプトくん',
-    '佐々木心雪' => 'ワントーン',
     '佐々木' => 'ワントーン',
+    '佐々木心雪' => 'ワントーン',
     '福島' => 'けつだん',
-    '大久保友佑悟' => 'ゴン',
     '大久保' => 'ゴン',
-    '矢吹友一' => 'トニー',
+    '大久保友佑悟' => 'ゴン',
     '矢吹' => 'トニー',
+    '矢吹友一' => 'トニー',
     'トニー' => 'トニー',
     '勝友美' => 'ポジティブ',
     '勝' => 'ポジティブ',
     'ドライ' => 'ポジティブ',
-    '川合' => 'リヴァイ',
-    '大内' => 'ガロウ',
 ];
 
 // レガシー名 → 現在の名前（アーカイブの旧名マッピング）
@@ -66,18 +115,16 @@ $LEGACY_NAME_MAP = [
 
 // アイコンマップ
 $ICON_MAP = [
-    'AをAでやる' => 'https://lh3.googleusercontent.com/d/10gj3l2D7PqGqZQZ1mmwyu4ZEZZPdem--',
-    'ポジティブ' => 'https://lh3.googleusercontent.com/d/1AdF_IRXMi_uGG7ctCjO7CkaJw7XUOb6y',
-    'トニー' => 'https://lh3.googleusercontent.com/d/1sHZ_zFFAitl7iVPEcIzQzpTD9cwL9FHv',
-    'ヒトコト' => 'https://lh3.googleusercontent.com/d/14TcuxzbVRRVNSjhlaOFDXdCXke_jV7m3',
-    'ゴン' => 'https://lh3.googleusercontent.com/d/1iwBxoCgXfmfOoUhTv4OUy7mir9XmvjJV',
-    'ビッグマウス' => 'https://lh3.googleusercontent.com/d/13EV9ouH2X5tD7GzqfSTA2osSptFuzrqZ',
-    'けつだん' => 'https://lh3.googleusercontent.com/d/1wnoxiF7PRZKSFPnjn0WXQb16hm-68Jlk',
-    'ぜんぶり' => 'https://lh3.googleusercontent.com/d/11_mTOKu5m2MFoufn36NjUQyLjOdXrpa5',
-    'スクリプトくん' => 'https://lh3.googleusercontent.com/d/1BSBMs3h5BgC1z0Tx8jyprPmDs11LTBPn',
-    'ワントーン' => 'https://lh3.googleusercontent.com/d/1tTXYHdXlPELox3hwXpAUnBCG_w2shjIQ',
-    'リヴァイ' => '',
-    'ガロウ' => '',
+    'AをAでやる' => 'https://giver.work/sales-dashboard/icons/abe.png',
+    'ポジティブ' => 'https://giver.work/sales-dashboard/icons/positive.png',
+    'トニー' => 'https://giver.work/sales-dashboard/icons/tony.png',
+    'ヒトコト' => 'https://giver.work/sales-dashboard/icons/hitokoto.png',
+    'ゴン' => 'https://giver.work/sales-dashboard/icons/gon.png',
+    'ビッグマウス' => 'https://giver.work/sales-dashboard/icons/bigmouth.png',
+    'けつだん' => 'https://giver.work/sales-dashboard/icons/ketsudan.png',
+    'ぜんぶり' => 'https://giver.work/sales-dashboard/icons/zenburi.png',
+    'スクリプトくん' => 'https://giver.work/sales-dashboard/icons/script-kun.png',
+    'ワントーン' => 'https://giver.work/sales-dashboard/icons/wantone.png',
 ];
 
 // ===== ヘルパー =====
@@ -110,6 +157,83 @@ function parseCsv($csv) {
     return $rows;
 }
 
+// マスターCSVをリクエスト内でキャッシュして返す
+function getMasterCsvRows() {
+    global $MASTER_SHEET_URL;
+    static $cached = null;
+    if ($cached !== null) return $cached;
+
+    $csv = gasRequest($MASTER_SHEET_URL);
+    if (!$csv) return null;
+
+    $cached = parseCsv($csv);
+    return empty($cached) ? null : $cached;
+}
+
+// ===== 共創pt関数 =====
+
+function resolveKyosoName($cwName) {
+    global $CW_NAME_MAP;
+    if (isset($CW_NAME_MAP[$cwName])) return $CW_NAME_MAP[$cwName];
+    // 部分一致（CWマップのキーがCW名に含まれているか）
+    foreach ($CW_NAME_MAP as $key => $val) {
+        if (mb_strlen($key) >= 2 && mb_strpos($cwName, $key) !== false) return $val;
+    }
+    return $cwName;
+}
+
+function updateKyosoCounts() {
+    global $CW_TOKEN, $KYOSO_ROOM_ID, $KYOSO_FILE;
+
+    // 既存データ読み込み
+    $data = file_exists($KYOSO_FILE) ? json_decode(file_get_contents($KYOSO_FILE), true) : [];
+    if (!is_array($data)) $data = [];
+
+    $now = new DateTime('now', new DateTimeZone('Asia/Tokyo'));
+    $month = $now->format('Y-m');
+    if (!isset($data[$month])) $data[$month] = [];
+
+    // Chatwork APIから新着メッセージ取得（force=0: 未読のみ）
+    $url = "https://api.chatwork.com/v2/rooms/$KYOSO_ROOM_ID/messages?force=0";
+    $ch = curl_init();
+    curl_setopt_array($ch, [
+        CURLOPT_URL => $url,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HTTPHEADER => ["X-ChatWorkToken: $CW_TOKEN"],
+        CURLOPT_TIMEOUT => 10,
+    ]);
+    $resp = curl_exec($ch);
+    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($code === 200 && $resp) {
+        $messages = json_decode($resp, true);
+        if (is_array($messages)) {
+            foreach ($messages as $msg) {
+                $cwName = $msg['account']['name'] ?? '';
+                if (!$cwName) continue;
+                $name = resolveKyosoName($cwName);
+                if (!isset($data[$month][$name])) $data[$month][$name] = 0;
+                $data[$month][$name]++;
+            }
+        }
+    }
+    // 204 = 新着なし（正常）
+
+    // 保存
+    file_put_contents($KYOSO_FILE, json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT), LOCK_EX);
+
+    return $data[$month] ?? [];
+}
+
+function getKyosoData() {
+    global $KYOSO_FILE;
+    $now = new DateTime('now', new DateTimeZone('Asia/Tokyo'));
+    $month = $now->format('Y-m');
+    $data = file_exists($KYOSO_FILE) ? json_decode(file_get_contents($KYOSO_FILE), true) : [];
+    return is_array($data) && isset($data[$month]) ? $data[$month] : [];
+}
+
 function resolveV2Name($rawField) {
     global $REAL_NAME_MAP;
     $rawPerson = explode('：', str_replace(':', '：', $rawField))[0];
@@ -132,64 +256,383 @@ function writeCache($cacheFile, $json) {
     file_put_contents($cacheFile, $json, LOCK_EX);
 }
 
-// ===== 旧シートからメンバーデータ構築（debugSheetByGid、sync不要） =====
+function parseAmount($s) {
+    if (!$s || !trim($s)) return 0.0;
+    return floatval(str_replace(',', '', trim($s)));
+}
 
-function fetchFromOldSheet() {
-    global $GAS_URL, $OLD_SHEET_GID, $COLS, $NAME_MAP, $ICON_MAP;
+/** 支払日付文字列をyyyy-MM-dd形式にパース（着金速報用） */
+function parsePayDate($dateStr, $defaultYear) {
+    $d = trim($dateStr);
+    if (!$d) return null;
+    // "2026/03/10" or "2026/3/10" 形式
+    if (preg_match('/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/', $d, $m)) {
+        return sprintf('%04d-%02d-%02d', $m[1], $m[2], $m[3]);
+    }
+    // "3/10" or "03/10" 形式（年なし → defaultYear）
+    if (preg_match('/^(\d{1,2})[\/\-](\d{1,2})/', $d, $m)) {
+        return sprintf('%04d-%02d-%02d', $defaultYear, $m[1], $m[2]);
+    }
+    return null;
+}
 
-    $debugUrl = $GAS_URL . '?action=run&fn=debugSheetByGid&gid=' . $OLD_SHEET_GID
-        . '&rows=4,5,6,7,8,9,10,11,12,13,15,17,18,20,21,25,29,30&cols=C,F,I,L,O,R,U,X,AA,AD,AG';
-    $resp = gasRequest($debugUrl);
-    if ($resp === false) return null;
+// ===== マスターCSVから全データ構築 =====
 
-    $debugData = json_decode($resp, true);
-    $rows = $debugData['result']['data'] ?? [];
-    if (empty($rows)) return null;
+function fetchFromMasterCSV($month, $year) {
+    global $MASTER_SHEET_URL, $ICON_MAP, $COL_SEIKATSU_HOGO, $COL_SEISHIN_SHIKKAN, $COL_SHOUGAISHA_TECHOU;
 
-    $row4 = $rows['row4'] ?? [];
+    $rows = getMasterCsvRows();
+    if (!$rows) return null;
+
+    // アポ日時の月マッチ用
+    $monthPrefix = $year . '/' . $month;
+    $monthPrefix2 = $year . '/' . str_pad($month, 2, '0', STR_PAD_LEFT);
+
+    // 前月プレフィックス（前月成約の当月着金判定用）
+    $prevMonth = $month - 1;
+    $prevYear = $year;
+    if ($prevMonth < 1) { $prevMonth = 12; $prevYear--; }
+    $prevMonthPrefix = $prevYear . '/' . $prevMonth;
+    $prevMonthPrefix2 = $prevYear . '/' . str_pad($prevMonth, 2, '0', STR_PAD_LEFT);
+
+    // 支払日付の月マッチ用（過去成約の当月着金判定）
+    $payPatterns = [
+        $month . '/',
+        str_pad($month, 2, '0', STR_PAD_LEFT) . '/',
+        $year . '/' . $month . '/',
+        $year . '/' . str_pad($month, 2, '0', STR_PAD_LEFT) . '/',
+    ];
+    $isPayMonth = function($dateStr) use ($payPatterns) {
+        if (!$dateStr || !trim($dateStr)) return false;
+        $d = trim($dateStr);
+        foreach ($payPatterns as $p) {
+            if (strpos($d, $p) === 0) return true;
+        }
+        return false;
+    };
+
+    // 支払スロット: [日付列, 着金額列, 支払手段列]
+    $paySlots = [
+        [38, 41, 40],  // ①
+        [45, 48, 47],  // ②
+        [52, 55, 54],  // ③
+        [63, 66, 65],  // ④
+        [70, 73, 72],  // ⑤
+        [77, 80, 79],  // ⑥
+        [84, 87, 86],  // ⑦
+    ];
+
+    // 重複ブロック検出（全行スキャン）
+    $lastDataRow = 0;
+    $duplicateStart = PHP_INT_MAX;
+    foreach ($rows as $idx => $row) {
+        if ($idx === 0 || count($row) < 12) continue;
+        if (!resolveV2Name($row[3] ?? '')) continue;
+        if ($lastDataRow > 0 && $idx - $lastDataRow > 500) {
+            $duplicateStart = $idx;
+            break;
+        }
+        $lastDataRow = $idx;
+    }
+
+    // 着金速報用
+    $paymentNews = [];
+
+    // 全メンバーを初期化（データがなくても表示するため）
+    $memberData = [];
+    foreach ($ICON_MAP as $name => $icon) {
+        $memberData[$name] = [
+            'revenue' => 0, 'pastRevenue' => 0, 'prevMonthRevenue' => 0, 'deals' => 0, 'closed' => 0, 'coCount' => 0,
+            'closedOnclass' => 0, 'closedConsul' => 0,
+            'lost' => 0, 'lostByLfCbs' => 0, 'lostContinuing' => 0, 'continuing' => 0,
+            'sales' => 0, 'coAmount' => 0, 'coRevenue' => 0,
+            'creditCard' => 0, 'shinpan' => 0, 'fundedDeals' => 0,
+            'cbsApproved' => 0, 'cbsApplied' => 0,
+            'lfApproved' => 0, 'lfApplied' => 0,
+            'seikatsuHogo' => 0, 'seishinShikkan' => 0, 'shougaishaTechou' => 0,
+        ];
+    }
+
+    // メインスキャン
+    foreach ($rows as $idx => $row) {
+        if ($idx === 0 || count($row) < 12) continue;
+        if ($idx >= $duplicateStart) break;
+
+        $v2Name = resolveV2Name($row[3] ?? '');
+        if (!$v2Name) continue;
+        if (!isset($memberData[$v2Name])) {
+            $memberData[$v2Name] = [
+                'revenue' => 0, 'deals' => 0, 'closed' => 0, 'coCount' => 0,
+                'closedOnclass' => 0, 'closedConsul' => 0,
+                'lost' => 0, 'lostByLfCbs' => 0, 'lostContinuing' => 0, 'continuing' => 0,
+                'sales' => 0, 'coAmount' => 0, 'coRevenue' => 0,
+                'creditCard' => 0, 'shinpan' => 0, 'fundedDeals' => 0,
+                'cbsApproved' => 0, 'cbsApplied' => 0,
+                'lfApproved' => 0, 'lfApplied' => 0,
+                'seikatsuHogo' => 0, 'seishinShikkan' => 0, 'shougaishaTechou' => 0,
+            ];
+        }
+
+        $ts = isset($row[2]) ? $row[2] : $row[0];
+        $isCurrentMonth = (strpos($ts, $monthPrefix) === 0 || strpos($ts, $monthPrefix2) === 0);
+
+        // 成約➔CO / 成約➔キャンセル / 成約➔失注 は成約・着金から除外（当月・過去月とも）
+        $status = trim($row[11]);
+        $isExcludedStatus = (strpos($status, '成約') !== false && (
+            strpos($status, 'CO') !== false ||
+            strpos($status, 'キャンセル') !== false ||
+            strpos($status, '失注') !== false
+        ));
+
+        // --- 商談集計（当月アポのみ） ---
+        // ※ deals は個別カウントせず、最終出力時に closed + 全失注 で再計算
+        if ($isCurrentMonth) {
+            $product = isset($row[12]) ? trim($row[12]) : '';
+            $payMethod1 = isset($row[19]) ? trim($row[19]) : '';
+            $payMethod2 = isset($row[20]) ? trim($row[20]) : '';
+            $lfVal = isset($row[24]) ? str_replace('✅', '', trim($row[24])) : '';
+            $cbsVal = isset($row[25]) ? str_replace('✅', '', trim($row[25])) : '';
+            $contractAmount = parseAmount($row[16] ?? '');
+
+            if (strpos($status, '成約') !== false && strpos($status, 'CO') !== false) {
+                // 成約➔CO: COカウント + 失注扱い
+                $memberData[$v2Name]['coCount']++;
+                $memberData[$v2Name]['coAmount'] += $contractAmount;
+            } elseif ($isExcludedStatus) {
+                // 成約➔キャンセル / 成約➔失注: 失注としてカウント
+                $memberData[$v2Name]['lost']++;
+            } elseif (strpos($status, '成約') !== false) {
+                $memberData[$v2Name]['closed']++;
+                $memberData[$v2Name]['sales'] += $contractAmount;
+                if (mb_strpos($product, 'オンクラス') !== false) {
+                    $memberData[$v2Name]['closedOnclass']++;
+                } else {
+                    $memberData[$v2Name]['closedConsul']++;
+                }
+            } elseif (strpos($status, '顧客情報に記入') !== false) {
+                // 継続中: アポ日から10日以上経過 → 失注（継続）扱い
+                $appoDate = strtotime($ts);
+                $nowTs = time();
+                if ($appoDate && ($nowTs - $appoDate) / 86400 >= 10) {
+                    $memberData[$v2Name]['lostContinuing']++;
+                } else {
+                    $memberData[$v2Name]['continuing']++;
+                }
+            } elseif ($status === '失注') {
+                if ($lfVal === '否決' || $cbsVal === '否決') {
+                    $memberData[$v2Name]['lostByLfCbs']++;
+                } else {
+                    $memberData[$v2Name]['lost']++;
+                }
+            }
+
+            // 属性カウント
+            $shVal = isset($row[$COL_SEIKATSU_HOGO]) ? trim($row[$COL_SEIKATSU_HOGO]) : '';
+            $ssVal = isset($row[$COL_SEISHIN_SHIKKAN]) ? trim($row[$COL_SEISHIN_SHIKKAN]) : '';
+            $stVal = isset($row[$COL_SHOUGAISHA_TECHOU]) ? trim($row[$COL_SHOUGAISHA_TECHOU]) : '';
+            if ($shVal !== '') $memberData[$v2Name]['seikatsuHogo']++;
+            if ($ssVal !== '') $memberData[$v2Name]['seishinShikkan']++;
+            if ($stVal !== '') $memberData[$v2Name]['shougaishaTechou']++;
+
+            // ライフティ: Y列(24)に値がある or 支払方法②にライフがある場合
+            if ($lfVal !== '' && $lfVal !== 'キャンセル') {
+                $memberData[$v2Name]['lfApplied']++;
+                if ($lfVal === '承認') $memberData[$v2Name]['lfApproved']++;
+            } elseif (mb_strpos($payMethod2, 'ライフ') !== false) {
+                $memberData[$v2Name]['lfApplied']++;
+            }
+            // CBS: Z列(25)に値がある場合
+            if ($cbsVal !== '' && $cbsVal !== 'キャンセル') {
+                $memberData[$v2Name]['cbsApplied']++;
+                if ($cbsVal === '承認') $memberData[$v2Name]['cbsApproved']++;
+            }
+        }
+
+        // --- 着金集計（当月アポの案件に紐づく全着金額を合計） ---
+        // 成約➔CO / 成約➔キャンセル / 成約➔失注 は着金から除外
+        if ($isCurrentMonth && !$isExcludedStatus) {
+            $dealRevenue = 0;
+            foreach ($paySlots as $slot) {
+                list($dateCol, $amountCol, $methodCol) = $slot;
+                if (count($row) <= $amountCol) continue;
+
+                $payAmount = parseAmount(isset($row[$amountCol]) ? $row[$amountCol] : '');
+                if ($payAmount > 0) {
+                    $memberData[$v2Name]['revenue'] += $payAmount;
+                    $dealRevenue += $payAmount;
+
+                    $payMethod = isset($row[$methodCol]) ? trim($row[$methodCol]) : '';
+                    if (mb_strpos($payMethod, 'ライフ') !== false || mb_strpos($payMethod, 'CBS') !== false) {
+                        $memberData[$v2Name]['shinpan'] += $payAmount;
+                    } else {
+                        $memberData[$v2Name]['creditCard'] += $payAmount;
+                    }
+
+                    // 着金速報: 支払日付をパースして追加（日付なしの場合はアポ日にフォールバック）
+                    $rawPayDate = isset($row[$dateCol]) ? trim($row[$dateCol]) : '';
+                    $parsedDate = parsePayDate($rawPayDate, $year);
+                    if (!$parsedDate) {
+                        $parsedDate = parsePayDate($ts, $year);
+                    }
+                    if ($parsedDate && $payAmount > 0) {
+                        $pd = explode('-', $parsedDate);
+                        $paymentNews[] = [
+                            'date' => $parsedDate,
+                            'dateShort' => intval($pd[1]) . '/' . intval($pd[2]),
+                            'name' => $v2Name,
+                            'icon' => $ICON_MAP[$v2Name] ?? '',
+                            'amount' => round($payAmount, 1),
+                        ];
+                    }
+                }
+            }
+
+            // 支払スロットが空の成約 → P列(支払①金額)+V列(支払②金額)をフォールバック
+            if ($dealRevenue == 0 && strpos($status, '成約') !== false) {
+                $payP = parseAmount($row[15] ?? '');  // P列: 支払①金額
+                $payV = parseAmount($row[21] ?? '');  // V列: 支払②金額
+                $fallbackAmount = $payP + $payV;
+
+                // P+Vも0なら契約金額（未着金=0かつ支払方法②なしの場合のみ）
+                if ($fallbackAmount == 0) {
+                    $unpaid = parseAmount($row[22] ?? '');
+                    $pm2check = isset($row[20]) ? trim($row[20]) : '';
+                    if ($unpaid == 0 && $pm2check === '') {
+                        $fallbackAmount = $contractAmount;
+                    }
+                }
+
+                if ($fallbackAmount > 0) {
+                    $dealRevenue = $fallbackAmount;
+                    $memberData[$v2Name]['revenue'] += $fallbackAmount;
+                    // 支払方法で分類: P→支払方法①(T列)、V→支払方法②(U列)
+                    $pm1 = isset($row[19]) ? trim($row[19]) : '';
+                    $pm2 = isset($row[20]) ? trim($row[20]) : '';
+                    if ($payP > 0) {
+                        if (mb_strpos($pm1, 'ライフ') !== false || mb_strpos($pm1, 'CBS') !== false) {
+                            $memberData[$v2Name]['shinpan'] += $payP;
+                        } else {
+                            $memberData[$v2Name]['creditCard'] += $payP;
+                        }
+                    }
+                    if ($payV > 0) {
+                        if (mb_strpos($pm2, 'ライフ') !== false || mb_strpos($pm2, 'CBS') !== false) {
+                            $memberData[$v2Name]['shinpan'] += $payV;
+                        } else {
+                            $memberData[$v2Name]['creditCard'] += $payV;
+                        }
+                    }
+                    // 着金速報: アポ日(C列)を使用
+                    $parsedDate = parsePayDate($ts, $year);
+                    if ($parsedDate && $fallbackAmount > 0) {
+                        $pd = explode('-', $parsedDate);
+                        $paymentNews[] = [
+                            'date' => $parsedDate,
+                            'dateShort' => intval($pd[1]) . '/' . intval($pd[2]),
+                            'name' => $v2Name,
+                            'icon' => $ICON_MAP[$v2Name] ?? '',
+                            'amount' => round($fallbackAmount, 1),
+                        ];
+                    }
+                }
+            }
+
+            if ($dealRevenue > 0) {
+                $memberData[$v2Name]['fundedDeals']++;
+            }
+
+            // CO案件の着金額
+            $status2 = trim($row[11]);
+            if (strpos($status2, '成約') !== false && strpos($status2, 'CO') !== false && $dealRevenue > 0) {
+                $memberData[$v2Name]['coRevenue'] += $dealRevenue;
+            }
+        } elseif (!$isExcludedStatus) {
+            // --- 過去成約の当月着金（前月以前のアポで、支払日付が当月のもの） ---
+            $isPrevMonth = (strpos($ts, $prevMonthPrefix) === 0 || strpos($ts, $prevMonthPrefix2) === 0);
+            foreach ($paySlots as $slot) {
+                list($dateCol, $amountCol, $methodCol) = $slot;
+                if (count($row) <= $amountCol) continue;
+
+                $payDate = isset($row[$dateCol]) ? $row[$dateCol] : '';
+                $payAmount = parseAmount(isset($row[$amountCol]) ? $row[$amountCol] : '');
+
+                if ($payAmount > 0 && $isPayMonth($payDate)) {
+                    // 着金速報: 過去アポの当月着金も追加
+                    $parsedDate = parsePayDate($payDate, $year);
+                    if ($parsedDate) {
+                        $pd = explode('-', $parsedDate);
+                        $paymentNews[] = [
+                            'date' => $parsedDate,
+                            'dateShort' => intval($pd[1]) . '/' . intval($pd[2]),
+                            'name' => $v2Name,
+                            'icon' => $ICON_MAP[$v2Name] ?? '',
+                            'amount' => round($payAmount, 1),
+                        ];
+                    }
+
+                    if ($isPrevMonth) {
+                        $memberData[$v2Name]['prevMonthRevenue'] += $payAmount;
+                    } else {
+                        $memberData[$v2Name]['pastRevenue'] += $payAmount;
+                    }
+                }
+            }
+        }
+    }
+
+    // メンバー配列に変換
     $members = [];
+    $totalRevenue = 0;
 
-    // AG6 = チーム合計着金額
-    $totalRev = round(floatval($rows['row6']['AG'] ?? 0), 1);
-
-    foreach ($COLS as $c) {
-        $raw = str_replace(['【','】'], '', $row4[$c] ?? '');
-        $name = $NAME_MAP[$raw] ?? $raw;
-        if (empty($name)) continue;
-
-        $revenue = round(floatval($rows['row6'][$c] ?? 0), 1);
+    foreach ($memberData as $name => $d) {
+        $closed = $d['closed'];
+        // 商談数 = 成約 + 全失注（CO・否決・継続失注を含む）
+        $totalLost = $d['lost'] + $d['lostByLfCbs'] + $d['lostContinuing'] + $d['coCount'];
+        $deals = $closed + $totalLost;
+        $sales = round($d['sales'], 1);
+        $revenue = round($d['revenue'], 1);
 
         $members[] = [
             'name' => $name,
             'icon' => $ICON_MAP[$name] ?? '',
             'revenue' => $revenue,
-            'deals' => 0,     // マスターCSVで上書き
-            'closed' => 0,    // マスターCSVで上書き
-            'closeRate' => 0, // マスターCSVで再計算
-            'coAmount' => round(floatval($rows['row30'][$c] ?? 0), 1),
-            'coRevenue' => intval($rows['row29'][$c] ?? 0),
-            'creditCard' => round(floatval($rows['row10'][$c] ?? 0), 1),
-            'shinpan' => round(floatval($rows['row11'][$c] ?? 0), 1),
-            'avgPrice' => round(floatval($rows['row12'][$c] ?? 0), 1),
-            'sales' => round(floatval($rows['row13'][$c] ?? 0), 1),
-            'fundedDeals' => intval($rows['row25'][$c] ?? 0),
-            'cbs' => '-',
-            'lifety' => '-',
-            'closedOnclass' => 0,
-            'closedConsul' => 0,
-            'lost' => 0,
-            'lostByLfCbs' => 0,
+            'pastRevenue' => round($d['pastRevenue'], 1),
+            'prevMonthRevenue' => round($d['prevMonthRevenue'], 1),
+            'deals' => $deals,
+            'closed' => $closed,
+            'closeRate' => $deals > 0 ? round($closed / $deals * 100, 1) : 0,
+            'coAmount' => round($d['coAmount'], 1),
+            'coRevenue' => round($d['coRevenue'], 1),
+            'creditCard' => round($d['creditCard'], 1),
+            'shinpan' => round($d['shinpan'], 1),
+            'avgPrice' => $closed > 0 ? round($sales / $closed, 1) : 0,
+            'sales' => $sales,
+            'fundedDeals' => $d['fundedDeals'],
+            'cbs' => $d['cbsApproved'] . '/' . $d['cbsApplied'],
+            'lifety' => $d['lfApproved'] . '/' . $d['lfApplied'],
+            'closedOnclass' => $d['closedOnclass'],
+            'closedConsul' => $d['closedConsul'],
+            'coCount' => $d['coCount'],
+            'continuing' => $d['continuing'],
+            'lost' => $d['lost'],
+            'lostByLfCbs' => $d['lostByLfCbs'],
+            'lostContinuing' => $d['lostContinuing'],
+            'seikatsuHogo' => $d['seikatsuHogo'],
+            'seishinShikkan' => $d['seishinShikkan'],
+            'shougaishaTechou' => $d['shougaishaTechou'],
             'prevRevenue' => 0, 'diffRevenue' => 0,
             'prevDeals' => 0, 'diffDeals' => 0,
             'prevClosed' => 0, 'diffClosed' => 0,
             'prevCloseRate' => 0, 'diffCloseRate' => 0,
         ];
+
+        $totalRevenue += $revenue;
     }
 
     // ランキング（revenue降順）
     usort($members, function($a, $b) { return $b['revenue'] <=> $a['revenue']; });
     $lastRev = -1; $lastRank = 0;
-    $topRev = $members[0]['revenue'] ?? 0;
+    $topRev = !empty($members) ? $members[0]['revenue'] : 0;
     foreach ($members as $i => &$m) {
         $m['rank'] = ($m['revenue'] == $lastRev) ? $lastRank : $i + 1;
         $lastRev = $m['revenue'];
@@ -199,92 +642,29 @@ function fetchFromOldSheet() {
     unset($m);
 
     $now = new DateTime('now', new DateTimeZone('Asia/Tokyo'));
+    $today = $now->format('Y-m-d');
+
+    // 着金速報: 未来日付を除外してから日付降順・金額降順でソート
+    $paymentNews = array_values(array_filter($paymentNews, function($n) use ($today) {
+        return $n['date'] <= $today;
+    }));
+    usort($paymentNews, function($a, $b) {
+        if ($a['date'] !== $b['date']) return strcmp($b['date'], $a['date']);
+        return $b['amount'] <=> $a['amount'];
+    });
 
     return [
         'members' => $members,
-        'totalRevenue' => $totalRev,
+        'totalRevenue' => round($totalRevenue, 1),
         'teamGoal' => 15000,
         'remaining' => 0,
         'progressRate' => 0,
         'dailyTarget' => 0,
         'daysLeft' => max(1, intval($now->format('t')) - intval($now->format('j'))),
         'currentMonth' => intval($now->format('n')),
-        'paymentNews' => [],
+        'paymentNews' => $paymentNews,
         'updatedAt' => $now->format('Y/m/d H:i:s'),
     ];
-}
-
-// ===== マスターCSVから商談数・成約内訳・失注・CBS/LFを取得 =====
-
-function fetchMasterSupplement($currentMonth, $currentYear) {
-    global $MASTER_SHEET_URL;
-    $csv = gasRequest($MASTER_SHEET_URL);
-    if (!$csv) return [];
-
-    $rows = parseCsv($csv);
-    $monthPrefix = $currentYear . '/' . $currentMonth;
-    $monthPrefix2 = $currentYear . '/' . str_pad($currentMonth, 2, '0', STR_PAD_LEFT);
-    $supplement = [];
-
-    foreach ($rows as $idx => $row) {
-        if ($idx === 0 || count($row) < 12) continue;
-        $ts = isset($row[2]) ? $row[2] : $row[0];
-        if (strpos($ts, $monthPrefix) !== 0 && strpos($ts, $monthPrefix2) !== 0) continue;
-
-        $v2Name = resolveV2Name($row[3] ?? '');
-        if (!$v2Name) continue;
-
-        if (!isset($supplement[$v2Name])) {
-            $supplement[$v2Name] = [
-                'deals' => 0, 'closed' => 0,
-                'closedOnclass' => 0, 'closedConsul' => 0,
-                'lost' => 0, 'lostByLfCbs' => 0,
-                'cbsApproved' => 0, 'cbsApplied' => 0,
-                'lfApproved' => 0, 'lfApplied' => 0,
-            ];
-        }
-
-        $status = trim($row[11]);
-        $product = isset($row[12]) ? trim($row[12]) : '';
-        $lfVal = isset($row[24]) ? str_replace('✅', '', trim($row[24])) : '';
-        $cbsVal = isset($row[25]) ? str_replace('✅', '', trim($row[25])) : '';
-        $payMethod2 = isset($row[20]) ? trim($row[20]) : '';
-
-        // 商談数カウント（statusが空でなければ全てカウント）
-        if ($status !== '') {
-            $supplement[$v2Name]['deals']++;
-        }
-
-        // 成約内訳
-        if ($status === '成約' || (strpos($status, '成約') !== false)) {
-            $supplement[$v2Name]['closed']++;
-            if (mb_strpos($product, 'オンクラス') !== false) {
-                $supplement[$v2Name]['closedOnclass']++;
-            } else {
-                $supplement[$v2Name]['closedConsul']++;
-            }
-        } elseif ($status === '失注') {
-            if ($lfVal === '否決' || $cbsVal === '否決') {
-                $supplement[$v2Name]['lostByLfCbs']++;
-            } else {
-                $supplement[$v2Name]['lost']++;
-            }
-        }
-
-        // ライフティ（母数はidx20の支払方法2で判定）
-        if (mb_strpos($payMethod2, 'ライフ') !== false) {
-            $supplement[$v2Name]['lfApplied']++;
-            if ($lfVal === '承認') $supplement[$v2Name]['lfApproved']++;
-        }
-
-        // CBS
-        if ($cbsVal !== '' && $cbsVal !== 'キャンセル') {
-            $supplement[$v2Name]['cbsApplied']++;
-            if ($cbsVal === '承認') $supplement[$v2Name]['cbsApproved']++;
-        }
-    }
-
-    return $supplement;
 }
 
 // ===== 着金速報取得（action=apiからpaymentNewsのみ抽出） =====
@@ -298,20 +678,23 @@ function fetchPaymentNews() {
     if (!$data || empty($data['paymentNews'])) return [];
 
     $news = $data['paymentNews'];
+    $today = date('Y-m-d', strtotime('now', strtotime('+9 hours'))); // JST
+    $filtered = [];
     foreach ($news as &$n) {
+        if (isset($n['date']) && $n['date'] > $today) continue;
         if (isset($LEGACY_NAME_MAP[$n['name']])) {
             $n['name'] = $LEGACY_NAME_MAP[$n['name']];
         }
+        $filtered[] = $n;
     }
     unset($n);
 
-    return $news;
+    return $filtered;
 }
 
 // ===== 前月データ補完（GASアーカイブから） =====
 
 function fillPrevMonthData(&$data) {
-    global $GAS_URL, $LEGACY_NAME_MAP;
     if (empty($data['members'])) return;
 
     $curMonth = $data['currentMonth'];
@@ -320,16 +703,13 @@ function fillPrevMonthData(&$data) {
     $prevYear = $curYear;
     if ($prevMonth < 1) { $prevMonth = 12; $prevYear--; }
 
-    $prevResp = gasRequest($GAS_URL . '?action=api&month=' . $prevMonth . '&year=' . $prevYear);
-    if (!$prevResp) return;
-
-    $prevData = json_decode($prevResp, true);
+    // マスターCSVから前月データ取得（GAS API廃止）
+    $prevData = fetchFromMasterCSV($prevMonth, $prevYear);
     if (!$prevData || empty($prevData['members'])) return;
 
     $prevMap = [];
     foreach ($prevData['members'] as $pm) {
-        $name = $LEGACY_NAME_MAP[$pm['name']] ?? $pm['name'];
-        $prevMap[$name] = $pm;
+        $prevMap[$pm['name']] = $pm;
     }
 
     foreach ($data['members'] as &$m) {
@@ -351,30 +731,6 @@ function fillPrevMonthData(&$data) {
         $m['prevCoRevenue'] = round(floatval($prev['coRevenue'] ?? 0), 1);
         $m['prevCreditCard'] = round(floatval($prev['creditCard'] ?? 0), 1);
         $m['prevShinpan'] = round(floatval($prev['shinpan'] ?? 0), 1);
-    }
-    unset($m);
-}
-
-// ===== 補足データマージ =====
-
-function mergeSupplement(&$data, $supplement) {
-    if (empty($supplement) || empty($data['members'])) return;
-
-    foreach ($data['members'] as &$m) {
-        $s = $supplement[$m['name']] ?? null;
-        if ($s) {
-            if ($s['deals'] > 0) {
-                $m['deals'] = $s['deals'];
-                $m['closed'] = $s['closed'];
-                $m['closeRate'] = $m['deals'] > 0 ? round($m['closed'] / $m['deals'] * 100, 1) : 0;
-            }
-            $m['closedOnclass'] = $s['closedOnclass'];
-            $m['closedConsul'] = $s['closedConsul'];
-            $m['lost'] = $s['lost'];
-            $m['lostByLfCbs'] = $s['lostByLfCbs'];
-            $m['cbs'] = $s['cbsApproved'] . '/' . $s['cbsApplied'];
-            $m['lifety'] = $s['lfApproved'] . '/' . $s['lfApplied'];
-        }
     }
     unset($m);
 }
@@ -415,22 +771,27 @@ function recalculate(&$data) {
 // ===== メインダッシュボードデータ取得 =====
 
 function fetchDashboardData() {
-    // 1. 旧シートからrevenue等を取得（debugSheetByGid、syncなし）
-    $data = fetchFromOldSheet();
+    $now = new DateTime('now', new DateTimeZone('Asia/Tokyo'));
+    $currentMonth = intval($now->format('n'));
+    $currentYear = intval($now->format('Y'));
+
+    // 1. マスターCSVから全データ取得
+    $data = fetchFromMasterCSV($currentMonth, $currentYear);
     if (!$data) return null;
 
-    $currentMonth = $data['currentMonth'];
-    $currentYear = intval(date('Y'));
+    // 2. 着金速報はマスターCSVから生成済み（fetchFromMasterCSV内で収集）
 
-    // 2. マスターCSVでdeals/closed/成約内訳/失注/CBS/LFを上書き
-    $supplement = fetchMasterSupplement($currentMonth, $currentYear);
-    mergeSupplement($data, $supplement);
-
-    // 3. 着金速報を取得（action=apiからpaymentNewsのみ）
-    $data['paymentNews'] = fetchPaymentNews();
-
-    // 4. 前月データ補完（GASアーカイブから）
+    // 3. 前月データ補完（GASアーカイブから）
     fillPrevMonthData($data);
+
+    // 4. 共創pt（Chatwork投稿回数）
+    $kyosoCounts = updateKyosoCounts();
+    if (!empty($data['members'])) {
+        foreach ($data['members'] as &$m) {
+            $m['kyosoPt'] = $kyosoCounts[$m['name']] ?? 0;
+        }
+        unset($m);
+    }
 
     // 5. ゴール設定 & 派生値
     applyGoalSettings($data, null, null);
@@ -442,22 +803,9 @@ function fetchDashboardData() {
 // ===== アーカイブデータ取得（過去月） =====
 
 function fetchArchiveData($month, $year) {
-    global $GAS_URL, $LEGACY_NAME_MAP;
-
-    $resp = gasRequest($GAS_URL . '?action=api&month=' . intval($month) . '&year=' . intval($year));
-    if (!$resp) return null;
-
-    $data = json_decode($resp, true);
-    if (!$data || isset($data['error'])) return null;
-
-    if (!empty($data['members'])) {
-        foreach ($data['members'] as &$m) {
-            if (isset($LEGACY_NAME_MAP[$m['name']])) {
-                $m['name'] = $LEGACY_NAME_MAP[$m['name']];
-            }
-        }
-        unset($m);
-    }
+    // マスターCSVから過去月データを取得（GAS API廃止）
+    $data = fetchFromMasterCSV(intval($month), intval($year));
+    if (!$data) return null;
 
     applyGoalSettings($data, $month, $year);
     recalculate($data);
@@ -476,12 +824,11 @@ if ($action === 'api' && $type === '') {
     $month = $params['month'] ?? null;
     $year = $params['year'] ?? null;
 
-    // 当月リクエストはlive扱い（旧シートから取得）
     $now = new DateTime('now', new DateTimeZone('Asia/Tokyo'));
     $isArchive = ($month && $year)
         && !(intval($month) === intval($now->format('n')) && intval($year) === intval($now->format('Y')));
     $ttl = $isArchive ? $CACHE_TTL_ARCHIVE : $CACHE_TTL_LIVE;
-    $cacheKey = 'v5_dashboard_' . ($isArchive ? $month . '_' . $year : 'live');
+    $cacheKey = 'v6_dashboard_' . ($isArchive ? $month . '_' . $year : 'live');
     $cacheFile = $CACHE_DIR . '/' . md5($cacheKey) . '.json';
 
     if (file_exists($cacheFile) && (time() - filemtime($cacheFile)) < $ttl) {
@@ -498,8 +845,54 @@ if ($action === 'api' && $type === '') {
     exit;
 }
 
-// その他（type=months, action=run等）はGASにそのまま転送
-$cacheKey = 'v5_passthrough_' . md5($query);
+// type=months: マスターCSVからPHPで直接生成（GAS API廃止）
+if ($action === 'api' && $type === 'months') {
+    $cacheKey = 'v6_months';
+    $cacheFile = $CACHE_DIR . '/' . md5($cacheKey) . '.json';
+
+    if (file_exists($cacheFile) && (time() - filemtime($cacheFile)) < $CACHE_TTL_OTHER) {
+        readfile($cacheFile);
+        exit;
+    }
+
+    $rows = getMasterCsvRows();
+    $now = new DateTime('now', new DateTimeZone('Asia/Tokyo'));
+    $curMonth = intval($now->format('n'));
+    $curYear = intval($now->format('Y'));
+
+    if (!$rows) {
+        $json = json_encode(['months' => [], 'current' => ['month' => $curMonth, 'year' => $curYear]], JSON_UNESCAPED_UNICODE);
+        writeCache($cacheFile, $json);
+        echo $json;
+        exit;
+    }
+
+    $seen = [];
+    $months = [];
+    foreach ($rows as $idx => $row) {
+        if ($idx === 0 || count($row) < 5) continue;
+        $ts = $row[2] ?? '';
+        if (preg_match('/^(\d{4})\/(\d{1,2})\//', $ts, $m)) {
+            $key = intval($m[1]) . '-' . intval($m[2]);
+            if (!isset($seen[$key])) {
+                $seen[$key] = true;
+                $months[] = ['month' => intval($m[2]), 'year' => intval($m[1])];
+            }
+        }
+    }
+    usort($months, function($a, $b) {
+        if ($a['year'] !== $b['year']) return $a['year'] - $b['year'];
+        return $a['month'] - $b['month'];
+    });
+
+    $json = json_encode(['months' => $months, 'current' => ['month' => $curMonth, 'year' => $curYear]], JSON_UNESCAPED_UNICODE);
+    writeCache($cacheFile, $json);
+    echo $json;
+    exit;
+}
+
+// その他はGASにそのまま転送（フォールバック）
+$cacheKey = 'v6_passthrough_' . md5($query);
 $cacheFile = $CACHE_DIR . '/' . $cacheKey . '.json';
 
 if (file_exists($cacheFile) && (time() - filemtime($cacheFile)) < $CACHE_TTL_OTHER) {
