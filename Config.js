@@ -71,24 +71,24 @@ var SM_ROW_KPI_PROGRESS     = 8;   // 年間目標進捗率
 
 var SM_ROW_MEMBER_HEADER    = 10;
 var SM_ROW_MEMBER_START     = 11;  // メンバーデータ開始
-var SM_ROW_MEMBER_END       = 20;  // 10人分 (11-20)
-var SM_ROW_MEMBER_TOTAL     = 21;  // 合計行
+var SM_ROW_MEMBER_END       = 26;  // 16人分 (11-26) ※10→16人に拡張
+var SM_ROW_MEMBER_TOTAL     = 27;  // 合計行
 
-var SM_ROW_PERIOD_HEADER    = 24;
-var SM_ROW_PERIOD_1_10      = 25;
-var SM_ROW_PERIOD_11_20     = 26;
-var SM_ROW_PERIOD_21_END    = 27;
+var SM_ROW_PERIOD_HEADER    = 30;
+var SM_ROW_PERIOD_1_10      = 31;
+var SM_ROW_PERIOD_11_20     = 32;
+var SM_ROW_PERIOD_21_END    = 33;
 
-var SM_ROW_BREAKDOWN_HEADER = 30;
-var SM_ROW_CREDIT_TOTAL     = 31;
-var SM_ROW_SHINPAN_TOTAL    = 32;
-var SM_ROW_CURRENT_REVENUE  = 33;
-var SM_ROW_CARRYOVER_REVENUE= 34;
-var SM_ROW_CUMULATIVE_CLOSED= 35;  // 8月からの累計成約数
+var SM_ROW_BREAKDOWN_HEADER = 36;
+var SM_ROW_CREDIT_TOTAL     = 37;
+var SM_ROW_SHINPAN_TOTAL    = 38;
+var SM_ROW_CURRENT_REVENUE  = 39;
+var SM_ROW_CARRYOVER_REVENUE= 40;
+var SM_ROW_CUMULATIVE_CLOSED= 41;  // 8月からの累計成約数
 
 // 退職者CO残セクション
-var SM_ROW_CO_HEADER        = 37;
-var SM_ROW_CO_START          = 38;
+var SM_ROW_CO_HEADER        = 43;
+var SM_ROW_CO_START          = 44;
 
 // --- サマリーシート: メンバーテーブル列定義 (1-based) ---
 var SM_COL_NAME          = 1;   // A: メンバー
@@ -122,8 +122,8 @@ var SETTINGS_COL_STATUS      = 4;  // D: ステータス
 var SETTINGS_COL_COLOR       = 5;  // E: 配色コード
 var SETTINGS_MEMBER_COL_COUNT= 5;
 
-// グローバル設定（行14以降）
-var SETTINGS_ROW_GLOBAL_START = 14;
+// グローバル設定（行22以降）※メンバー増加対応: 行2〜21で最大20人分
+var SETTINGS_ROW_GLOBAL_START = 22;
 // A列=ラベル, B列=値
 
 // ============================================
@@ -237,7 +237,11 @@ var REAL_NAME_TO_V2 = {
   '五十嵐': 'ぜんぶり',
   '新居': 'スクリプトくん',
   '佐々木': 'スマイル',
-  '佐々木心雪': 'スマイル'
+  '佐々木心雪': 'スマイル',
+  '長谷部': '長谷部',
+  '吉崎': 'ゴジータ',
+  '荒木': '悟空',
+  'こうつさ': 'やまと'
 };
 
 // v1内部名 → v2メンバー名（移行用）
@@ -293,7 +297,33 @@ var ICON_MAP = {
   'スマイル':   'https://giver.work/sales-dashboard/icons/smile.png',
   'ありのまま': 'https://giver.work/sales-dashboard/icons/arinomama.png',
   'ゴン':         'https://lh3.googleusercontent.com/d/1iwBxoCgXfmfOoUhTv4OUy7mir9XmvjJV',
-  'トニー':       'https://lh3.googleusercontent.com/d/1sHZ_zFFAitl7iVPEcIzQzpTD9cwL9FHv'
+  'トニー':       'https://lh3.googleusercontent.com/d/1sHZ_zFFAitl7iVPEcIzQzpTD9cwL9FHv',
+  '長谷部':       'https://appdata.chatwork.com/avatar/R769mN4PAr.rsz.jpg',
+  'ゴジータ':     'https://appdata.chatwork.com/avatar/372J8vnz75.png',
+  'L':            'https://appdata.chatwork.com/avatar/w7zBRgGD7l.png',
+  '悟空':         'https://appdata.chatwork.com/avatar/Vq3WYmk4ql.png',
+  'やまと':       'https://appdata.chatwork.com/avatar/Vq3WYnr8ql.rsz.png',
+  '夜神月':       'https://appdata.chatwork.com/avatar/zMEPJERa73.png'
+};
+
+// Chatwork account_id → v2メンバー名（アバター自動取得用）
+var CHATWORK_TO_V2 = {
+  '4415237':  'ありのまま',
+  '10258043': 'ヒトコト',
+  '10751140': '意思決定',
+  '10751530': 'ポジティブ',
+  '9418659':  'けつだん',
+  '10751652': 'スクリプト通りに営業するくん',
+  '10750441': 'ぜんぶり',
+  '9398311':  'スマイル',
+  '11109913': 'ゴン',
+  '11105287': 'トニー',
+  '11159019': '長谷部',
+  '10841091': 'ゴジータ',
+  '11232346': 'L',
+  '11205416': '悟空',
+  '10471342': 'やまと',
+  '11237452': '夜神月'
 };
 
 // ============================================
@@ -321,6 +351,77 @@ function displayName_(name) {
 /** アイコンURLを取得（v2メンバー名で検索） */
 function iconUrl_(name) {
   return ICON_MAP[name] || '';
+}
+
+/**
+ * ChatworkルームメンバーのアバターURLを取得してICON_MAPを更新
+ * ICON_MAPに未登録のメンバーのみ追加（既存は上書きしない）
+ * @param {string} roomId ルームID（デフォルト: ウォーリアーズ全体FF）
+ * @returns {Object} {updated: [], skipped: [], unknown: []}
+ */
+function syncChatworkAvatars(roomId) {
+  roomId = roomId || '412557550';
+  var token = getChatworkToken_();
+  if (!token) return { error: 'CHATWORK_API_TOKEN未設定' };
+
+  var url = 'https://api.chatwork.com/v2/rooms/' + roomId + '/members';
+  var response = UrlFetchApp.fetch(url, {
+    method: 'get',
+    headers: { 'X-ChatWorkToken': token },
+    muteHttpExceptions: true
+  });
+  if (response.getResponseCode() !== 200) return { error: 'API失敗: ' + response.getResponseCode() };
+
+  var members = JSON.parse(response.getContentText());
+  var result = { updated: [], skipped: [], unknown: [] };
+
+  for (var i = 0; i < members.length; i++) {
+    var m = members[i];
+    var v2Name = CHATWORK_TO_V2[String(m.account_id)];
+    if (!v2Name) {
+      result.unknown.push({ name: m.name, id: m.account_id, avatar: m.avatar_image_url });
+      continue;
+    }
+    if (ICON_MAP[v2Name]) {
+      result.skipped.push(v2Name);
+      continue;
+    }
+    ICON_MAP[v2Name] = m.avatar_image_url;
+    result.updated.push({ name: v2Name, avatar: m.avatar_image_url });
+  }
+
+  return result;
+}
+
+/**
+ * 全メンバーのアバターURLをChatworkから最新に更新（既存も上書き）
+ * @returns {Object} 更新結果
+ */
+function refreshAllAvatars(roomId) {
+  roomId = roomId || '412557550';
+  var token = getChatworkToken_();
+  if (!token) return { error: 'CHATWORK_API_TOKEN未設定' };
+
+  var url = 'https://api.chatwork.com/v2/rooms/' + roomId + '/members';
+  var response = UrlFetchApp.fetch(url, {
+    method: 'get',
+    headers: { 'X-ChatWorkToken': token },
+    muteHttpExceptions: true
+  });
+  if (response.getResponseCode() !== 200) return { error: 'API失敗: ' + response.getResponseCode() };
+
+  var members = JSON.parse(response.getContentText());
+  var updated = [];
+
+  for (var i = 0; i < members.length; i++) {
+    var m = members[i];
+    var v2Name = CHATWORK_TO_V2[String(m.account_id)];
+    if (!v2Name) continue;
+    ICON_MAP[v2Name] = m.avatar_image_url;
+    updated.push({ name: v2Name, avatar: m.avatar_image_url });
+  }
+
+  return { updated: updated };
 }
 
 /** 小数第1位まで丸める */

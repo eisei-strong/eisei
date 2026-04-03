@@ -499,10 +499,88 @@
     }
     .members-list {
       display: flex;
+      justify-content: center;
+      align-items: flex-end;
+      padding-top: 8px;
+      gap: 0;
+      overflow: visible;
+      gap: 0;
+    }
+    .team-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex: 1;
+      min-width: 0;
+      padding: 10px 4px 4px;
+      border-radius: 16px;
+      border: 2px solid transparent;
+      transition: all 0.3s;
+    }
+    .team-group.rank-1 {
+      background: linear-gradient(180deg, rgba(251,191,36,0.10) 0%, transparent 60%);
+      border-color: #FCD34D;
+      margin-top: -20px;
+    }
+    .team-group.rank-2 {
+      background: linear-gradient(180deg, rgba(148,163,184,0.10) 0%, transparent 60%);
+      border-color: #CBD5E1;
+    }
+    .team-group.rank-3 {
+      background: linear-gradient(180deg, rgba(251,146,60,0.08) 0%, transparent 60%);
+      border-color: #FDBA74;
+    }
+    /* 表彰台: 1位=真ん中, 2位=左, 3位=右 (HTMLは1位,2位,3位の順) */
+    .members-list > .team-group:nth-child(1) { order: 2; }
+    .members-list > .team-group:nth-child(2) { order: 1; }
+    .members-list > .team-group:nth-child(3) { order: 3; }
+    .team-group-header {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      margin-bottom: 8px;
+    }
+    .team-group-medal {
+      font-size: 28px;
+      line-height: 1;
+    }
+    .team-group-label {
+      font-size: 12px;
+      font-weight: 800;
+      color: #334155;
+      letter-spacing: 0.03em;
+      padding: 2px 10px;
+      white-space: nowrap;
+    }
+    .team-group.rank-1 .team-group-label { color: #92400E; }
+    .team-group.rank-2 .team-group-label { color: #475569; }
+    .team-group.rank-3 .team-group-label { color: #9A3412; }
+    .team-group-revenue {
+      font-size: 16px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+    .team-group.rank-1 .team-group-revenue { color: #D97706; }
+    .team-group.rank-2 .team-group-revenue { color: #64748B; }
+    .team-group.rank-3 .team-group-revenue { color: #EA580C; }
+    .team-group-rank {
+      display: none;
+    }
+    .team-group-members {
+      display: flex;
       justify-content: space-around;
       align-items: flex-end;
-      padding-top: 24px;
+      width: 100%;
+      padding-top: 16px;
       overflow: visible;
+    }
+    .team-divider {
+      width: 2px;
+      background: #E2E8F0;
+      align-self: stretch;
+      margin: 0 6px;
+      border-radius: 2px;
     }
     .member-item {
       display: flex;
@@ -513,15 +591,6 @@
       min-width: 0;
       position: relative;
     }
-    .member-item:first-child .member-item-bubble {
-      left: 0;
-      transform: none;
-    }
-    .member-item:first-child .member-item-bubble::after {
-      left: 24px;
-    }
-    .member-item:nth-child(odd) { margin-bottom: 18px; }
-    .member-item:nth-child(even) { margin-bottom: 0; }
     .member-item-avatar {
       width: 80px;
       height: 80px;
@@ -606,12 +675,25 @@
     }
 
     @media (max-width: 768px) {
-      .members-bar { padding: 16px; }
-      .members-bar h3 { font-size: 12px; margin-bottom: 12px; }
-      .member-item-avatar { width: 48px; height: 48px; border-width: 2px; }
-      .member-item-name { font-size: 9px; }
-      .member-item-bubble { font-size: 8px; padding: 2px 6px; top: -22px; }
-      .member-item:nth-child(odd) { margin-bottom: 12px; }
+      .members-bar { padding: 12px; }
+      .members-bar h3 { font-size: 11px; margin-bottom: 8px; }
+      .members-list { flex-direction: column; gap: 8px; }
+      .team-group { flex-direction: column; }
+      .team-group-label { font-size: 10px; }
+      .team-group { padding: 6px 2px 2px; border-radius: 12px; }
+      .members-list > .team-group:nth-child(1) { order: 1; }
+      .members-list > .team-group:nth-child(2) { order: 2; }
+      .members-list > .team-group:nth-child(3) { order: 3; }
+      .team-group.rank-1 { margin-top: 0; }
+      .team-group-header { margin-bottom: 4px; }
+      .team-group-medal { font-size: 22px; }
+      .team-group-revenue { font-size: 13px; }
+      .team-group-label { font-size: 10px; }
+      .team-group-members { padding-top: 8px; }
+      .team-divider { display: none; }
+      .member-item-avatar { width: 40px; height: 40px; border-width: 2px; }
+      .member-item-name { font-size: 8px; }
+      .member-item-bubble { font-size: 7px; padding: 2px 5px; top: -18px; }
     }
 
     /* ===== Goal Progress ===== */
@@ -1622,6 +1704,7 @@
           <div class="section-title">🏆 各種ランキング</div>
           <!-- ランキングタブ -->
           <div id="rankingTabs" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px;">
+            <button class="rank-tab" data-tab="team" onclick="switchRankTab('team')">👥チーム</button>
             <button class="rank-tab active glow" data-tab="revenue" onclick="switchRankTab('revenue')">💰着金額</button>
             <button class="rank-tab" data-tab="closeRate" onclick="switchRankTab('closeRate')">🎯成約率</button>
             <button class="rank-tab" data-tab="kyoso" onclick="switchRankTab('kyoso')">🤝共創</button>
@@ -1837,9 +1920,10 @@
       local[gk] = goalData;
       setGoalSettings(local);
       closeGoalSettings();
-      // GAS直接URLにPOST（全端末共有）
-      fetch(GAS_DIRECT, {
+      // api-proxy.phpにPOST（サーバー共有 → 全端末反映）
+      fetch(GAS_API, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'saveGoals', key: gk, teamGoal: goalData.teamGoal, memberKgi: goalData.memberKgi })
       }).catch(function(e) { console.warn('Goal save failed:', e); });
       // 再描画
@@ -2152,7 +2236,7 @@
       return div.innerHTML;
     }
 
-    // ===== Strongest Members =====
+    // ===== Strongest Members (チーム制) =====
     function updateStrongestMembers(data) {
       var bar = document.getElementById('membersBar');
       var container = document.getElementById('strongestMembers');
@@ -2160,8 +2244,9 @@
       bar.style.display = '';
 
       var daysLeft = data.daysLeft || 0;
+      var teamNames = data.teamNames || {};
 
-      // 今日の休みマップを構築 { name: 'full'|'half' }
+      // 今日の休みマップを構築
       var todayOff = {};
       var hbd = data.holidayByDate || {};
       var now = new Date();
@@ -2173,25 +2258,40 @@
       function makeBubble(m, idx, offType) {
         if (offType === 'full') return '休み';
         if (offType === 'half') return '半休';
-        if (idx === 0) return formatManYen(m.revenue) + ' でトップ独走！';
-        if (m.gapToTop > 0 && m.gapToTop < 200) return 'あと' + formatManYen(m.gapToTop) + '！';
-        if (m.closeRate >= 60) return '成約率' + m.closeRate + '%！';
+        // 1位
+        if (idx === 0 && m.revenue > 0) return formatManYen(m.revenue) + ' でトップ独走！';
+        // 着金あり＋トップ僅差
+        if (m.revenue > 0 && m.gapToTop > 0 && m.gapToTop < 100) return 'あと' + formatManYen(m.gapToTop) + '！';
+        // 着金あり
+        if (m.revenue > 0) return formatManYen(m.revenue) + ' 着金済み';
+        // 成約あり
+        if (m.closed > 0) return m.closed + '件成約！着金待ち';
+        // 成約率高い
+        if (m.closeRate >= 60 && m.deals >= 3) return '成約率' + m.closeRate + '%！';
+        // 商談中
+        if (m.deals > 0 && m.continuing > 0) return m.deals + '件商談中';
+        if (m.deals > 0) return m.deals + '件プッシュ済み';
+        // 残り日数少ない
         if (daysLeft > 0 && daysLeft <= 10) return '残り' + daysLeft + '日 全力！';
-        return formatManYen(m.revenue) + ' チェックイン';
+        // デフォルト: ランダム応援メッセージ
+        var cheers = ['今月もファイト！', 'まだまだこれから！', '全力で行こう！', '最初の1件を！'];
+        var ci = 0;
+        for (var c = 0; c < m.name.length; c++) ci += m.name.charCodeAt(c);
+        return cheers[ci % cheers.length];
       }
 
-      // 出勤 / 半休 / 全休に分類
-      var working = [], halfOff = [], fullOff = [];
+      // チームごとにグループ化
+      var teams = {};
       data.members.forEach(function(m, idx) {
         if (!m.icon) return;
+        var t = m.team || 0;
+        if (!teams[t]) teams[t] = [];
         var off = todayOff[m.name];
-        if (off === 'full') fullOff.push({m:m, idx:idx});
-        else if (off === 'half') halfOff.push({m:m, idx:idx});
-        else working.push({m:m, idx:idx});
+        teams[t].push({m: m, idx: idx, off: off || null});
       });
 
-      function renderItem(item, offType) {
-        var m = item.m, idx = item.idx;
+      function renderItem(item) {
+        var m = item.m, idx = item.idx, offType = item.off;
         var cls = 'member-item';
         if (idx === 0 && !offType) cls += ' is-top';
         if (offType === 'full') cls += ' is-off';
@@ -2204,13 +2304,59 @@
           '</div>';
       }
 
+      // チーム着金ランキング → メダル割り当て
+      var teamRevenues = {};
+      data.members.forEach(function(m) {
+        var t = m.team || 0;
+        teamRevenues[t] = (teamRevenues[t] || 0) + (m.revenue || 0);
+      });
+      var teamRankList = Object.keys(teamRevenues).sort(function(a, b) {
+        return (teamRevenues[b] || 0) - (teamRevenues[a] || 0);
+      });
+      var teamMedals = {};
+      var medalEmojis = ['\uD83E\uDD47', '\uD83E\uDD48', '\uD83E\uDD49'];
+      // 同額タイ対応: 同じ着金額なら同じ順位
+      var teamRankText = {};
+      var currentRank = 1;
+      teamRankList.forEach(function(tid, i) {
+        if (i > 0 && (teamRevenues[teamRankList[i - 1]] || 0) !== (teamRevenues[tid] || 0)) {
+          currentRank = i + 1;
+        }
+        teamRankText[tid] = currentRank;
+        if (currentRank <= 3) teamMedals[tid] = medalEmojis[currentRank - 1];
+      });
+
+      // チームを着金順に並べる（1位が左）
+      var sortedTeamIds = teamRankList.filter(function(tid) { return teams[tid]; });
+      // teamRankListに含まれないチームも追加
+      Object.keys(teams).forEach(function(tid) {
+        if (sortedTeamIds.indexOf(tid) === -1) sortedTeamIds.push(tid);
+      });
+
       var html = '';
-      working.forEach(function(item) { html += renderItem(item, null); });
-      halfOff.forEach(function(item) { html += renderItem(item, 'half'); });
-      if (fullOff.length > 0 && (working.length > 0 || halfOff.length > 0)) {
-        html += '<div class="members-divider"></div>';
-      }
-      fullOff.forEach(function(item) { html += renderItem(item, 'full'); });
+      sortedTeamIds.forEach(function(tid, i) {
+        var tName = teamNames[tid] || 'チーム' + tid;
+        var medal = teamMedals[tid] || '';
+        var rev = Math.round(teamRevenues[tid] || 0);
+        var rank = teamRankText[tid] || 0;
+        var rankClass = rank <= 3 ? ' rank-' + rank : '';
+        // チーム内: 出勤→半休→全休の順に並べる
+        var sorted = teams[tid].sort(function(a, b) {
+          var oa = a.off === 'full' ? 2 : a.off === 'half' ? 1 : 0;
+          var ob = b.off === 'full' ? 2 : b.off === 'half' ? 1 : 0;
+          return oa - ob;
+        });
+        var membersHtml = '';
+        sorted.forEach(function(item) { membersHtml += renderItem(item); });
+        html += '<div class="team-group' + rankClass + '">' +
+          '<div class="team-group-header">' +
+            '<div class="team-group-medal">' + medal + '</div>' +
+            '<div class="team-group-label">' + escapeHtml(tName) + '</div>' +
+            '<div class="team-group-revenue">' + formatManYen(rev) + '</div>' +
+          '</div>' +
+          '<div class="team-group-members">' + membersHtml + '</div>' +
+          '</div>';
+      });
       container.innerHTML = html;
     }
 
@@ -2301,6 +2447,70 @@
       var members = data.members || [];
       var cwPoints = data.chatworkPoints || {};
       var tab = currentRankTab;
+
+      // --- チームランキング ---
+      if (tab === 'team') {
+        var teamNames = data.teamNames || {};
+        var teamTotals = {};
+        members.forEach(function(m) {
+          var t = m.team || 0;
+          if (!teamTotals[t]) teamTotals[t] = { id: t, revenue: 0, deals: 0, closed: 0, closeRate: 0 };
+          teamTotals[t].revenue += (m.revenue || 0);
+          teamTotals[t].deals += (m.deals || 0);
+          teamTotals[t].closed += (m.closed || 0);
+        });
+        var teamItems = [];
+        for (var tid in teamTotals) {
+          var tt = teamTotals[tid];
+          tt.closeRate = tt.deals > 0 ? Math.round(tt.closed / tt.deals * 100) : 0;
+          tt.name = teamNames[tid] || 'チーム' + tid;
+          teamItems.push(tt);
+        }
+        teamItems.sort(function(a, b) { return b.revenue - a.revenue; });
+
+        var medals = ['\uD83E\uDD47', '\uD83E\uDD48', '\uD83E\uDD49'];
+        var medalBars = [
+          'linear-gradient(90deg,#F59E0B,#F97316)',
+          'linear-gradient(90deg,#94A3B8,#CBD5E1)',
+          'linear-gradient(90deg,#FDBA74,#FB923C)'
+        ];
+        var topRev = teamItems.length > 0 ? teamItems[0].revenue : 1;
+        if (topRev <= 0) topRev = 1;
+
+        // 同額タイ対応: 順位割り当て
+        var teamRanks = [];
+        var curRank = 1;
+        for (var ri = 0; ri < teamItems.length; ri++) {
+          if (ri > 0 && teamItems[ri].revenue !== teamItems[ri - 1].revenue) curRank = ri + 1;
+          teamRanks.push(curRank);
+        }
+
+        var html = '<div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:10px;padding:10px 12px;">';
+        html += '<div style="display:flex;flex-direction:column;gap:8px;">';
+        for (var i = 0; i < teamItems.length; i++) {
+          var t = teamItems[i];
+          var tRank = teamRanks[i];
+          var medal = tRank <= 3 ? medals[tRank - 1] : tRank + '\u4F4D';
+          var barPct = Math.min(100, Math.max(2, Math.round((t.revenue / topRev) * 100)));
+          var barBg = i < 3 ? medalBars[i] : 'linear-gradient(90deg,#FCD34D,#F59E0B)';
+          html += '<div style="display:flex;align-items:center;gap:6px;">' +
+            '<span style="font-size:16px;min-width:26px;text-align:center;">' + medal + '</span>' +
+            '<span style="font-size:13px;font-weight:800;min-width:90px;color:#92400E;white-space:nowrap;">' + escapeHtml(t.name) + '</span>' +
+            '<div style="flex:1;height:24px;background:#FEF3C7;border-radius:6px;overflow:hidden;">' +
+              '<div style="width:' + barPct + '%;height:100%;background:' + barBg + ';border-radius:6px;transition:width 0.6s ease;"></div>' +
+            '</div>' +
+            '<span style="font-size:13px;font-weight:800;min-width:60px;text-align:right;color:#D97706;">' + formatManYen(Math.round(t.revenue)) + '</span>' +
+          '</div>' +
+          '<div style="padding-left:32px;display:flex;gap:12px;font-size:11px;color:#78716C;">' +
+            '<span>\u5546\u8AC7 ' + t.deals + '\u4EF6</span>' +
+            '<span>\u6210\u7D04 ' + t.closed + '\u4EF6</span>' +
+            '<span>\u6210\u7D04\u7387 ' + t.closeRate + '%</span>' +
+          '</div>';
+        }
+        html += '</div></div>';
+        container.innerHTML = html;
+        return;
+      }
 
       // ランキングデータ生成
       var items = members.map(function(m) {
@@ -2401,6 +2611,11 @@
     function updateBottleneck(data) {
       var section = document.getElementById('bottleneckSection');
       var container = document.getElementById('bottleneckContent');
+
+      // 月初（1〜5日）はデータ不足のためボトルネック非表示
+      var nowDate = new Date();
+      if (nowDate.getDate() < 6) { section.style.display = 'none'; return; }
+
       var members = data.members || [];
       var cwPoints = data.chatworkPoints || {};
       if (!members.length) { section.style.display = 'none'; return; }

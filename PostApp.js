@@ -6,7 +6,7 @@
 var POST_APP_SS_ID = '1rQSoM2zu38aPXJHHD6ILEgyM0SEDOXHXZXz0qK_nQuk';
 
 // シート構造定数
-var POST_APP_SHEET_NAME = '【4月】投稿数 ⚠️嬴政と星野のみ編集可能';
+var POST_APP_SHEET_NAME = '【4月】投稿数';
 var POST_APP_AUTH_SHEET = '認証';
 var POST_APP_ID_COL = 1;      // A列: ID
 var POST_APP_PW_COL = 2;         // B列: パスワード（平文）
@@ -270,7 +270,8 @@ function postAppLogin_(id, password) {
   recordLogin_(String(id).trim());
   var loginData = getLoginStreakData_(String(id).trim());
 
-  return { ok: true, id: String(id).trim(), name: String(name), token: token, month: monthData, login: loginData };
+  var goal = postAppGetGoal_(String(id).trim());
+  return { ok: true, id: String(id).trim(), name: String(name), token: token, month: monthData, login: loginData, goal: goal };
 }
 
 // ---- 全月データ取得（ログイン後のリフレッシュ用） ----
@@ -300,7 +301,8 @@ function postAppGet_(token) {
   recordLogin_(String(id).trim());
   var loginData = getLoginStreakData_(String(id).trim());
 
-  return { ok: true, id: String(id).trim(), name: String(name), month: monthData, login: loginData };
+  var goal = postAppGetGoal_(String(id).trim());
+  return { ok: true, id: String(id).trim(), name: String(name), month: monthData, login: loginData, goal: goal };
 }
 
 // ---- 月データ一括取得ヘルパー ----
@@ -341,7 +343,7 @@ function postAppSave_(token, value, col) {
   var id = verifyToken_(token);
   if (!id) return { error: 'セッション切れです。再ログインしてください。' };
 
-  var validValues = ['❌', '1本', '2本', '3本'];
+  var validValues = ['❌', '1本', '2本', '3本', '4本', '5本', '6本'];
   if (validValues.indexOf(value) < 0) return { error: '無効な値です: ' + value };
 
   var ss = SpreadsheetApp.openById(POST_APP_SS_ID);
@@ -374,6 +376,26 @@ function postAppSave_(token, value, col) {
   var total = sheet.getRange(row, POST_APP_TOTAL_COL).getValue();
 
   return { ok: true, saved: value, col: colNum, total: total };
+}
+
+// ============================================
+// 投稿目標
+// ============================================
+
+function postAppGetGoal_(id) {
+  var props = PropertiesService.getScriptProperties();
+  var val = props.getProperty('postapp_goal_' + id);
+  return val ? parseInt(val) : 0;
+}
+
+function postAppSetGoal_(token, goal) {
+  var id = verifyToken_(token);
+  if (!id) return { error: 'セッション切れです。再ログインしてください。' };
+  var g = parseInt(goal);
+  if (isNaN(g) || g < 0 || g > 999) return { error: '無効な目標値です' };
+  var props = PropertiesService.getScriptProperties();
+  props.setProperty('postapp_goal_' + id, String(g));
+  return { ok: true, goal: g };
 }
 
 // ============================================
@@ -1121,7 +1143,7 @@ function fixPostAppTotal() {
   if (lastRow < 2) return;
   var formulas = [];
   for (var r = 2; r <= lastRow; r++) {
-    formulas.push(['=COUNTIF(G' + r + ':AJ' + r + ',"1本")+COUNTIF(G' + r + ':AJ' + r + ',"2本")*2+COUNTIF(G' + r + ':AJ' + r + ',"3本")*3']);
+    formulas.push(['=COUNTIF(G' + r + ':AJ' + r + ',"1本")+COUNTIF(G' + r + ':AJ' + r + ',"2本")*2+COUNTIF(G' + r + ':AJ' + r + ',"3本")*3+COUNTIF(G' + r + ':AJ' + r + ',"4本")*4+COUNTIF(G' + r + ':AJ' + r + ',"5本")*5+COUNTIF(G' + r + ':AJ' + r + ',"6本")*6']);
   }
   sheet.getRange(2, POST_APP_TOTAL_COL, formulas.length, 1).setFormulas(formulas);
   Logger.log('Done: ' + formulas.length + ' rows updated');

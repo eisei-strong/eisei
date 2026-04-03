@@ -2020,7 +2020,7 @@ function setLColumnValidation() {
   var master = smc.getSheetByName(SMC_MASTER_SHEET);
   var lastRow = master.getLastRow();
   if (lastRow <= 1) return { error: 'no data' };
-  var values = ['成約', '成約➔CO', '失注', '継続'];
+  var values = ['成約', '成約➔CO', '失注', '継続', '継続2→成約', '継続3→成約', '継続4→成約'];
   var rule = SpreadsheetApp.newDataValidation()
     .requireValueInList(values, true)
     .setAllowInvalid(true)
@@ -2554,6 +2554,11 @@ V2_COL_MAP_[37] = 33; // Form AL(ステータス)      → Master AH(33)
 V2_COL_MAP_[38] = 34; // Form AM(契約アドレス)    → Master AI(34)
 V2_COL_MAP_[39] = 35; // Form AN(契約日)        → Master AJ(35)
 
+// 商談時間1~5: フォーム末尾5列 → マスター DA~DE(col 105-109)
+var V2_SHODAN_TIME_FORM_START_ = 41;
+var V2_SHODAN_TIME_MASTER_COL_ = 105; // DA = 105列目
+var V2_SHODAN_TIME_COUNT_ = 5;
+
 /**
  * フォーム直近30件をA+Rキーでマスターにupsert。別関数。本番未使用。
  */
@@ -3022,7 +3027,7 @@ function v2Merge_(old, nw, tz) {
 }
 
 // マスターL列の入力規則で許可されている値
-var V2_L_ALLOWED_ = ['成約', '成約➔CO', '顧客情報に記入', '失注'];
+var V2_L_ALLOWED_ = ['成約', '成約➔CO', '顧客情報に記入', '失注', '継続2→成約', '継続3→成約', '継続4→成約'];
 // マスターAE列(30)郵送確認の入力規則で許可されている値
 var V2_AE_ALLOWED_ = ['郵送同意を得た', '確認中', '郵送局留め', '自宅以外郵送', 'オンクラス'];
 
@@ -3207,23 +3212,33 @@ function getHolidayData_(targetMonth, targetYear) {
     // 阿部＝意思決定
     '李信': '意思決定', 'AをAで': '意思決定', '意思決定': '意思決定', '童信': '意思決定', '阿部': '意思決定',
     // 伊東＝ポジティブ
-    'ポジティブ': 'ポジティブ', 'ポジティブ': 'ポジティブ', '勝': 'ポジティブ', '勝友美': 'ポジティブ', '伊東': 'ポジティブ',
-    // 新居＝スクリプトくん
-    'セナ': 'スクリプトくん', 'せな': 'スクリプトくん', 'スクリプト': 'スクリプトくん', '新居': 'スクリプトくん',
+    'ポジティブ': 'ポジティブ', '勝': 'ポジティブ', '勝友美': 'ポジティブ', '伊東': 'ポジティブ', 'ドライ': 'ポジティブ',
+    // 新居＝1日1more（旧スクリプトくん）
+    'セナ': '1日1more', 'せな': '1日1more', 'スクリプト': '1日1more', '新居': '1日1more', 'スクリプトくん': '1日1more', '1日1more': '1日1more',
     // 久保田＝ヒトコト
     'ヒトコト': 'ヒトコト', '流川': 'ヒトコト', '久保田': 'ヒトコト',
     // 五十嵐＝ぜんぶり
     '本田圭佑': 'ぜんぶり', 'ぜんぶり': 'ぜんぶり', '五十嵐': 'ぜんぶり',
-    // 大久保＝ゴン
-    'ゴン': 'ゴン', '大久保': 'ゴン',
-    // 矢吹＝トニー
-    'トニー': 'トニー', '矢吹': 'トニー',
+    // 大久保＝言い切り（旧ゴン）
+    'ゴン': '言い切り', '大久保': '言い切り', '言い切り': '言い切り',
+    // 矢吹＝週1休みくん（旧トニー）
+    'トニー': '週1休みくん', '矢吹': '週1休みくん', '週1休みくん': '週1休みくん',
     // 福島＝けつだん
     'ヒカル': 'けつだん', 'けつだん': 'けつだん', '福島': 'けつだん',
     // 辻阪＝ありのまま
     '桓騎': 'ありのまま', 'ありのまま': 'ありのまま', '辻阪': 'ありのまま',
     // 佐々木＝スマイル
-    '大飛': 'スマイル', 'やまと': 'スマイル', 'スマイル': 'スマイル', '佐々木': 'スマイル',
+    '大飛': 'スマイル', 'スマイル': 'スマイル', '佐々木': 'スマイル',
+    // 吉崎＝ゴジータ
+    '吉崎': 'ゴジータ', 'ゴジータ': 'ゴジータ',
+    // L
+    'L': 'L',
+    // 荒木＝悟空
+    '荒木': '悟空', '悟空': '悟空',
+    // やまと
+    'こうつさ': 'やまと', 'やまと': 'やまと',
+    // 夜神月
+    '夜神月': '夜神月',
     // スキップ対象
     '押切': null, 'TAKUYA∞': null, '介入': null, '一歩': null, '龍馬': null, 'サキヨミ': null,
   };
@@ -3305,6 +3320,100 @@ function getHolidayData_(targetMonth, targetYear) {
 function testHolidayData() {
   var data = getHolidayData_();
   Logger.log('parsed: ' + JSON.stringify(data));
+}
+
+// ============================================
+// 休日データ → スプレッドシート書き出し + PHPサーバー送信
+// clasp push のみで反映（デプロイ不要）
+// ============================================
+
+/**
+ * 休日データをスプレッドシートに書き出し、PHPサーバーにJSON送信
+ * time-basedトリガーで1時間ごとに実行
+ */
+function writeHolidayDataToSheet() {
+  var now = new Date();
+  var month = now.getMonth() + 1;
+  var year = now.getFullYear();
+
+  // 休日データ取得（CalendarApp使用）
+  var data = getHolidayData_(month, year);
+  if (!data || !data.byDate) {
+    Logger.log('休日データなし');
+    return;
+  }
+
+  // --- 1. スプレッドシートに書き出し（目視確認用） ---
+  var MASTER_SS_ID = '1KxHeLmrpdaw1IUhBaQ46UWSHu-8SCRZqcrHOE2hMwDo';
+  var ss = SpreadsheetApp.openById(MASTER_SS_ID);
+  var sheetName = '休日データ';
+  var sheet = ss.getSheetByName(sheetName);
+  if (!sheet) {
+    sheet = ss.insertSheet(sheetName);
+  }
+
+  // ヘッダー + データ行を構築
+  var rows = [['date', 'name', 'type']];
+  var dateKeys = Object.keys(data.byDate).sort();
+  for (var di = 0; di < dateKeys.length; di++) {
+    var dk = dateKeys[di];
+    for (var i = 0; i < data.byDate[dk].length; i++) {
+      var h = data.byDate[dk][i];
+      rows.push([dk, h.name, h.type]);
+    }
+  }
+
+  // クリアして書き込み
+  if (sheet.getLastRow() > 0) {
+    sheet.clearContents();
+  }
+  if (rows.length > 0) {
+    sheet.getRange(1, 1, rows.length, 3).setValues(rows);
+  }
+
+  Logger.log('休日データシート更新: ' + (rows.length - 1) + '行, GID=' + sheet.getSheetId());
+
+  // --- 2. PHPサーバーにJSON送信 ---
+  var payload = {
+    action: 'updateHoliday',
+    secret: 'gas_holiday_push_2026',
+    month: month,
+    year: year,
+    byDate: data.byDate,
+    counts: data.counts
+  };
+
+  try {
+    var response = UrlFetchApp.fetch('https://giver.work/sales-dashboard/api-proxy.php', {
+      method: 'post',
+      contentType: 'application/json',
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    });
+    Logger.log('PHP push: ' + response.getContentText());
+  } catch (e) {
+    Logger.log('PHP push error: ' + e.message);
+  }
+}
+
+/**
+ * 休日データ送信の定期トリガーを設定（1時間ごと）
+ * Apps Scriptエディタで手動実行してください
+ */
+function installHolidayPushTrigger() {
+  // 既存トリガー削除
+  var triggers = ScriptApp.getProjectTriggers();
+  for (var i = 0; i < triggers.length; i++) {
+    if (triggers[i].getHandlerFunction() === 'writeHolidayDataToSheet') {
+      ScriptApp.deleteTrigger(triggers[i]);
+    }
+  }
+  // 1時間ごとトリガー
+  ScriptApp.newTrigger('writeHolidayDataToSheet')
+    .timeBased()
+    .everyHours(1)
+    .create();
+  Logger.log('Holiday push trigger installed (every 1 hour)');
 }
 
 function debugCalendarEvents() {
@@ -3831,18 +3940,19 @@ function setDColumnValidation() {
     var dRange = sh.getRange('D2:D10000');
     var lRange = sh.getRange('L2:L10000');
 
-    // 既存のD列・L列ルールを除去、その他は保持
+    // 既存のD列・L列・行全体ルールを除去、その他は保持
     var existing = sh.getConditionalFormatRules();
     var otherRules = [];
     for (var ri = 0; ri < existing.length; ri++) {
       var ranges = existing[ri].getRanges();
-      var isDorL = false;
+      var isManaged = false;
       for (var rri = 0; rri < ranges.length; rri++) {
         var col = ranges[rri].getColumn();
         var ncols = ranges[rri].getNumColumns();
-        if ((col === 4 || col === 12) && ncols === 1) isDorL = true;
+        if ((col === 4 || col === 12) && ncols === 1) isManaged = true;
+        if (col === 1 && ncols > 10) isManaged = true; // 行全体ルール
       }
-      if (!isDorL) otherRules.push(existing[ri]);
+      if (!isManaged) otherRules.push(existing[ri]);
     }
 
     // D列バッジを最優先（リスト先頭）に配置 → 行全体の背景色に勝つ
@@ -3870,23 +3980,23 @@ function setDColumnValidation() {
         .build());
     }
 
-    // フォーム回答シートには行全体の色分けも追加
+    // 両シートに行全体の色分けを追加
     var rowRules = [];
-    if (sh.getName() === SMC_FORM_SHEET) {
-      var rowRange = sh.getRange('A2:AP10000');
-      // CO含む → 行全体黄色（成約より先に判定）
-      rowRules.push(SpreadsheetApp.newConditionalFormatRule()
-        .whenFormulaSatisfied('=FIND("CO",$L2)')
-        .setBackground('#FFFF99')
-        .setRanges([rowRange])
-        .build());
-      // 成約（継続2→成約、継続3→成約 含む）→ 行全体赤
-      rowRules.push(SpreadsheetApp.newConditionalFormatRule()
-        .whenFormulaSatisfied('=FIND("成約",$L2)')
-        .setBackground('#FF9999')
-        .setRanges([rowRange])
-        .build());
-    }
+    var rowRange = (sh.getName() === SMC_FORM_SHEET)
+      ? sh.getRange('A2:AP10000')
+      : sh.getRange('A2:DI10000');
+    // CO含む → 行全体黄色（成約より先に判定）
+    rowRules.push(SpreadsheetApp.newConditionalFormatRule()
+      .whenFormulaSatisfied('=FIND("CO",$L2)')
+      .setBackground('#FFFF99')
+      .setRanges([rowRange])
+      .build());
+    // 成約（継続2→成約、継続3→成約、継続4→成約 含む）→ 行全体赤
+    rowRules.push(SpreadsheetApp.newConditionalFormatRule()
+      .whenFormulaSatisfied('=FIND("成約",$L2)')
+      .setBackground('#FF9999')
+      .setRanges([rowRange])
+      .build());
 
     // D列バッジ → L列ステータス → 行全体ルール → その他既存ルール の順で適用
     sh.setConditionalFormatRules(dRules.concat(lRules).concat(rowRules).concat(otherRules));

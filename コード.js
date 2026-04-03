@@ -178,6 +178,12 @@ function doPost(e) {
         .setMimeType(ContentService.MimeType.JSON);
     }
 
+    if (action === 'postSetGoal') {
+      var psgResult = postAppSetGoal_(payload.token, payload.goal);
+      return ContentService.createTextOutput(JSON.stringify(psgResult))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
     return ContentService.createTextOutput(JSON.stringify({ error: 'unknown action' }))
       .setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
@@ -523,6 +529,17 @@ function doGet(e) {
     try {
       var prkResult = postAppRanking_();
       return ContentService.createTextOutput(JSON.stringify(prkResult))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService.createTextOutput(JSON.stringify({ error: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  if (params.action === 'postSetGoal') {
+    try {
+      var psgResult = postAppSetGoal_(params.token, params.goal);
+      return ContentService.createTextOutput(JSON.stringify(psgResult))
         .setMimeType(ContentService.MimeType.JSON);
     } catch (err) {
       return ContentService.createTextOutput(JSON.stringify({ error: err.message }))

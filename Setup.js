@@ -428,6 +428,9 @@ function applyFormatting_(ss) {
 }
 
 function formatSummarySheet_(sheet) {
+  var memberRows = SM_ROW_MEMBER_END - SM_ROW_MEMBER_START + 1;
+  var borderRows = memberRows + 1; // ヘッダー含む
+
   // タイトル
   sheet.getRange(SM_ROW_TITLE, 1).setFontSize(16).setFontWeight('bold').setFontColor(COLOR_ORANGE_DARK);
 
@@ -440,7 +443,7 @@ function formatSummarySheet_(sheet) {
     .setBackground(COLOR_HEADER_BG).setFontColor(COLOR_HEADER_TEXT).setFontWeight('bold').setFontSize(10);
 
   // 着金額列を金色強調
-  sheet.getRange(SM_ROW_MEMBER_START, SM_COL_REVENUE, 9, 1)
+  sheet.getRange(SM_ROW_MEMBER_START, SM_COL_REVENUE, memberRows, 1)
     .setBackground(COLOR_GOLD_BG).setFontWeight('bold').setFontColor('#000000');
 
   // 合計行
@@ -455,7 +458,7 @@ function formatSummarySheet_(sheet) {
   }
 
   // 成約率の条件付き書式（60%以上=緑, 30-59%=黄, 30%未満=赤）— 文字は黒
-  var rateRange = sheet.getRange(SM_ROW_MEMBER_START, SM_COL_CLOSE_RATE, 9, 1);
+  var rateRange = sheet.getRange(SM_ROW_MEMBER_START, SM_COL_CLOSE_RATE, memberRows, 1);
   var greenRule = SpreadsheetApp.newConditionalFormatRule()
     .whenNumberGreaterThanOrEqualTo(60)
     .setBackground('#D1FAE5').setFontColor('#000000')
@@ -471,7 +474,7 @@ function formatSummarySheet_(sheet) {
   sheet.setConditionalFormatRules([greenRule, yellowRule, redRule]);
 
   // ランキング列の条件付き書式 — 文字は黒
-  var rankRange = sheet.getRange(SM_ROW_MEMBER_START, SM_COL_RANK, 9, 1);
+  var rankRange = sheet.getRange(SM_ROW_MEMBER_START, SM_COL_RANK, memberRows, 1);
   var goldRule = SpreadsheetApp.newConditionalFormatRule()
     .whenNumberEqualTo(1).setBackground('#FEF3C7').setFontColor('#000000')
     .setRanges([rankRange]).build();
@@ -488,23 +491,23 @@ function formatSummarySheet_(sheet) {
   // === 前月比・ランキング列の書式（L-Q列） ===
 
   // 前月着金額列（L）: 控えめなグレー背景、文字は黒
-  sheet.getRange(SM_ROW_MEMBER_START, SM_COL_PREV_REVENUE, 9, 1)
+  sheet.getRange(SM_ROW_MEMBER_START, SM_COL_PREV_REVENUE, memberRows, 1)
     .setBackground('#F8FAFC').setFontColor('#000000');
 
   // L列の左に太い区切り線（既存データと比較データの境界）
-  sheet.getRange(SM_ROW_MEMBER_HEADER, SM_COL_PREV_REVENUE, 11, 1)
+  sheet.getRange(SM_ROW_MEMBER_HEADER, SM_COL_PREV_REVENUE, borderRows + 1, 1)
     .setBorder(null, true, null, null, null, null, '#7C2D12', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
 
   // 数値フォーマット
-  sheet.getRange(SM_ROW_MEMBER_START, SM_COL_PREV_REVENUE, 9, 3)
+  sheet.getRange(SM_ROW_MEMBER_START, SM_COL_PREV_REVENUE, memberRows, 3)
     .setNumberFormat('#,##0.0');
-  sheet.getRange(SM_ROW_MEMBER_START, SM_COL_DIFF_DEALS, 9, 2)
+  sheet.getRange(SM_ROW_MEMBER_START, SM_COL_DIFF_DEALS, memberRows, 2)
     .setNumberFormat('+#;-#;0');
-  sheet.getRange(SM_ROW_MEMBER_START, SM_COL_DIFF_RATE, 9, 1)
+  sheet.getRange(SM_ROW_MEMBER_START, SM_COL_DIFF_RATE, memberRows, 1)
     .setNumberFormat('+#,##0.0;-#,##0.0;0');
 
   // 前月比（着金M列）: 正=緑背景, 負=赤背景、文字は黒
-  var diffRevRange = sheet.getRange(SM_ROW_MEMBER_START, SM_COL_DIFF_REVENUE, 9, 1);
+  var diffRevRange = sheet.getRange(SM_ROW_MEMBER_START, SM_COL_DIFF_REVENUE, memberRows, 1);
   rules.push(SpreadsheetApp.newConditionalFormatRule()
     .whenNumberGreaterThan(0).setBackground('#D1FAE5').setFontColor('#000000')
     .setRanges([diffRevRange]).build());
@@ -513,7 +516,7 @@ function formatSummarySheet_(sheet) {
     .setRanges([diffRevRange]).build());
 
   // トップとの差（N列）: 0=金色背景(トップ), >0=赤背景、文字は黒
-  var gapRange = sheet.getRange(SM_ROW_MEMBER_START, SM_COL_GAP_TO_TOP, 9, 1);
+  var gapRange = sheet.getRange(SM_ROW_MEMBER_START, SM_COL_GAP_TO_TOP, memberRows, 1);
   rules.push(SpreadsheetApp.newConditionalFormatRule()
     .whenNumberEqualTo(0).setBackground('#FEF3C7').setFontColor('#000000')
     .setRanges([gapRange]).build());
@@ -524,7 +527,7 @@ function formatSummarySheet_(sheet) {
   // 商談差(O), 成約差(P), 成約率差(Q): 正=緑背景, 負=赤背景、文字は黒
   var diffCols = [SM_COL_DIFF_DEALS, SM_COL_DIFF_CLOSED, SM_COL_DIFF_RATE];
   for (var dc = 0; dc < diffCols.length; dc++) {
-    var dRange = sheet.getRange(SM_ROW_MEMBER_START, diffCols[dc], 9, 1);
+    var dRange = sheet.getRange(SM_ROW_MEMBER_START, diffCols[dc], memberRows, 1);
     rules.push(SpreadsheetApp.newConditionalFormatRule()
       .whenNumberGreaterThan(0).setBackground('#D1FAE5').setFontColor('#000000')
       .setRanges([dRange]).build());
@@ -601,4 +604,123 @@ function columnToLetter_(col) {
     col = Math.floor((col - 1) / 26);
   }
   return letter;
+}
+
+// ============================================
+// 2026年4月 新メンバー追加マイグレーション
+// ============================================
+
+/**
+ * 新メンバー6人を追加（設定シート・サマリーシート・日別入力シート）
+ * Apps Scriptエディタから手動実行
+ */
+function addNewMembers_April2026() {
+  var ss = getSpreadsheet_();
+
+  // 1. 設定シート: グローバル設定を行22に移動 + 新メンバー追加
+  migrateSettingsForNewMembers_(ss);
+
+  // 2. サマリーシート: メンバー行を6行拡張
+  migrateSummaryForNewMembers_(ss);
+
+  // 3. 新メンバーの日別入力シート作成
+  var settings = getGlobalSettings_(ss);
+  var newMembers = ['長谷部', 'ゴジータ', 'L', '悟空', 'やまと', '夜神月'];
+  for (var i = 0; i < newMembers.length; i++) {
+    createDailySheet_(ss, newMembers[i], settings.year, settings.month);
+  }
+
+  Logger.log('完了: 新メンバー6人追加 + 設定シート移行 + サマリー拡張 + 日別入力シート作成');
+}
+
+/**
+ * 日別入力シートが未作成の新メンバー分だけ作成（タイムアウト対策）
+ * Apps Scriptエディタから手動実行
+ */
+function createMissingDailySheets() {
+  var ss = getSpreadsheet_();
+  var settings = getGlobalSettings_(ss);
+  var newMembers = ['長谷部', 'ゴジータ', 'L', '悟空', 'やまと', '夜神月'];
+
+  for (var i = 0; i < newMembers.length; i++) {
+    var sheetName = SHEET_DAILY_PREFIX + newMembers[i];
+    if (ss.getSheetByName(sheetName)) {
+      Logger.log('スキップ（既存）: ' + sheetName);
+      continue;
+    }
+    createDailySheet_(ss, newMembers[i], settings.year, settings.month);
+    Logger.log('作成完了: ' + sheetName);
+  }
+  Logger.log('全シート作成完了');
+}
+
+/**
+ * 設定シート: グローバル設定を行14→行22に移動 + 新メンバー行追加
+ */
+function migrateSettingsForNewMembers_(ss) {
+  var sheet = getSettingsSheet_(ss);
+  if (!sheet) return;
+
+  // 旧グローバル設定を読み取り（行14〜）
+  var oldGlobalStart = 14;
+  var lastRow = sheet.getLastRow();
+  var globalData = [];
+  if (lastRow >= oldGlobalStart) {
+    globalData = sheet.getRange(oldGlobalStart, 1, lastRow - oldGlobalStart + 1, 2).getValues();
+    // 旧グローバル設定をクリア
+    sheet.getRange(oldGlobalStart, 1, lastRow - oldGlobalStart + 1, 2).clearContent();
+  }
+
+  // 新メンバー6人を追加（既存メンバーの後に）
+  var newMembers = [
+    ['長谷部',   '長谷部',   '', 'アクティブ', '#F472B6'],
+    ['ゴジータ', 'ゴジータ', '', 'アクティブ', '#34D399'],
+    ['L',        'L',        '', 'アクティブ', '#60A5FA'],
+    ['悟空',     '悟空',     '', 'アクティブ', '#FBBF24'],
+    ['やまと',   'やまと',   '', 'アクティブ', '#A78BFA'],
+    ['夜神月',   '夜神月',   '', 'アクティブ', '#F87171']
+  ];
+
+  // 既存メンバーの最終行を検出
+  var memberLastRow = oldGlobalStart - 1;
+  for (var r = oldGlobalStart - 1; r >= 2; r--) {
+    var val = sheet.getRange(r, 1).getValue();
+    if (String(val).trim() !== '') {
+      memberLastRow = r;
+      break;
+    }
+  }
+
+  // 新メンバーを挿入
+  var insertRow = memberLastRow + 1;
+  sheet.getRange(insertRow, 1, newMembers.length, 5).setValues(newMembers);
+
+  // ステータスのドロップダウン設定
+  var statusRule = SpreadsheetApp.newDataValidation()
+    .requireValueInList(['アクティブ', '退職済'], true)
+    .build();
+  sheet.getRange(insertRow, 4, newMembers.length, 1).setDataValidation(statusRule);
+
+  // グローバル設定を行22に書き戻し
+  if (globalData.length > 0) {
+    sheet.getRange(22, 1, globalData.length, 2).setValues(globalData);
+  }
+
+  Logger.log('設定シート移行完了: 新メンバー' + newMembers.length + '人追加, グローバル設定を行22に移動');
+}
+
+/**
+ * サマリーシート: 行21の前に6行挿入してメンバー枠を拡張
+ */
+function migrateSummaryForNewMembers_(ss) {
+  var sheet = getSummarySheet_(ss);
+  if (!sheet) return;
+
+  // 旧合計行(21)の前に6行挿入 → メンバー行が11-26に拡張される
+  sheet.insertRowsBefore(21, 6);
+
+  // 挿入後の確認: 合計行ラベルを再設定（行27）
+  sheet.getRange(27, 1).setValue('合計');
+
+  Logger.log('サマリーシート拡張完了: 行21の前に6行挿入（メンバー枠 10→16人）');
 }

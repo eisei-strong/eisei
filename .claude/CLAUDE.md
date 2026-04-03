@@ -108,10 +108,11 @@
 3. キャッシュクリア: ssh xserver "rm -f /home/kodaidai/giver.work/public_html/sales-dashboard/cache/*.json"
 4. 動作確認: ssh xserver "curl -s -H 'Host: giver.work' 'http://giver.work/sales-dashboard/api-proxy.php?action=api'"
 
-### GASコード（コード.js）
+### GASコード（コード.js等）
 1. ローカルで編集
 2. cd /Users/kodai/営業ダッシュボード && clasp push
-3. ※ clasp pushはexec URL（v200）には反映されない。反映するにはGASコンソールで手動デプロイが必要
+3. ※ `clasp push` のみでトリガーは即反映（デプロイ不要）
+4. **`clasp deploy` は禁止** — バージョン上限(487版到達済み)のため。Webアプリ exec URL への依存は廃止済み
 
 ### GAS関数の手動実行をユーザーに案内する場合
 1. Apps Scriptエディタ（https://script.google.com/）を開く
@@ -134,9 +135,16 @@
 - curl確認用: curl -s -H 'Host: giver.work' 'http://giver.work/sales-dashboard/api-proxy.php?action=api'
 
 ### GAS
-- exec URL: https://script.google.com/macros/s/AKfycbwojGHuvzycc07FJKwBdbBJJQZpssF6lYz0DbNJlu6zsVuXkAj8V8w3XNBPieo2wsYbFg/exec
+- exec URL（v487、フォールバック用のみ）: https://script.google.com/macros/s/AKfycby6qaaiUoadCBnxHlUNKd-RkHxarE0WBGiitkdV0IbzL6ninM-df0FFx4SYRYVfdwcxqg/exec
+- ※ 旧exec URL（AKfycbwoj...）は死亡(404)。使用禁止
+- ※ `clasp deploy` 禁止。`clasp push` のみ（トリガーはHEADコードで動く）
 - スプレッドシートID: 1k_x3aNRTbojmhJZGMS6JGNiTNJLQR4sD5zyJCBh1YqY
 - ウォーリアーズシートGID: 1235299010
+
+### 休日データパイプライン
+- GASトリガー（1時間ごと）: `writeHolidayDataToSheet()` → CalendarAppで休日取得 → マスタースプシ「休日データ」シートに書き出し + PHPにJSON POST
+- PHP受信: `api-proxy.php` POST `action=updateHoliday` → `holiday-data.json` に保存
+- API応答: `holidayByDate` フィールドに休日データを含む
 
 ### マスターCSV
 - URL: https://docs.google.com/spreadsheets/d/1KxHeLmrpdaw1IUhBaQ46UWSHu-8SCRZqcrHOE2hMwDo/export?format=csv&gid=326094286
