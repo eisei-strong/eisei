@@ -5,16 +5,15 @@
 // 4月ホープ数スプレッドシートID
 var POST_APP_SS_ID = '1rQSoM2zu38aPXJHHD6ILEgyM0SEDOXHXZXz0qK_nQuk';
 
-// シート構造定数
+// シート構造定数（v487と同じ列配置）
 var POST_APP_SHEET_NAME = '【4月】投稿数';
 var POST_APP_AUTH_SHEET = '認証';
-var POST_APP_ID_COL = 1;      // A列: ID
-var POST_APP_PW_COL = 2;         // B列: パスワード（平文）
-var POST_APP_CONTRACT_COL = 3;   // C列: 契約日
-var POST_APP_CW_ROOM_COL = 4;   // D列: チャットワークグルチャID
-var POST_APP_NAME_COL = 5;       // E列: 名前
-var POST_APP_TOTAL_COL = 6;      // F列: 合計
-var POST_APP_DATE_START_COL = 7;  // G列: 4/1 開始
+var POST_APP_ID_COL = 1;          // A列: ID
+var POST_APP_CONTRACT_COL = 2;    // B列: 契約日
+var POST_APP_CW_ROOM_COL = 3;    // C列: チャットワークグルチャID
+var POST_APP_NAME_COL = 4;        // D列: 名前
+var POST_APP_TOTAL_COL = 5;       // E列: 合計
+var POST_APP_DATE_START_COL = 6;  // F列: 4/1 開始
 var POST_APP_MONTH_DAYS = 30;     // 4月は30日
 
 // LP投稿本数シート（受講生マスター）
@@ -90,18 +89,14 @@ function postAppCheckId_(id) {
   for (var i = 0; i < ids.length; i++) {
     if (matchId_(ids[i][0], id)) {
       var name = sheet.getRange(i + 2, POST_APP_NAME_COL).getValue();
-      // メインシートAJ列の平文パスワードをチェック
-      var plainPw = String(sheet.getRange(i + 2, POST_APP_PW_COL).getValue() || '').trim();
-      var hasPassword = !!plainPw;
-      // なければ認証シートのハッシュもチェック（後方互換）
-      if (!hasPassword) {
-        var authSheet = getAuthSheet_();
-        var authLast = authSheet.getLastRow();
-        if (authLast >= 2) {
-          var authData = authSheet.getRange(2, 1, authLast - 1, 2).getValues();
-          for (var a = 0; a < authData.length; a++) {
-            if (matchId_(authData[a][0], id)) { hasPassword = true; break; }
-          }
+      // 認証シートのハッシュでパスワード有無を判定
+      var hasPassword = false;
+      var authSheet = getAuthSheet_();
+      var authLast = authSheet.getLastRow();
+      if (authLast >= 2) {
+        var authData = authSheet.getRange(2, 1, authLast - 1, 2).getValues();
+        for (var a = 0; a < authData.length; a++) {
+          if (matchId_(authData[a][0], id)) { hasPassword = true; break; }
         }
       }
       var contract = sheet.getRange(i + 2, POST_APP_CONTRACT_COL).getValue();
@@ -135,16 +130,15 @@ function postAppRegister_(id, password) {
   }
   if (memberRow < 0) return { error: 'IDが見つかりません' };
 
-  // メインシートにパスワード（平文）を保存
-  sheet.getRange(memberRow, POST_APP_PW_COL).setValue(password);
-
-  // 認証シートにもハッシュを保存（後方互換）
+  // 認証シートにハッシュを保存（IDはテキスト形式で保存）
   var authSheet = getAuthSheet_();
+  authSheet.getRange(1, 1, authSheet.getMaxRows(), 1).setNumberFormat('@');
   var authLast = authSheet.getLastRow();
   if (authLast >= 2) {
     var authData = authSheet.getRange(2, 1, authLast - 1, 1).getValues();
     for (var a = 0; a < authData.length; a++) {
       if (matchId_(authData[a][0], id)) {
+        authSheet.getRange(a + 2, 1).setValue(String(id).trim());
         authSheet.getRange(a + 2, 2).setValue(hashPassword_(password));
         return { ok: true };
       }
@@ -177,22 +171,6 @@ function postAppResetPassword_(id, email) {
     }
   }
   if (!matched) return { error: 'メールアドレスが一致しません' };
-
-  // メインシートのパスワード（B列）もクリア
-  var ss = SpreadsheetApp.openById(POST_APP_SS_ID);
-  var sheet = ss.getSheetByName(POST_APP_SHEET_NAME);
-  if (sheet) {
-    var lastRow = sheet.getLastRow();
-    if (lastRow >= 2) {
-      var ids = sheet.getRange(2, POST_APP_ID_COL, lastRow - 1, 1).getValues();
-      for (var r = 0; r < ids.length; r++) {
-        if (matchId_(ids[r][0], id)) {
-          sheet.getRange(r + 2, POST_APP_PW_COL).clearContent();
-          break;
-        }
-      }
-    }
-  }
 
   // 認証シートからパスワードを削除
   var authSheet = getAuthSheet_();
@@ -229,33 +207,22 @@ function postAppLogin_(id, password) {
   }
   if (memberRow < 0) return { error: 'IDが見つかりません' };
 
-  // まずメインシートの平文パスワード（AJ列）でチェック
-  var plainPw = String(sheet.getRange(memberRow, POST_APP_PW_COL).getValue() || '').trim();
+  // 認証シートのハッシュでチェック
   var matched = false;
-  if (plainPw && plainPw === password) {
-    matched = true;
-  }
-
-  // 平文になければ認証シートのハッシュでチェック（後方互換）
-  if (!matched) {
-    var authSheet = getAuthSheet_();
-    var authLast = authSheet.getLastRow();
-    if (authLast >= 2) {
-      var authData = authSheet.getRange(2, 1, authLast - 1, 2).getValues();
-      var hash = hashPassword_(password);
-      for (var a = 0; a < authData.length; a++) {
-        if (matchId_(authData[a][0], id)) {
-          if (authData[a][1] === hash) matched = true;
-          break;
-        }
+  var authSheet = getAuthSheet_();
+  var authLast = authSheet.getLastRow();
+  if (authLast >= 2) {
+    var authData = authSheet.getRange(2, 1, authLast - 1, 2).getValues();
+    var hash = hashPassword_(password);
+    for (var a = 0; a < authData.length; a++) {
+      if (matchId_(authData[a][0], id)) {
+        if (authData[a][1] === hash) matched = true;
+        break;
       }
     }
   }
 
   if (!matched) return { error: 'パスワードが正しくありません' };
-
-  // ログイン成功 → AJ列にパスワード平文がなければ書き込む（マイグレーション）
-  migratePasswordOnLogin_(sheet, memberRow, password);
 
   // トークン生成
   var token = hashPassword_(id + '_' + new Date().getTime() + '_' + Math.random());
@@ -681,7 +648,6 @@ function syncMembersToPostApp() {
   if (!header[0]) {
     var h = new Array(POST_APP_DATE_START_COL + POST_APP_MONTH_DAYS - 1).fill('');
     h[POST_APP_ID_COL - 1] = 'ID';
-    h[POST_APP_PW_COL - 1] = 'パスワード';
     h[POST_APP_CONTRACT_COL - 1] = '契約日';
     h[POST_APP_NAME_COL - 1] = '名前';
     h[POST_APP_TOTAL_COL - 1] = '合計';
@@ -989,15 +955,16 @@ function createTestAccount() {
   sheet.insertRowAfter(1);
   // A列をテキスト形式に（先頭0が消えないように）
   sheet.getRange(2, POST_APP_ID_COL).setNumberFormat('@');
-  // A=ID, B=PW, C=契約日, D=CW ID, E=名前, F=合計数式, G〜AJ=❌
-  var f = '=COUNTIF(G2:AJ2,"1本")+COUNTIF(G2:AJ2,"2本")*2+COUNTIF(G2:AJ2,"3本")*3';
-  var newRow = [id, password, '', '', name, f];
+  // A=ID, B=契約日, C=CW ID, D=名前, E=合計数式, F〜AI=❌
+  var f = '=COUNTIF(F2:AI2,"1本")+COUNTIF(F2:AI2,"2本")*2+COUNTIF(F2:AI2,"3本")*3+COUNTIF(F2:AI2,"4本")*4+COUNTIF(F2:AI2,"5本")*5+COUNTIF(F2:AI2,"6本")*6';
+  var newRow = [id, '', '', name, f];
   for (var d = 0; d < 30; d++) newRow.push('❌');
   sheet.getRange(2, 1, 1, newRow.length).setValues([newRow]);
   Logger.log('Inserted ' + name + ' at row 2');
 
-  // パスワード登録
+  // パスワード登録（認証シート、IDはテキスト形式で保存）
   var authSheet = getAuthSheet_();
+  authSheet.getRange(1, 1, authSheet.getMaxRows(), 1).setNumberFormat('@');
   var authLast = authSheet.getLastRow();
   if (authLast >= 2) {
     var authData = authSheet.getRange(2, 1, authLast - 1, 1).getValues();
@@ -1099,42 +1066,52 @@ function restoreNames() {
   Logger.log('Restored ' + restored + ' names out of ' + names.length + ' rows');
 }
 
-// ---- B列にパスワード列を挿入（1回だけ実行） ----
-function insertPasswordColumnB() {
+// ---- B列(パスワード列)削除＋認証シート重複クリーンアップ（1回だけ実行） ----
+function removePasswordColumnB() {
   var ss = SpreadsheetApp.openById(POST_APP_SS_ID);
   var sheet = ss.getSheetByName(POST_APP_SHEET_NAME);
-  if (!sheet) { Logger.log('シートが見つかりません: ' + POST_APP_SHEET_NAME); return; }
+  if (!sheet) { Logger.log('シートが見つかりません'); return; }
 
-  // 再実行ガード: B1が既に「パスワード」なら中断
+  // B1が「パスワード」ならB列を削除
   var b1 = String(sheet.getRange(1, 2).getValue() || '').trim();
   if (b1 === 'パスワード') {
-    Logger.log('B列は既にパスワード列です。重複挿入を防止しました。');
-    return;
+    sheet.deleteColumn(2);
+    Logger.log('B列(パスワード列)を削除しました → v487の列配置に復元');
+  } else {
+    Logger.log('B1="' + b1 + '" → パスワード列ではないためスキップ');
   }
 
-  // B列（2列目）に列を挿入
-  sheet.insertColumnBefore(2);
-  sheet.getRange(1, 2).setValue('パスワード');
-
-  // B列を保護（編集者以外変更不可）
-  var protection = sheet.getRange(1, 2, sheet.getMaxRows(), 1).protect();
-  protection.setDescription('パスワード列（自動管理）');
-  protection.setWarningOnly(true);
-
-  Logger.log('B列にパスワード列を挿入しました');
-  Logger.log('※ 列が1つ右にずれています。全定数は更新済みです');
-  Logger.log('次に fixPostAppTotal を実行してF列の数式を更新してください');
-}
-
-// ---- ログイン成功時にAJ列が空なら平文を書き込む（マイグレーション） ----
-function migratePasswordOnLogin_(sheet, memberRow, password) {
-  var existing = String(sheet.getRange(memberRow, POST_APP_PW_COL).getValue() || '').trim();
-  if (!existing) {
-    sheet.getRange(memberRow, POST_APP_PW_COL).setValue(password);
+  // 認証シートの重複エントリをクリーンアップ
+  var authSheet = getAuthSheet_();
+  authSheet.getRange(1, 1, authSheet.getMaxRows(), 1).setNumberFormat('@');
+  var authLast = authSheet.getLastRow();
+  if (authLast >= 2) {
+    var authData = authSheet.getRange(2, 1, authLast - 1, 2).getValues();
+    var seen = {};
+    var toDelete = [];
+    for (var i = 0; i < authData.length; i++) {
+      var rawId = String(authData[i][0]).trim();
+      // 数値 0 → '0000' に変換
+      if (rawId === '0') rawId = '0000';
+      if (seen[rawId]) {
+        toDelete.push(i + 2);
+      } else {
+        seen[rawId] = true;
+        // IDをテキストで正規化して書き戻し
+        authSheet.getRange(i + 2, 1).setValue(rawId);
+      }
+    }
+    // 下から削除
+    for (var d = toDelete.length - 1; d >= 0; d--) {
+      authSheet.deleteRow(toDelete[d]);
+      Logger.log('認証シート重複行 ' + toDelete[d] + ' を削除');
+    }
   }
+
+  Logger.log('完了。列配置: A=ID, B=契約日, C=CW, D=名前, E=合計, F〜=日付');
 }
 
-// ---- E列(合計)に数式を一括設定 ----
+// ---- E列(合計)に数式を一括設定（B列削除後: F〜AI = 日付列） ----
 function fixPostAppTotal() {
   var ss = SpreadsheetApp.openById(POST_APP_SS_ID);
   var sheet = ss.getSheetByName(POST_APP_SHEET_NAME);
@@ -1143,7 +1120,7 @@ function fixPostAppTotal() {
   if (lastRow < 2) return;
   var formulas = [];
   for (var r = 2; r <= lastRow; r++) {
-    formulas.push(['=COUNTIF(G' + r + ':AJ' + r + ',"1本")+COUNTIF(G' + r + ':AJ' + r + ',"2本")*2+COUNTIF(G' + r + ':AJ' + r + ',"3本")*3+COUNTIF(G' + r + ':AJ' + r + ',"4本")*4+COUNTIF(G' + r + ':AJ' + r + ',"5本")*5+COUNTIF(G' + r + ':AJ' + r + ',"6本")*6']);
+    formulas.push(['=COUNTIF(F' + r + ':AI' + r + ',"1本")+COUNTIF(F' + r + ':AI' + r + ',"2本")*2+COUNTIF(F' + r + ':AI' + r + ',"3本")*3+COUNTIF(F' + r + ':AI' + r + ',"4本")*4+COUNTIF(F' + r + ':AI' + r + ',"5本")*5+COUNTIF(F' + r + ':AI' + r + ',"6本")*6']);
   }
   sheet.getRange(2, POST_APP_TOTAL_COL, formulas.length, 1).setFormulas(formulas);
   Logger.log('Done: ' + formulas.length + ' rows updated');
