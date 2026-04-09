@@ -20,7 +20,7 @@ var EXP_COL_SRC  = 7;
 var EXP_CAT_MAP = {
   // 人件費系
   '社員人件費(営業)':             '営業',
-  '社員人件費(営業以外)':         'バックオフィス',
+  '社員人件費(営業以外)':         '講師',
   // Namaka系
   'Namaka（事務）':               'バックオフィス',
   'Namaka（動画）':               '動画',
@@ -34,8 +34,8 @@ var EXP_CAT_MAP = {
   '受講生報酬（登録月キャッシュバック）': 'キャッシュバック',
   '受講生報酬（インセンティブ）': '代理店報酬',
   // マーケ系
-  '広告業務サポート':             'マーケ',
-  '広告業務サポート（UTAGE）':    'マーケ',
+  '広告業務サポート':             '広告',
+  '広告業務サポート（UTAGE）':    '広告',
   // 営業系
   '営業代行/アフィリエイト':      '営業代行/アフィリ',
   '営業サポート（架電業務）':     '営業',
@@ -92,8 +92,8 @@ var EXP_CAT_PREFIX = [
   ['物販',         'バックオフィス'],
   ['通信費',       '通信費'],
   ['Namaka',       'バックオフィス'],
-  ['広告業務',     'マーケ'],
-  ['広告事務',     'マーケ'],
+  ['広告業務',     '広告'],
+  ['広告事務',     '広告'],
   ['受講生報酬',   '代理店報酬'],
   ['社員人件費',   'バックオフィス'],
   ['幹部人件費',   '幹部報酬'],
@@ -103,6 +103,21 @@ var EXP_CAT_PREFIX = [
   ['販促',         '広告宣伝費'],
   ['水道光熱',     '家賃水道光熱費'],
   ['地代家賃',     '家賃水道光熱費']
+];
+
+// 名前ベースのカテゴリ上書き（全カテゴリに適用）
+var EXP_NAME_OVERRIDE = [
+  [/押切|バロン/i, '幹部人件費'],
+  [/サカネ.*レン|坂根蓮/i, '採用人件費'],
+  [/複業クラウド|アナザ－ワ－クス/i, '採用人件費'],
+  [/ウエムラ.*タクヤ|上村拓也/i, 'LINE'],
+  [/ワタナベ.*ヤヨイ|Yayoi/i, '営業バックオフィス'],
+  [/ニシムラ.*リエ/i, '営業バックオフィス'],
+  [/ナカシマ.*シンヤ/i, '営業バックオフィス'],
+  [/yuma311|フクハラ.*ケイコ/i, '営業バックオフィス'],
+  [/タカハシ.*リヨウイチ/i, '営業バックオフィス'],
+  [/オオサワ.*ナオミ|三澤愛妃/i, '営業バックオフィス'],
+  [/ツカハラ.*トモカ/i, '営業バックオフィス']
 ];
 
 // ☆マーク項目の摘要パターンで分類
@@ -146,6 +161,13 @@ function expNormCat_(raw) {
  * 括弧を統一し、前方一致でカテゴリを解決
  */
 function expParentCat_(cat, desc) {
+  // 0. 名前ベースの上書き（最優先）
+  if (desc) {
+    for (var k = 0; k < EXP_NAME_OVERRIDE.length; k++) {
+      if (EXP_NAME_OVERRIDE[k][0].test(desc)) return EXP_NAME_OVERRIDE[k][1];
+    }
+  }
+
   // 括弧を全角に統一してからマッチング
   var n = cat.replace(/\(/g, '（').replace(/\)/g, '）').replace(/\s+/g, '');
 
@@ -322,9 +344,16 @@ function expGetData_(year, month) {
     }
   } catch(e) {}
 
+  // 着金内訳
+  var incomeSorted = parsed.income.slice().sort(function(a,b){return b.amount-a.amount;});
+  var incomeItems = incomeSorted.map(function(e){
+    return {category:e.category, date:e.date, description:e.description, amount:e.amount, source:e.source};
+  });
+
   var result = {
     revenue: parsed.totalIncome,
     totalExpenses: parsed.totalExpense,
+    incomeItems: incomeItems,
     profit: profit,
     profitRate: parsed.totalIncome > 0 ? Math.round((profit/parsed.totalIncome)*1000)/10 : 0,
     categories: categories,

@@ -2,7 +2,7 @@
 // ChatworkPoints.js — 共創ポイント（More moreChatから集計）
 // ============================================
 
-var CW_API_TOKEN = 'c1a87be06bce046831a9de0c73b4b093';
+var CW_API_TOKEN = PropertiesService.getScriptProperties().getProperty('CW_API_TOKEN');
 var CW_ROOM_ID = '419910408';
 
 // Chatwork account_id → v2メンバー名

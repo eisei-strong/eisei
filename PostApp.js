@@ -5,14 +5,12 @@
 // 4月ホープ数スプレッドシートID
 var POST_APP_SS_ID = '1rQSoM2zu38aPXJHHD6ILEgyM0SEDOXHXZXz0qK_nQuk';
 
-// シート構造定数（v487と同じ列配置）
+// シート構造定数
 var POST_APP_SHEET_NAME = '【4月】投稿数';
 var POST_APP_AUTH_SHEET = '認証';
-var POST_APP_ID_COL = 1;          // A列: ID
-var POST_APP_CONTRACT_COL = 2;    // B列: 契約日
-var POST_APP_CW_ROOM_COL = 3;    // C列: チャットワークグルチャID
-var POST_APP_NAME_COL = 4;        // D列: 名前
-var POST_APP_TOTAL_COL = 5;       // E列: 合計
+var POST_APP_ID_COL = 1;      // A列: ID
+var POST_APP_NAME_COL = 4;    // D列: 名前
+var POST_APP_TOTAL_COL = 5;   // E列: 合計
 var POST_APP_DATE_START_COL = 6;  // F列: 4/1 開始
 var POST_APP_MONTH_DAYS = 30;     // 4月は30日
 
@@ -26,16 +24,6 @@ var LP_POST_NAME_COL = 16;  // P列: 名前
 var SMC_MASTER_ID_COL = 2;       // B列: ID (1-indexed)
 var SMC_MASTER_CONTRACT_COL = 36; // AJ列: 契約日 (1-indexed)
 var SMC_MASTER_EMAIL_COL = 35;   // AI列: 契約メールアドレス (1-indexed)
-
-// ---- ID比較（先頭0対応） ----
-function matchId_(sheetVal, inputId) {
-  var a = String(sheetVal).trim();
-  var b = String(inputId).trim();
-  if (a === b) return true;
-  var na = parseInt(a);
-  var nb = parseInt(b);
-  return !isNaN(na) && !isNaN(nb) && na === nb;
-}
 
 // ---- 認証ヘルパー ----
 
@@ -87,19 +75,18 @@ function postAppCheckId_(id) {
 
   var ids = sheet.getRange(2, POST_APP_ID_COL, lastRow - 1, 1).getValues();
   for (var i = 0; i < ids.length; i++) {
-    if (matchId_(ids[i][0], id)) {
+    if (String(ids[i][0]).trim() === String(id).trim()) {
       var name = sheet.getRange(i + 2, POST_APP_NAME_COL).getValue();
-      // 認証シートのハッシュでパスワード有無を判定
-      var hasPassword = false;
       var authSheet = getAuthSheet_();
       var authLast = authSheet.getLastRow();
+      var hasPassword = false;
       if (authLast >= 2) {
         var authData = authSheet.getRange(2, 1, authLast - 1, 2).getValues();
         for (var a = 0; a < authData.length; a++) {
-          if (matchId_(authData[a][0], id)) { hasPassword = true; break; }
+          if (String(authData[a][0]).trim() === String(id).trim()) { hasPassword = true; break; }
         }
       }
-      var contract = sheet.getRange(i + 2, POST_APP_CONTRACT_COL).getValue();
+      var contract = sheet.getRange(i + 2, 2).getValue(); // B列: 契約日
       var contractStr = '';
       if (contract instanceof Date) {
         contractStr = Utilities.formatDate(contract, 'Asia/Tokyo', 'yyyy/MM/dd');
@@ -120,25 +107,21 @@ function postAppRegister_(id, password) {
 
   var ss = SpreadsheetApp.openById(POST_APP_SS_ID);
   var sheet = ss.getSheetByName(POST_APP_SHEET_NAME);
-  if (!sheet) return { error: 'シートが見つかりません' };
   var lastRow = sheet.getLastRow();
-  if (lastRow < 2) return { error: 'データがありません' };
   var ids = sheet.getRange(2, POST_APP_ID_COL, lastRow - 1, 1).getValues();
-  var memberRow = -1;
+  var found = false;
   for (var i = 0; i < ids.length; i++) {
-    if (matchId_(ids[i][0], id)) { memberRow = i + 2; break; }
+    if (String(ids[i][0]).trim() === String(id).trim()) { found = true; break; }
   }
-  if (memberRow < 0) return { error: 'IDが見つかりません' };
+  if (!found) return { error: 'IDが見つかりません' };
 
-  // 認証シートにハッシュを保存（IDはテキスト形式で保存）
   var authSheet = getAuthSheet_();
-  authSheet.getRange(1, 1, authSheet.getMaxRows(), 1).setNumberFormat('@');
   var authLast = authSheet.getLastRow();
+  // 既存パスワードがあれば上書き
   if (authLast >= 2) {
     var authData = authSheet.getRange(2, 1, authLast - 1, 1).getValues();
     for (var a = 0; a < authData.length; a++) {
-      if (matchId_(authData[a][0], id)) {
-        authSheet.getRange(a + 2, 1).setValue(String(id).trim());
+      if (String(authData[a][0]).trim() === String(id).trim()) {
         authSheet.getRange(a + 2, 2).setValue(hashPassword_(password));
         return { ok: true };
       }
@@ -165,7 +148,7 @@ function postAppResetPassword_(id, email) {
   for (var i = 0; i < smcData.length; i++) {
     var sid = String(smcData[i][0] || '').trim();
     var semail = String(smcData[i][SMC_MASTER_EMAIL_COL - SMC_MASTER_ID_COL] || '').trim().toLowerCase();
-    if (matchId_(sid, id) && semail === email.trim().toLowerCase()) {
+    if (sid === String(id).trim() && semail === email.trim().toLowerCase()) {
       matched = true;
       break;
     }
@@ -178,7 +161,7 @@ function postAppResetPassword_(id, email) {
   if (authLast >= 2) {
     var authData = authSheet.getRange(2, 1, authLast - 1, 1).getValues();
     for (var a = authData.length - 1; a >= 0; a--) {
-      if (matchId_(authData[a][0], id)) {
+      if (String(authData[a][0]).trim() === String(id).trim()) {
         authSheet.deleteRow(a + 2);
       }
     }
@@ -203,31 +186,29 @@ function postAppLogin_(id, password) {
   var ids = sheet.getRange(2, POST_APP_ID_COL, lastRow - 1, 1).getValues();
   var memberRow = -1;
   for (var i = 0; i < ids.length; i++) {
-    if (matchId_(ids[i][0], id)) { memberRow = i + 2; break; }
+    if (String(ids[i][0]).trim() === String(id).trim()) { memberRow = i + 2; break; }
   }
   if (memberRow < 0) return { error: 'IDが見つかりません' };
 
-  // 認証シートのハッシュでチェック
-  var matched = false;
   var authSheet = getAuthSheet_();
   var authLast = authSheet.getLastRow();
-  if (authLast >= 2) {
-    var authData = authSheet.getRange(2, 1, authLast - 1, 2).getValues();
-    var hash = hashPassword_(password);
-    for (var a = 0; a < authData.length; a++) {
-      if (matchId_(authData[a][0], id)) {
-        if (authData[a][1] === hash) matched = true;
-        break;
-      }
+  if (authLast < 2) return { error: 'パスワードが未設定です。先にパスワードを登録してください。' };
+
+  var authData = authSheet.getRange(2, 1, authLast - 1, 2).getValues();
+  var hash = hashPassword_(password);
+  var matched = false;
+  for (var a = 0; a < authData.length; a++) {
+    if (String(authData[a][0]).trim() === String(id).trim()) {
+      if (authData[a][1] === hash) matched = true;
+      break;
     }
   }
-
   if (!matched) return { error: 'パスワードが正しくありません' };
 
   // トークン生成
   var token = hashPassword_(id + '_' + new Date().getTime() + '_' + Math.random());
   var cache = CacheService.getScriptCache();
-  cache.put('postapp_token_' + token, id, 21600); // CacheService上限は6時間(21600秒)
+  cache.put('postapp_token_' + token, id, 86400);
 
   // ログイン時に全月データも返す（API呼び出し削減）
   var name = sheet.getRange(memberRow, POST_APP_NAME_COL).getValue();
@@ -237,8 +218,7 @@ function postAppLogin_(id, password) {
   recordLogin_(String(id).trim());
   var loginData = getLoginStreakData_(String(id).trim());
 
-  var goal = postAppGetGoal_(String(id).trim());
-  return { ok: true, id: String(id).trim(), name: String(name), token: token, month: monthData, login: loginData, goal: goal };
+  return { ok: true, id: String(id).trim(), name: String(name), token: token, month: monthData, login: loginData };
 }
 
 // ---- 全月データ取得（ログイン後のリフレッシュ用） ----
@@ -252,11 +232,10 @@ function postAppGet_(token) {
   if (!sheet) return { error: 'シートが見つかりません' };
 
   var lastRow = sheet.getLastRow();
-  if (lastRow < 2) return { error: 'データがありません' };
   var ids = sheet.getRange(2, POST_APP_ID_COL, lastRow - 1, 1).getValues();
   var rowIdx = -1;
   for (var i = 0; i < ids.length; i++) {
-    if (matchId_(ids[i][0], id)) { rowIdx = i; break; }
+    if (String(ids[i][0]).trim() === String(id).trim()) { rowIdx = i; break; }
   }
   if (rowIdx < 0) return { error: 'IDが見つかりません' };
 
@@ -268,8 +247,7 @@ function postAppGet_(token) {
   recordLogin_(String(id).trim());
   var loginData = getLoginStreakData_(String(id).trim());
 
-  var goal = postAppGetGoal_(String(id).trim());
-  return { ok: true, id: String(id).trim(), name: String(name), month: monthData, login: loginData, goal: goal };
+  return { ok: true, id: String(id).trim(), name: String(name), month: monthData, login: loginData };
 }
 
 // ---- 月データ一括取得ヘルパー ----
@@ -281,20 +259,13 @@ function getMonthData_(sheet, row) {
 
   var days = [];
   for (var i = 0; i < headers.length; i++) {
-    var h = headers[i];
-    var label;
-    if (h instanceof Date) {
-      label = (h.getMonth() + 1) + '/' + h.getDate();
-    } else {
-      label = String(h);
-    }
     days.push({
       col: i,
-      label: label,
+      label: String(headers[i]),
       value: String(values[i] || '❌')
     });
   }
-  var contract = sheet.getRange(row, POST_APP_CONTRACT_COL).getValue();
+  var contract = sheet.getRange(row, 2).getValue(); // B列: 契約日
   var contractStr = '';
   if (contract instanceof Date) {
     contractStr = Utilities.formatDate(contract, 'Asia/Tokyo', 'yyyy/MM/dd');
@@ -310,7 +281,7 @@ function postAppSave_(token, value, col) {
   var id = verifyToken_(token);
   if (!id) return { error: 'セッション切れです。再ログインしてください。' };
 
-  var validValues = ['❌', '1本', '2本', '3本', '4本', '5本', '6本'];
+  var validValues = ['❌', '1本', '2本', '3本'];
   if (validValues.indexOf(value) < 0) return { error: '無効な値です: ' + value };
 
   var ss = SpreadsheetApp.openById(POST_APP_SS_ID);
@@ -320,20 +291,13 @@ function postAppSave_(token, value, col) {
   // col = 0〜29（日付列のインデックス）
   var colNum = parseInt(col);
   if (isNaN(colNum) || colNum < 0 || colNum >= POST_APP_MONTH_DAYS) return { error: '日付が無効です' };
-
-  // 当日までしか入力できない（未来日ブロック・JST基準）
-  var now = new Date();
-  var todayDay = parseInt(Utilities.formatDate(now, 'Asia/Tokyo', 'dd'));
-  if (colNum > todayDay - 1) return { error: '未来の日付は入力できません' };
-
   var targetCol = POST_APP_DATE_START_COL + colNum;
 
   var lastRow = sheet.getLastRow();
-  if (lastRow < 2) return { error: 'データがありません' };
   var ids = sheet.getRange(2, POST_APP_ID_COL, lastRow - 1, 1).getValues();
   var rowIdx = -1;
   for (var i = 0; i < ids.length; i++) {
-    if (matchId_(ids[i][0], id)) { rowIdx = i; break; }
+    if (String(ids[i][0]).trim() === String(id).trim()) { rowIdx = i; break; }
   }
   if (rowIdx < 0) return { error: 'IDが見つかりません' };
 
@@ -346,50 +310,25 @@ function postAppSave_(token, value, col) {
 }
 
 // ============================================
-// 投稿目標
-// ============================================
-
-function postAppGetGoal_(id) {
-  var props = PropertiesService.getScriptProperties();
-  var val = props.getProperty('postapp_goal_' + id);
-  return val ? parseInt(val) : 0;
-}
-
-function postAppSetGoal_(token, goal) {
-  var id = verifyToken_(token);
-  if (!id) return { error: 'セッション切れです。再ログインしてください。' };
-  var g = parseInt(goal);
-  if (isNaN(g) || g < 0 || g > 999) return { error: '無効な目標値です' };
-  var props = PropertiesService.getScriptProperties();
-  props.setProperty('postapp_goal_' + id, String(g));
-  return { ok: true, goal: g };
-}
-
-// ============================================
 // 連続ログイン記録
 // ============================================
 
 // ログイン日を記録（PropertiesService）
 function recordLogin_(id) {
-  try {
-    var props = PropertiesService.getScriptProperties();
-    var key = 'postapp_logins_' + id;
-    var today = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd');
+  var props = PropertiesService.getScriptProperties();
+  var key = 'postapp_logins_' + id;
+  var today = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd');
 
-    var raw = props.getProperty(key);
-    var dates = raw ? JSON.parse(raw) : [];
+  var raw = props.getProperty(key);
+  var dates = raw ? JSON.parse(raw) : [];
 
-    if (dates.indexOf(today) < 0) {
-      dates.push(today);
-      // 直近90日分だけ保持
-      if (dates.length > 90) {
-        dates = dates.slice(dates.length - 90);
-      }
-      props.setProperty(key, JSON.stringify(dates));
+  if (dates.indexOf(today) < 0) {
+    dates.push(today);
+    // 直近90日分だけ保持
+    if (dates.length > 90) {
+      dates = dates.slice(dates.length - 90);
     }
-  } catch (e) {
-    // PropertiesService障害時もログイン自体は継続させる
-    Logger.log('recordLogin_ error for ' + id + ': ' + e.message);
+    props.setProperty(key, JSON.stringify(dates));
   }
 }
 
@@ -407,19 +346,18 @@ function getLoginStreakData_(id) {
   // 日付をソート
   dates.sort();
 
-  // 現在の連続日数（今日から遡る・JST基準）
+  // 現在の連続日数（今日から遡る）
   var streak = 0;
-  var todayParts = todayStr.split('-');
-  var checkY = parseInt(todayParts[0]);
-  var checkM = parseInt(todayParts[1]) - 1;
-  var checkD = parseInt(todayParts[2]);
+  var checkDate = new Date(now.getTime());
+  // JSTに合わせる
+  var jstOffset = 9 * 60 * 60 * 1000;
+  checkDate = new Date(checkDate.getTime() + jstOffset);
 
   while (true) {
-    var cd = new Date(checkY, checkM, checkD);
-    var ds = Utilities.formatDate(cd, 'Asia/Tokyo', 'yyyy-MM-dd');
+    var ds = Utilities.formatDate(checkDate, 'Asia/Tokyo', 'yyyy-MM-dd');
     if (dates.indexOf(ds) >= 0) {
       streak++;
-      checkD--;
+      checkDate = new Date(checkDate.getTime() - 86400000);
     } else {
       break;
     }
@@ -476,65 +414,6 @@ function postAppLoginStreak_(token) {
   recordLogin_(id);
   var loginData = getLoginStreakData_(id);
   return { ok: true, login: loginData };
-}
-
-// ============================================
-// ログイン状況をスプシ背景色に反映
-// ============================================
-
-/**
- * ログインした日の❌セルを薄緑にする
- * GASエディタから手動実行 or メニューから実行
- */
-function colorLoginStatus() {
-  var ss = SpreadsheetApp.openById(POST_APP_SS_ID);
-  var sheet = ss.getSheetByName(POST_APP_SHEET_NAME);
-  if (!sheet) { Logger.log('シートが見つかりません'); return; }
-
-  var props = PropertiesService.getScriptProperties();
-  var lastRow = sheet.getLastRow();
-  if (lastRow < 2) return;
-
-  var ids = sheet.getRange(2, POST_APP_ID_COL, lastRow - 1, 1).getValues();
-  var dataRange = sheet.getRange(2, POST_APP_DATE_START_COL, lastRow - 1, POST_APP_MONTH_DAYS);
-  var values = dataRange.getValues();
-  var backgrounds = dataRange.getBackgrounds();
-
-  var now = new Date();
-  var prefix = Utilities.formatDate(now, 'Asia/Tokyo', 'yyyy-MM');
-
-  for (var i = 0; i < ids.length; i++) {
-    var id = String(ids[i][0]).trim();
-    if (!id) continue;
-
-    // PropertiesServiceのキーを探す（数値変換対応）
-    var key = 'postapp_logins_' + id;
-    var raw = props.getProperty(key);
-    if (!raw && !isNaN(parseInt(id))) {
-      // 0 → 0000 等のケースに対応（逆引き不可なのでスキップ）
-    }
-    var dates = raw ? JSON.parse(raw) : [];
-
-    for (var d = 0; d < POST_APP_MONTH_DAYS; d++) {
-      var dateStr = prefix + '-' + ('0' + (d + 1)).slice(-2);
-      var loggedIn = dates.indexOf(dateStr) >= 0;
-      var val = String(values[i][d]);
-
-      if (val && val !== '❌' && val !== '') {
-        // 投稿済み → 背景なし（白）
-        backgrounds[i][d] = '#ffffff';
-      } else if (loggedIn) {
-        // ログインしたけど未投稿 → 薄緑
-        backgrounds[i][d] = '#C6F6D5';
-      } else {
-        // ログインしていない → 白
-        backgrounds[i][d] = '#ffffff';
-      }
-    }
-  }
-
-  dataRange.setBackgrounds(backgrounds);
-  Logger.log('ログイン背景色を更新しました（' + ids.length + '人）');
 }
 
 // ============================================
@@ -611,7 +490,7 @@ function syncMembersToPostApp() {
   Logger.log('マスターの契約日データ: ' + Object.keys(contractMap).length + '件');
 
   // --- 既存行に契約日を補完 ---
-  // POST_APP_CONTRACT_COL はグローバル定義（C列=3）を使用
+  var POST_APP_CONTRACT_COL = 2; // B列: 契約日
   if (postLastRow >= 2) {
     var existIds = postSheet.getRange(2, POST_APP_ID_COL, postLastRow - 1, 1).getValues();
     var existContracts = postSheet.getRange(2, POST_APP_CONTRACT_COL, postLastRow - 1, 1).getValues();
@@ -717,25 +596,38 @@ function sortPostAppByContract_(sheet) {
     var ss = SpreadsheetApp.openById(POST_APP_SS_ID);
     sheet = ss.getSheetByName(POST_APP_SHEET_NAME);
   }
-  if (!sheet) return;
   var lastRow = sheet.getLastRow();
   if (lastRow < 3) return; // ヘッダー+1行以下ならソート不要
 
-  // Range.sort() を使用（JS .sort() + setValues は禁止）
-  // Google Sheets の Range.sort() は空欄を自動的に末尾に配置する
+  var POST_APP_CONTRACT_COL = 2;
   var lastCol = sheet.getLastColumn();
-  sheet.getRange(2, 1, lastRow - 1, lastCol).sort({
-    column: POST_APP_CONTRACT_COL,
-    ascending: true
+  var data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+
+  data.sort(function(a, b) {
+    var da = String(a[POST_APP_CONTRACT_COL - 1] || '').trim();
+    var db = String(b[POST_APP_CONTRACT_COL - 1] || '').trim();
+    // 空欄は末尾
+    if (!da && !db) return 0;
+    if (!da) return 1;
+    if (!db) return -1;
+    // 日付比較（yyyy/MM/dd形式）
+    var ta = new Date(da).getTime();
+    var tb = new Date(db).getTime();
+    if (isNaN(ta) && isNaN(tb)) return 0;
+    if (isNaN(ta)) return 1;
+    if (isNaN(tb)) return -1;
+    return ta - tb;
   });
-  Logger.log('契約日順にソートしました（Range.sort使用）');
+
+  sheet.getRange(2, 1, data.length, lastCol).setValues(data);
+  Logger.log('契約日順にソートしました');
 }
 
 // ============================================
 // 21時チャットワーク通知（未入力リマインダー）
 // ============================================
 
-// POST_APP_CW_ROOM_COL は上部で定義済み（D列=4）
+var POST_APP_CW_ROOM_COL = 3; // C列: チャットワークグルチャID
 
 /**
  * 毎日21時にトリガーで実行
@@ -760,13 +652,11 @@ function postAppDailyReminder() {
   var todayDay = parseInt(Utilities.formatDate(now, 'Asia/Tokyo', 'dd'));
   var todayCol = POST_APP_DATE_START_COL + todayDay - 1;
 
-  // 全データ一括取得（N+1クエリ防止）
+  // 全データ取得（ID, 名前, 今日の値, CW room_id）
   var ids = sheet.getRange(2, POST_APP_ID_COL, lastRow - 1, 1).getValues();
   var names = sheet.getRange(2, POST_APP_NAME_COL, lastRow - 1, 1).getValues();
   var todayVals = sheet.getRange(2, todayCol, lastRow - 1, 1).getValues();
   var roomIds = sheet.getRange(2, POST_APP_CW_ROOM_COL, lastRow - 1, 1).getValues();
-  // 連続日数計算用に日付列を一括取得
-  var allDayData = sheet.getRange(2, POST_APP_DATE_START_COL, lastRow - 1, todayDay).getValues();
 
   var sentCount = 0;
 
@@ -782,10 +672,10 @@ function postAppDailyReminder() {
     // 入力済み（❌以外の値がある）→ スキップ
     if (val && val !== '' && val !== '❌') continue;
 
-    // 連続日数を計算（バッチ取得済みデータから）
+    // 連続日数を計算（メッセージに使う）
     var streak = 0;
     for (var j = todayDay - 2; j >= 0; j--) {
-      var prevVal = String(allDayData[i][j] || '').trim();
+      var prevVal = String(sheet.getRange(i + 2, POST_APP_DATE_START_COL + j).getValue()).trim();
       if (prevVal && prevVal !== '' && prevVal !== '❌') streak++;
       else break;
     }
@@ -855,14 +745,13 @@ function testCwNotification() {
   if (!cwToken) { Logger.log('CHATWORK_POSTAPP_TOKEN未設定'); return; }
 
   var ss = SpreadsheetApp.openById(POST_APP_SS_ID);
-  var sheet = ss.getSheetByName(POST_APP_SHEET_NAME);
-  if (!sheet) { Logger.log('シートが見つかりません: ' + POST_APP_SHEET_NAME); return; }
+  var sheet = ss.getSheetByName(POST_APP_SHEET_NAME) || ss.getSheets()[0];
 
   // Namakaくん(ID=0000)の行を探す
   var lastRow = sheet.getLastRow();
   var ids = sheet.getRange(2, POST_APP_ID_COL, lastRow - 1, 1).getValues();
   for (var i = 0; i < ids.length; i++) {
-    if (matchId_(ids[i][0], '0000')) {
+    if (String(ids[i][0]).trim() === '0000') {
       var roomId = String(sheet.getRange(i + 2, POST_APP_CW_ROOM_COL).getValue()).trim();
       var name = String(sheet.getRange(i + 2, POST_APP_NAME_COL).getValue()).trim();
       if (!roomId) { Logger.log('C列にroom_idがありません'); return; }
@@ -898,8 +787,7 @@ function installPostAppReminderTrigger() {
 function resetTestUsers() {
   var ids = ['5229', '5220'];
   var ss = SpreadsheetApp.openById(POST_APP_SS_ID);
-  var sheet = ss.getSheetByName(POST_APP_SHEET_NAME);
-  if (!sheet) { Logger.log('シートが見つかりません: ' + POST_APP_SHEET_NAME); return; }
+  var sheet = ss.getSheetByName(POST_APP_SHEET_NAME) || ss.getSheets()[0];
   var lastRow = sheet.getLastRow();
   var allIds = sheet.getRange(2, POST_APP_ID_COL, lastRow - 1, 1).getValues();
 
@@ -939,37 +827,33 @@ function createTestAccount() {
   var password = '0403';
 
   var ss = SpreadsheetApp.openById(POST_APP_SS_ID);
-  var sheet = ss.getSheetByName(POST_APP_SHEET_NAME);
-  if (!sheet) { Logger.log('シートが見つかりません: ' + POST_APP_SHEET_NAME); return; }
+  var sheet = ss.getSheetByName(POST_APP_SHEET_NAME) || ss.getSheets()[0];
   var lastRow = sheet.getLastRow();
   var ids = sheet.getRange(2, POST_APP_ID_COL, lastRow - 1, 1).getValues();
 
   // 既存行があれば削除
   for (var i = ids.length - 1; i >= 0; i--) {
-    if (matchId_(ids[i][0], id)) {
+    if (String(ids[i][0]).trim() === id) {
       sheet.deleteRow(i + 2);
     }
   }
 
   // 2行目に挿入
   sheet.insertRowAfter(1);
-  // A列をテキスト形式に（先頭0が消えないように）
-  sheet.getRange(2, POST_APP_ID_COL).setNumberFormat('@');
   // A=ID, B=契約日, C=CW ID, D=名前, E=合計数式, F〜AI=❌
-  var f = '=COUNTIF(F2:AI2,"1本")+COUNTIF(F2:AI2,"2本")*2+COUNTIF(F2:AI2,"3本")*3+COUNTIF(F2:AI2,"4本")*4+COUNTIF(F2:AI2,"5本")*5+COUNTIF(F2:AI2,"6本")*6';
+  var f = '=COUNTIF(F2:AI2,"1本")+COUNTIF(F2:AI2,"2本")*2+COUNTIF(F2:AI2,"3本")*3';
   var newRow = [id, '', '', name, f];
   for (var d = 0; d < 30; d++) newRow.push('❌');
   sheet.getRange(2, 1, 1, newRow.length).setValues([newRow]);
   Logger.log('Inserted ' + name + ' at row 2');
 
-  // パスワード登録（認証シート、IDはテキスト形式で保存）
+  // パスワード登録
   var authSheet = getAuthSheet_();
-  authSheet.getRange(1, 1, authSheet.getMaxRows(), 1).setNumberFormat('@');
   var authLast = authSheet.getLastRow();
   if (authLast >= 2) {
     var authData = authSheet.getRange(2, 1, authLast - 1, 1).getValues();
     for (var a = authData.length - 1; a >= 0; a--) {
-      if (matchId_(authData[a][0], id)) authSheet.deleteRow(a + 2);
+      if (String(authData[a][0]).trim() === id) authSheet.deleteRow(a + 2);
     }
   }
   authSheet.appendRow([id, hashPassword_(password)]);
@@ -979,8 +863,7 @@ function createTestAccount() {
 // ---- ランキング取得 ----
 function postAppRanking_() {
   var ss = SpreadsheetApp.openById(POST_APP_SS_ID);
-  var sheet = ss.getSheetByName(POST_APP_SHEET_NAME);
-  if (!sheet) return { ranking: [], error: 'シートが見つかりません' };
+  var sheet = ss.getSheetByName(POST_APP_SHEET_NAME) || ss.getSheets()[0];
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return { ranking: [] };
 
@@ -1027,8 +910,7 @@ function postAppRanking_() {
 // ---- D列の名前をLPスプシから復元 ----
 function restoreNames() {
   var ss = SpreadsheetApp.openById(POST_APP_SS_ID);
-  var sheet = ss.getSheetByName(POST_APP_SHEET_NAME);
-  if (!sheet) { Logger.log('シートが見つかりません: ' + POST_APP_SHEET_NAME); return; }
+  var sheet = ss.getSheetByName(POST_APP_SHEET_NAME) || ss.getSheets()[0];
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return;
 
@@ -1066,61 +948,15 @@ function restoreNames() {
   Logger.log('Restored ' + restored + ' names out of ' + names.length + ' rows');
 }
 
-// ---- B列(パスワード列)削除＋認証シート重複クリーンアップ（1回だけ実行） ----
-function removePasswordColumnB() {
-  var ss = SpreadsheetApp.openById(POST_APP_SS_ID);
-  var sheet = ss.getSheetByName(POST_APP_SHEET_NAME);
-  if (!sheet) { Logger.log('シートが見つかりません'); return; }
-
-  // B1が「パスワード」ならB列を削除
-  var b1 = String(sheet.getRange(1, 2).getValue() || '').trim();
-  if (b1 === 'パスワード') {
-    sheet.deleteColumn(2);
-    Logger.log('B列(パスワード列)を削除しました → v487の列配置に復元');
-  } else {
-    Logger.log('B1="' + b1 + '" → パスワード列ではないためスキップ');
-  }
-
-  // 認証シートの重複エントリをクリーンアップ
-  var authSheet = getAuthSheet_();
-  authSheet.getRange(1, 1, authSheet.getMaxRows(), 1).setNumberFormat('@');
-  var authLast = authSheet.getLastRow();
-  if (authLast >= 2) {
-    var authData = authSheet.getRange(2, 1, authLast - 1, 2).getValues();
-    var seen = {};
-    var toDelete = [];
-    for (var i = 0; i < authData.length; i++) {
-      var rawId = String(authData[i][0]).trim();
-      // 数値 0 → '0000' に変換
-      if (rawId === '0') rawId = '0000';
-      if (seen[rawId]) {
-        toDelete.push(i + 2);
-      } else {
-        seen[rawId] = true;
-        // IDをテキストで正規化して書き戻し
-        authSheet.getRange(i + 2, 1).setValue(rawId);
-      }
-    }
-    // 下から削除
-    for (var d = toDelete.length - 1; d >= 0; d--) {
-      authSheet.deleteRow(toDelete[d]);
-      Logger.log('認証シート重複行 ' + toDelete[d] + ' を削除');
-    }
-  }
-
-  Logger.log('完了。列配置: A=ID, B=契約日, C=CW, D=名前, E=合計, F〜=日付');
-}
-
-// ---- E列(合計)に数式を一括設定（B列削除後: F〜AI = 日付列） ----
+// ---- E列(合計)に数式を一括設定 ----
 function fixPostAppTotal() {
   var ss = SpreadsheetApp.openById(POST_APP_SS_ID);
-  var sheet = ss.getSheetByName(POST_APP_SHEET_NAME);
-  if (!sheet) { Logger.log('シートが見つかりません: ' + POST_APP_SHEET_NAME); return; }
+  var sheet = ss.getSheetByName(POST_APP_SHEET_NAME) || ss.getSheets()[0];
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return;
   var formulas = [];
   for (var r = 2; r <= lastRow; r++) {
-    formulas.push(['=COUNTIF(F' + r + ':AI' + r + ',"1本")+COUNTIF(F' + r + ':AI' + r + ',"2本")*2+COUNTIF(F' + r + ':AI' + r + ',"3本")*3+COUNTIF(F' + r + ':AI' + r + ',"4本")*4+COUNTIF(F' + r + ':AI' + r + ',"5本")*5+COUNTIF(F' + r + ':AI' + r + ',"6本")*6']);
+    formulas.push(['=COUNTIF(F' + r + ':AI' + r + ',"1本")+COUNTIF(F' + r + ':AI' + r + ',"2本")*2+COUNTIF(F' + r + ':AI' + r + ',"3本")*3']);
   }
   sheet.getRange(2, POST_APP_TOTAL_COL, formulas.length, 1).setFormulas(formulas);
   Logger.log('Done: ' + formulas.length + ' rows updated');
