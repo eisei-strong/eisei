@@ -118,17 +118,7 @@ function updateSummary() {
     var md = memberDataList[m];
     var dt = md.data ? md.data.totals : emptyTotals_();
     var lr = md.data ? md.data.lifetyRate : '-';
-    var prev = prevMonthData[md.name] || prevMonthData[md.displayName];
-    // 旧名でも検索（ドライ→ポジティブ等の名前変更対応）
-    if (!prev) {
-      for (var oldN in LEGACY_TO_V2_NAME) {
-        if (LEGACY_TO_V2_NAME[oldN] === md.name && prevMonthData[oldN]) {
-          prev = prevMonthData[oldN];
-          break;
-        }
-      }
-    }
-    if (!prev) prev = { revenue: 0, deals: 0, closed: 0, closeRate: 0 };
+    var prev = prevMonthData[md.name] || prevMonthData[md.displayName] || { revenue: 0, deals: 0, closed: 0, closeRate: 0 };
     var currentRev = md.data ? md.data.totals.revenue : 0;
     var gapToTop = (md.rank === 1) ? 0 : round1_(topRevenue - currentRev);
 
@@ -223,6 +213,9 @@ function updateSummary() {
 
   // ランキングを設定シートに書き戻し
   updateRankInSettings_(ss, memberDataList);
+
+  // ダッシュボードキャッシュをクリア（次回API呼び出しで最新データを返す）
+  clearDashboardCache_();
 
   Logger.log('サマリー更新完了: 着金合計=' + totalRevenue + '万円');
 }

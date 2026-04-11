@@ -42,7 +42,7 @@
 
     /* ===== Container ===== */
     .container {
-      max-width: 1200px;
+      max-width: 1600px;
       margin: 0 auto;
       padding: 24px 16px;
     }
@@ -513,6 +513,10 @@
       margin-bottom: 14px;
     }
 
+    .stats-row-2 {
+      grid-template-columns: 1fr 1fr;
+    }
+
     .stat-item {
       text-align: center;
       padding: 8px 4px;
@@ -715,6 +719,26 @@
       flex-shrink: 0;
     }
 
+    .news-date-group {
+      margin-bottom: 12px;
+    }
+    .news-date-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      background: #F1F5F9;
+      border-radius: 8px;
+      margin-bottom: 4px;
+      font-weight: 800;
+      font-size: 13px;
+      color: #334155;
+    }
+    .news-date-total {
+      color: #EA580C;
+      font-size: 14px;
+    }
+
     .news-empty {
       text-align: center;
       padding: 32px 16px;
@@ -805,6 +829,7 @@
           </div>
           <div style="display:flex;align-items:center;gap:10px;">
             <span class="updated" id="updatedAt"></span>
+            <button class="refresh-btn" id="syncBtn" onclick="syncAndRefresh()" style="background:#059669;">同期</button>
             <button class="refresh-btn" id="refreshBtn" onclick="refreshData()">更新</button>
           </div>
         </div>
@@ -981,6 +1006,24 @@
       btn.disabled = true;
       btn.textContent = '更新中...';
       loadData();
+    }
+
+    function syncAndRefresh() {
+      var btn = document.getElementById('syncBtn');
+      btn.disabled = true;
+      btn.textContent = '同期中...';
+      google.script.run
+        .withSuccessHandler(function() {
+          btn.disabled = false;
+          btn.textContent = '同期';
+          loadData();
+        })
+        .withFailureHandler(function() {
+          btn.disabled = false;
+          btn.textContent = '同期';
+          alert('同期失敗');
+        })
+        .syncAndUpdate();
     }
 
     function onDataLoaded(data) {
@@ -1333,28 +1376,22 @@
             '</div>' +
           '</div>' +
           '<div class="revenue-value">' + formatManYen(m.revenue) + '</div>' +
-          '<div class="prev-compare">' +
-            '<div class="prev-compare-row">' +
-              '<span class="prev-label">前月着金額</span>' +
-              '<span class="prev-value">' + formatManYen(m.prevRevenue) + '</span>' +
+
+          // 着金内訳
+          '<div class="stats-row stats-row-2">' +
+            '<div class="stat-item">' +
+              '<div class="stat-label">クレカ着金</div>' +
+              '<div class="stat-value">' + formatManYen(m.creditCard) + '</div>' +
             '</div>' +
-            '<div class="prev-compare-row">' +
-              '<span class="prev-label">前月比</span>' +
-              '<span class="prev-diff ' + (m.diffRevenue > 0 ? 'up' : (m.diffRevenue < 0 ? 'down' : 'even')) + '">' +
-                (m.diffRevenue > 0 ? '+' : '') + formatManYen(m.diffRevenue) +
-                (m.diffRevenue > 0 ? ' \u2191' : (m.diffRevenue < 0 ? ' \u2193' : '')) +
-              '</span>' +
+            '<div class="stat-item">' +
+              '<div class="stat-label">信販着金</div>' +
+              '<div class="stat-value">' + formatManYen(m.shinpan) + '</div>' +
             '</div>' +
           '</div>' +
 
           // 商談・成約
           '<div class="card-section-label">\u{1F4CA} 商談・成約</div>' +
           '<div class="stats-row">' +
-            '<div class="stat-item">' +
-              '<div class="stat-label">成約率</div>' +
-              '<div class="stat-value">' + m.closeRate + '%</div>' +
-              diffHtml(m.diffCloseRate, '%') +
-            '</div>' +
             '<div class="stat-item">' +
               '<div class="stat-label">商談数</div>' +
               '<div class="stat-value">' + m.deals + '件</div>' +
@@ -1365,53 +1402,75 @@
               '<div class="stat-value">' + m.closed + '件</div>' +
               diffHtml(m.diffClosed, '件') +
             '</div>' +
+            '<div class="stat-item">' +
+              '<div class="stat-label">失注</div>' +
+              '<div class="stat-value">' + (m.lost || 0) + '件</div>' +
+            '</div>' +
           '</div>' +
           '<div class="stats-row">' +
             '<div class="stat-item">' +
-              '<div class="stat-label">資金有り商談</div>' +
-              '<div class="stat-value">' + m.fundedDeals + '件</div>' +
+              '<div class="stat-label">成約率</div>' +
+              '<div class="stat-value">' + m.closeRate + '%</div>' +
+              diffHtml(m.diffCloseRate, '%') +
+            '</div>' +
+            '<div class="stat-item">' +
+              '<div class="stat-label">平均着金額</div>' +
+              '<div class="stat-value">' + formatManYen(m.avgPrice) + '</div>' +
             '</div>' +
             '<div class="stat-item">' +
               '<div class="stat-label">売上</div>' +
               '<div class="stat-value">' + formatManYen(m.sales) + '</div>' +
             '</div>' +
-            '<div class="stat-item">' +
-              '<div class="stat-label">平均単価</div>' +
-              '<div class="stat-value">' + formatManYen(m.avgPrice) + '</div>' +
-            '</div>' +
           '</div>' +
 
-          // 着金内訳
-          '<div class="card-section-label">\u{1F4B0} 着金内訳</div>' +
-          '<div class="stats-row">' +
+          // CO・継続
+          '<div class="card-section-label">\u{1F4B0} CO・継続</div>' +
+          '<div class="stats-row stats-row-2">' +
             '<div class="stat-item">' +
               '<div class="stat-label">CO額</div>' +
               '<div class="stat-value">' + formatManYen(m.coAmount) + '</div>' +
             '</div>' +
             '<div class="stat-item">' +
-              '<div class="stat-label">CO含着金</div>' +
-              '<div class="stat-value">' + formatManYen(m.coRevenue) + '</div>' +
+              '<div class="stat-label">CO数</div>' +
+              '<div class="stat-value">' + (m.coRevenue || 0) + '件</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="stats-row stats-row-2">' +
+            '<div class="stat-item">' +
+              '<div class="stat-label">失注(継続)</div>' +
+              '<div class="stat-value">' + (m.lostCont || 0) + '件</div>' +
             '</div>' +
             '<div class="stat-item">' +
-              '<div class="stat-label">クレカ着金</div>' +
-              '<div class="stat-value">' + formatManYen(m.creditCard) + '</div>' +
+              '<div class="stat-label">継続数</div>' +
+              '<div class="stat-value">' + (m.cont || 0) + '件</div>' +
             '</div>' +
           '</div>' +
 
           // 信販・審査
           '<div class="card-section-label">\u{1F3E6} 信販・審査</div>' +
-          '<div class="stats-row">' +
+          '<div class="stats-row stats-row-2">' +
             '<div class="stat-item">' +
-              '<div class="stat-label">信販着金</div>' +
-              '<div class="stat-value">' + formatManYen(m.shinpan) + '</div>' +
+              '<div class="stat-label">ライフティ</div>' +
+              '<div class="stat-value">' + escapeHtml(m.lifety) + '</div>' +
             '</div>' +
             '<div class="stat-item">' +
               '<div class="stat-label">CBS</div>' +
               '<div class="stat-value">' + escapeHtml(m.cbs) + '</div>' +
             '</div>' +
-            '<div class="stat-item">' +
-              '<div class="stat-label">ライフティ</div>' +
-              '<div class="stat-value">' + escapeHtml(m.lifety) + '</div>' +
+          '</div>' +
+
+          // 前月比較
+          '<div class="prev-compare">' +
+            '<div class="prev-compare-row">' +
+              '<span class="prev-label">前月着金</span>' +
+              '<span class="prev-value">' + formatManYen(m.prevRevenue) + '</span>' +
+            '</div>' +
+            '<div class="prev-compare-row">' +
+              '<span class="prev-label">前月比</span>' +
+              '<span class="prev-diff ' + (m.diffRevenue > 0 ? 'up' : (m.diffRevenue < 0 ? 'down' : 'even')) + '">' +
+                (m.diffRevenue > 0 ? '+' : '') + formatManYen(m.diffRevenue) +
+                (m.diffRevenue > 0 ? ' \u2191' : (m.diffRevenue < 0 ? ' \u2193' : '')) +
+              '</span>' +
             '</div>' +
           '</div>' +
 
@@ -1444,6 +1503,47 @@
       return html;
     }
 
+    function renderNewsGrouped(items) {
+      var groups = {};
+      var dateOrder = [];
+      for (var i = 0; i < items.length; i++) {
+        var key = items[i].date;
+        if (!groups[key]) {
+          groups[key] = { dateShort: items[i].dateShort, items: [], total: 0 };
+          dateOrder.push(key);
+        }
+        groups[key].items.push(items[i]);
+        groups[key].total += items[i].amount;
+      }
+
+      var html = '';
+      var idx = 0;
+      for (var di = 0; di < dateOrder.length; di++) {
+        var g = groups[dateOrder[di]];
+        html += '<div class="news-date-group">' +
+          '<div class="news-date-header">' +
+            '<span>\u{1F4C5} ' + g.dateShort + '</span>' +
+            '<span class="news-date-total">合計 ' + formatManYen(Math.round(g.total * 10) / 10) + '</span>' +
+          '</div>';
+        for (var j = 0; j < g.items.length; j++) {
+          var item = g.items[j];
+          var iconImg = item.icon
+            ? '<img class="news-icon" src="' + item.icon + '" alt="" onerror="this.style.display=\'none\'">'
+            : '<div class="news-icon" style="background:#F1F5F9;display:flex;align-items:center;justify-content:center;font-size:14px;">💰</div>';
+          html += '<div class="news-item fade-in-up" style="animation-delay:' + (isFirstLoad ? idx * 0.04 : 0) + 's;">' +
+              iconImg +
+            '<div class="news-content">' +
+              '<div class="news-amount"><strong>' + formatManYen(item.amount) + '</strong> 着金！</div>' +
+              '<div class="news-date">' + escapeHtml(item.name) + '</div>' +
+            '</div>' +
+          '</div>';
+          idx++;
+        }
+        html += '</div>';
+      }
+      return html;
+    }
+
     function updatePaymentNews(data, isArchive) {
       var topSection = document.getElementById('newsTop');
       var topFeed = document.getElementById('newsTopFeed');
@@ -1465,7 +1565,7 @@
       allSection.style.display = '';
       topSection.style.display = 'block';
       topFeed.innerHTML = renderNewsItems(data.paymentNews.slice(0, 7), 0);
-      allFeed.innerHTML = renderNewsItems(data.paymentNews, 0);
+      allFeed.innerHTML = renderNewsGrouped(data.paymentNews);
     }
   </script>
 </body>

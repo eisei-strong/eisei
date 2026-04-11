@@ -71,24 +71,24 @@ var SM_ROW_KPI_PROGRESS     = 8;   // 年間目標進捗率
 
 var SM_ROW_MEMBER_HEADER    = 10;
 var SM_ROW_MEMBER_START     = 11;  // メンバーデータ開始
-var SM_ROW_MEMBER_END       = 20;  // 10人分 (11-20)
-var SM_ROW_MEMBER_TOTAL     = 21;  // 合計行
+var SM_ROW_MEMBER_END       = 26;  // 16人分 (11-26) ※10→16人に拡張
+var SM_ROW_MEMBER_TOTAL     = 27;  // 合計行
 
-var SM_ROW_PERIOD_HEADER    = 24;
-var SM_ROW_PERIOD_1_10      = 25;
-var SM_ROW_PERIOD_11_20     = 26;
-var SM_ROW_PERIOD_21_END    = 27;
+var SM_ROW_PERIOD_HEADER    = 30;
+var SM_ROW_PERIOD_1_10      = 31;
+var SM_ROW_PERIOD_11_20     = 32;
+var SM_ROW_PERIOD_21_END    = 33;
 
-var SM_ROW_BREAKDOWN_HEADER = 30;
-var SM_ROW_CREDIT_TOTAL     = 31;
-var SM_ROW_SHINPAN_TOTAL    = 32;
-var SM_ROW_CURRENT_REVENUE  = 33;
-var SM_ROW_CARRYOVER_REVENUE= 34;
-var SM_ROW_CUMULATIVE_CLOSED= 35;  // 8月からの累計成約数
+var SM_ROW_BREAKDOWN_HEADER = 36;
+var SM_ROW_CREDIT_TOTAL     = 37;
+var SM_ROW_SHINPAN_TOTAL    = 38;
+var SM_ROW_CURRENT_REVENUE  = 39;
+var SM_ROW_CARRYOVER_REVENUE= 40;
+var SM_ROW_CUMULATIVE_CLOSED= 41;  // 8月からの累計成約数
 
 // 退職者CO残セクション
-var SM_ROW_CO_HEADER        = 37;
-var SM_ROW_CO_START          = 38;
+var SM_ROW_CO_HEADER        = 43;
+var SM_ROW_CO_START          = 44;
 
 // --- サマリーシート: メンバーテーブル列定義 (1-based) ---
 var SM_COL_NAME          = 1;   // A: メンバー
@@ -120,10 +120,10 @@ var SETTINGS_COL_DISPLAY_NAME= 2;  // B: 表示名
 var SETTINGS_COL_RANK        = 3;  // C: 着金ランキング順位
 var SETTINGS_COL_STATUS      = 4;  // D: ステータス
 var SETTINGS_COL_COLOR       = 5;  // E: 配色コード
-var SETTINGS_MEMBER_COL_COUNT= 6;
+var SETTINGS_MEMBER_COL_COUNT= 5;
 
-// グローバル設定（行14以降）
-var SETTINGS_ROW_GLOBAL_START = 14;
+// グローバル設定（行22以降）※メンバー増加対応: 行2〜21で最大20人分
+var SETTINGS_ROW_GLOBAL_START = 22;
 // A列=ラベル, B列=値
 
 // ============================================
@@ -209,16 +209,16 @@ var OLD_ROW_LIFETY       = 19;
 // dataStart/dataEnd: セクション内データ行(1-indexed)
 // ============================================
 var MEMBER_SECTIONS = [
-  { name: 'AをAでやる',              summaryCol: 3,  dataStart: 35,  dataEnd: 65 },
-  { name: 'ポジティブ',              summaryCol: 6,  dataStart: 71,  dataEnd: 101 },
-  { name: 'トニー',                  summaryCol: 9,  dataStart: 328, dataEnd: 358 },
-  { name: 'ヒトコト',                summaryCol: 12, dataStart: 107, dataEnd: 137 },
-  { name: 'ゴン',                    summaryCol: 15, dataStart: 365, dataEnd: 395 },
-  { name: 'ビッグマウス',            summaryCol: 18, dataStart: 143, dataEnd: 173 },
-  { name: 'けつだん',                summaryCol: 21, dataStart: 291, dataEnd: 321 },
-  { name: 'ぜんぶり',               summaryCol: 24, dataStart: 180, dataEnd: 210 },
-  { name: 'スクリプト通りに営業するくん', summaryCol: 27, dataStart: 217, dataEnd: 247 },
-  { name: 'ワントーン',              summaryCol: 30, dataStart: 254, dataEnd: 284 }
+  { name: '意思決定',              summaryCol: 3,  dataStart: 32,  dataEnd: 62 },
+  { name: 'ポジティブ',                  summaryCol: 6,  dataStart: 68,  dataEnd: 98 },
+  { name: 'トニー',                  summaryCol: 9,  dataStart: 325, dataEnd: 355 },
+  { name: 'ヒトコト',                summaryCol: 12, dataStart: 104, dataEnd: 134 },
+  { name: 'ゴン',                    summaryCol: 15, dataStart: 362, dataEnd: 392 },
+  { name: 'ありのまま',            summaryCol: 18, dataStart: 140, dataEnd: 170 },
+  { name: 'けつだん',                summaryCol: 21, dataStart: 288, dataEnd: 318 },
+  { name: 'ぜんぶり',               summaryCol: 24, dataStart: 177, dataEnd: 207 },
+  { name: 'スクリプト通りに営業するくん', summaryCol: 27, dataStart: 214, dataEnd: 244 },
+  { name: 'スマイル',              summaryCol: 30, dataStart: 251, dataEnd: 281 }
 ];
 
 // ============================================
@@ -227,43 +227,51 @@ var MEMBER_SECTIONS = [
 
 // 本名（苗字）→ v2メンバー名（⚔️信販会社割合シート用）
 var REAL_NAME_TO_V2 = {
-  '辻阪': 'ビッグマウス',
+  '辻阪': 'ありのまま',
   '久保田': 'ヒトコト',
-  '阿部': 'AをAでやる',
+  '阿部': '意思決定',
   '伊東': 'ポジティブ',
   '川合': 'リヴァイ',
   '大内': 'ガロウ',
   '福島': 'けつだん',
   '五十嵐': 'ぜんぶり',
-  '新居': 'スクリプト通りに営業するくん',
-  '佐々木': 'ワントーン',
-  '佐々木心雪': 'ワントーン'
+  '新居': 'スクリプトくん',
+  '佐々木': 'スマイル',
+  '佐々木心雪': 'スマイル',
+  '長谷部': '長谷部',
+  '吉崎': 'ゴジータ',
+  '荒木': '悟空',
+  'こうつさ': 'やまと'
 };
 
 // v1内部名 → v2メンバー名（移行用）
 var LEGACY_TO_V2_NAME = {
-  '李信': 'AをAでやる',
-  '童信': 'AをAでやる',
-  '信': 'AをAでやる',
+  '李信': '意思決定',
+  '童信': '意思決定',
+  '信': '意思決定',
+  'AをAでやる': '意思決定',
+  'AをAで': '意思決定',
+  'ビッグマウス': 'ありのまま',
+  'ワントーン': 'スマイル',
   '勝友美': 'ポジティブ',
   'ドライ': 'ポジティブ',
   '流川': 'ヒトコト',
-  '首斬り桓騎': 'ビッグマウス',
-  '桓騎': 'ビッグマウス',
+  '首斬り桓騎': 'ありのまま',
+  '桓騎': 'ありのまま',
   'ヒカル': 'けつだん',
   '本田圭佑': 'ぜんぶり',
   'セナ': 'スクリプト通りに営業するくん',
-  '大飛': 'ワントーン'
+  '大飛': 'スマイル'
 };
 
 // 旧表示名→v2メンバー名（フォールバック用）
 var DISPLAY_NAME_MAP = {
   '流川': 'ヒトコト',
-  '大飛': 'ワントーン',
-  '李信': 'AをAでやる',
+  '大飛': 'スマイル',
+  '李信': '意思決定',
   '本田圭佑': 'ぜんぶり',
   '勝友美': 'ポジティブ',
-  '首斬り桓騎': 'ビッグマウス',
+  '首斬り桓騎': 'ありのまま',
   'セナ': 'スクリプトくん',
   'ヒカル': 'けつだん'
 };
@@ -282,15 +290,40 @@ var OLD_DISPLAY_TO_V2 = {
 var ICON_MAP = {
   'ヒトコト':     'https://lh3.googleusercontent.com/d/14TcuxzbVRRVNSjhlaOFDXdCXke_jV7m3',
   'スクリプト通りに営業するくん': 'https://lh3.googleusercontent.com/d/1BSBMs3h5BgC1z0Tx8jyprPmDs11LTBPn',
-  'ポジティブ':   'https://lh3.googleusercontent.com/d/1AdF_IRXMi_uGG7ctCjO7CkaJw7XUOb6y',
-  'ドライ':       'https://lh3.googleusercontent.com/d/1N75FOIOJnh2Qun8fEUXmxwv3A3tLxlWR',
-  'AをAでやる':   'https://lh3.googleusercontent.com/d/10gj3l2D7PqGqZQZ1mmwyu4ZEZZPdem--',
+  'ポジティブ':       'https://lh3.googleusercontent.com/d/1N75FOIOJnh2Qun8fEUXmxwv3A3tLxlWR',
+  '意思決定':   'https://giver.work/sales-dashboard/icons/ishikettei.png',
   'ぜんぶり':     'https://lh3.googleusercontent.com/d/11_mTOKu5m2MFoufn36NjUQyLjOdXrpa5',
   'けつだん':     'https://lh3.googleusercontent.com/d/1wnoxiF7PRZKSFPnjn0WXQb16hm-68Jlk',
-  'ワントーン':   'https://lh3.googleusercontent.com/d/1tTXYHdXlPELox3hwXpAUnBCG_w2shjIQ',
-  'ビッグマウス': 'https://lh3.googleusercontent.com/d/13EV9ouH2X5tD7GzqfSTA2osSptFuzrqZ',
+  'スマイル':   'https://giver.work/sales-dashboard/icons/smile.png',
+  'ありのまま': 'https://giver.work/sales-dashboard/icons/arinomama.png',
   'ゴン':         'https://lh3.googleusercontent.com/d/1iwBxoCgXfmfOoUhTv4OUy7mir9XmvjJV',
-  'トニー':       'https://lh3.googleusercontent.com/d/1sHZ_zFFAitl7iVPEcIzQzpTD9cwL9FHv'
+  'トニー':       'https://lh3.googleusercontent.com/d/1sHZ_zFFAitl7iVPEcIzQzpTD9cwL9FHv',
+  '長谷部':       'https://appdata.chatwork.com/avatar/R769mN4PAr.rsz.jpg',
+  'ゴジータ':     'https://appdata.chatwork.com/avatar/372J8vnz75.png',
+  'L':            'https://appdata.chatwork.com/avatar/w7zBRgGD7l.png',
+  '悟空':         'https://appdata.chatwork.com/avatar/Vq3WYmk4ql.png',
+  'やまと':       'https://appdata.chatwork.com/avatar/Vq3WYnr8ql.rsz.png',
+  '夜神月':       'https://appdata.chatwork.com/avatar/zMEPJERa73.png'
+};
+
+// Chatwork account_id → v2メンバー名（アバター自動取得用）
+var CHATWORK_TO_V2 = {
+  '4415237':  'ありのまま',
+  '10258043': 'ヒトコト',
+  '10751140': '意思決定',
+  '10751530': 'ポジティブ',
+  '9418659':  'けつだん',
+  '10751652': 'スクリプト通りに営業するくん',
+  '10750441': 'ぜんぶり',
+  '9398311':  'スマイル',
+  '11109913': 'ゴン',
+  '11105287': 'トニー',
+  '11159019': '長谷部',
+  '10841091': 'ゴジータ',
+  '11232346': 'L',
+  '11205416': '悟空',
+  '10471342': 'やまと',
+  '11237452': '夜神月'
 };
 
 // ============================================
@@ -320,6 +353,77 @@ function iconUrl_(name) {
   return ICON_MAP[name] || '';
 }
 
+/**
+ * ChatworkルームメンバーのアバターURLを取得してICON_MAPを更新
+ * ICON_MAPに未登録のメンバーのみ追加（既存は上書きしない）
+ * @param {string} roomId ルームID（デフォルト: ウォーリアーズ全体FF）
+ * @returns {Object} {updated: [], skipped: [], unknown: []}
+ */
+function syncChatworkAvatars(roomId) {
+  roomId = roomId || '412557550';
+  var token = getChatworkToken_();
+  if (!token) return { error: 'CHATWORK_API_TOKEN未設定' };
+
+  var url = 'https://api.chatwork.com/v2/rooms/' + roomId + '/members';
+  var response = UrlFetchApp.fetch(url, {
+    method: 'get',
+    headers: { 'X-ChatWorkToken': token },
+    muteHttpExceptions: true
+  });
+  if (response.getResponseCode() !== 200) return { error: 'API失敗: ' + response.getResponseCode() };
+
+  var members = JSON.parse(response.getContentText());
+  var result = { updated: [], skipped: [], unknown: [] };
+
+  for (var i = 0; i < members.length; i++) {
+    var m = members[i];
+    var v2Name = CHATWORK_TO_V2[String(m.account_id)];
+    if (!v2Name) {
+      result.unknown.push({ name: m.name, id: m.account_id, avatar: m.avatar_image_url });
+      continue;
+    }
+    if (ICON_MAP[v2Name]) {
+      result.skipped.push(v2Name);
+      continue;
+    }
+    ICON_MAP[v2Name] = m.avatar_image_url;
+    result.updated.push({ name: v2Name, avatar: m.avatar_image_url });
+  }
+
+  return result;
+}
+
+/**
+ * 全メンバーのアバターURLをChatworkから最新に更新（既存も上書き）
+ * @returns {Object} 更新結果
+ */
+function refreshAllAvatars(roomId) {
+  roomId = roomId || '412557550';
+  var token = getChatworkToken_();
+  if (!token) return { error: 'CHATWORK_API_TOKEN未設定' };
+
+  var url = 'https://api.chatwork.com/v2/rooms/' + roomId + '/members';
+  var response = UrlFetchApp.fetch(url, {
+    method: 'get',
+    headers: { 'X-ChatWorkToken': token },
+    muteHttpExceptions: true
+  });
+  if (response.getResponseCode() !== 200) return { error: 'API失敗: ' + response.getResponseCode() };
+
+  var members = JSON.parse(response.getContentText());
+  var updated = [];
+
+  for (var i = 0; i < members.length; i++) {
+    var m = members[i];
+    var v2Name = CHATWORK_TO_V2[String(m.account_id)];
+    if (!v2Name) continue;
+    ICON_MAP[v2Name] = m.avatar_image_url;
+    updated.push({ name: v2Name, avatar: m.avatar_image_url });
+  }
+
+  return { updated: updated };
+}
+
 /** 小数第1位まで丸める */
 function round1_(val) {
   return Math.round(val * 10) / 10;
@@ -344,9 +448,40 @@ function getSummarySheet_(ss) {
   return (ss || getSpreadsheet_()).getSheetByName(SHEET_SUMMARY);
 }
 
-/** 日別入力シートを取得 */
+/** 日別入力シートを取得（名前の揺れに対応するフォールバック付き） */
 function getDailySheet_(ss, memberName) {
-  return (ss || getSpreadsheet_()).getSheetByName(SHEET_DAILY_PREFIX + memberName);
+  ss = ss || getSpreadsheet_();
+  var sheet = ss.getSheetByName(SHEET_DAILY_PREFIX + memberName);
+  if (sheet) return sheet;
+
+  // フォールバック: LEGACY_TO_V2_NAME の逆引きで別名シートを探す
+  for (var legacyName in LEGACY_TO_V2_NAME) {
+    if (LEGACY_TO_V2_NAME[legacyName] === memberName) {
+      sheet = ss.getSheetByName(SHEET_DAILY_PREFIX + legacyName);
+      if (sheet) {
+        // シート名を正規名にリネーム
+        sheet.setName(SHEET_DAILY_PREFIX + memberName);
+        return sheet;
+      }
+    }
+  }
+
+  // フォールバック2: 設定シートのメンバー名で探す
+  var members = getMembersFromSettings_(ss);
+  for (var i = 0; i < members.length; i++) {
+    var m = members[i];
+    var resolved = LEGACY_TO_V2_NAME[m.name] || DISPLAY_NAME_MAP[m.name] || m.name;
+    if (resolved === memberName && m.name !== memberName) {
+      sheet = ss.getSheetByName(SHEET_DAILY_PREFIX + m.name);
+      if (sheet) {
+        // シート名を正規名にリネーム
+        sheet.setName(SHEET_DAILY_PREFIX + memberName);
+        return sheet;
+      }
+    }
+  }
+
+  return null;
 }
 
 /** 月次アーカイブシートを取得 */
@@ -404,17 +539,29 @@ function getMembersFromSettings_(ss) {
     var name = String(data[i][0] || '').trim();
     if (!name) continue;
 
+    // 旧名→v2正規名の自動修正（例: ポジティブ→ポジティブ）
+    var v2Name = LEGACY_TO_V2_NAME[name];
+    if (v2Name && ICON_MAP[v2Name]) {
+      sheet.getRange(SETTINGS_ROW_DATA_START + i, SETTINGS_COL_NAME).setValue(v2Name);
+      sheet.getRange(SETTINGS_ROW_DATA_START + i, SETTINGS_COL_DISPLAY_NAME).setValue(v2Name);
+      name = v2Name;
+    }
+
     var displayName = String(data[i][1] || '').trim() || name;
+    // displayNameも旧名の場合修正
+    if (LEGACY_TO_V2_NAME[displayName] && ICON_MAP[LEGACY_TO_V2_NAME[displayName]]) {
+      displayName = LEGACY_TO_V2_NAME[displayName];
+    }
+
     var status = String(data[i][3] || 'アクティブ').trim();
 
-    var sheetIcon = String(data[i][5] || '').trim();
     members.push({
       name: name,
       displayName: displayName,
       rank: data[i][2],
       status: status,
       color: String(data[i][4] || '').trim(),
-      iconUrl: sheetIcon || iconUrl_(name) || iconUrl_(displayName)
+      iconUrl: iconUrl_(name) || iconUrl_(displayName)
     });
   }
 

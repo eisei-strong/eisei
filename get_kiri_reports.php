@@ -10,12 +10,14 @@ if (!file_exists($historyFile)) {
 
 $qaHistory = json_decode(file_get_contents($historyFile), true) ?: [];
 
+$filterType = $_GET['type'] ?? 'kirigaeshi';
+
 $reports = [];
 $grouped = [];
 foreach ($qaHistory as $entry) {
-    if (($entry['category'] ?? '') === 'kirigaeshi' && ($entry['type'] ?? '') === 'chat') {
+    if (($entry['category'] ?? '') === $filterType && ($entry['type'] ?? '') === 'chat') {
         // Skip duplicates flagged by AI
-        if (!empty($entry['kiriDuplicate'])) continue;
+        if ($filterType === 'kirigaeshi' && !empty($entry['kiriDuplicate'])) continue;
 
         $genre = $entry['kiriGenre'] ?? '未分類';
         $r = [

@@ -76,6 +76,24 @@ function createDashboardTab() {
 }
 
 // ============================================
+// ゴール設定 読み込み
+// ============================================
+function getGoalSettings_(ss) {
+  var sheet = ss.getSheetByName('ゴール設定');
+  if (!sheet) return {};
+  var data = sheet.getDataRange().getValues();
+  var result = {};
+  for (var i = 1; i < data.length; i++) {
+    var key = String(data[i][0]);
+    var teamGoal = data[i][1] || 0;
+    var memberKgi = {};
+    try { memberKgi = JSON.parse(data[i][2] || '{}'); } catch (e) {}
+    result[key] = { teamGoal: teamGoal, memberKgi: memberKgi };
+  }
+  return result;
+}
+
+// ============================================
 // ウェブアプリ エントリーポイント
 // ============================================
 
@@ -86,6 +104,38 @@ function doPost(e) {
   try {
     var payload = JSON.parse(e.postData.contents);
     var action = payload.action || '';
+
+    if (action === 'saveGoals') {
+      var ss = getSpreadsheet_();
+      var sheet = ss.getSheetByName('ゴール設定');
+      if (!sheet) {
+        sheet = ss.insertSheet('ゴール設定');
+        sheet.getRange(1, 1, 1, 3).setValues([['月キー', 'チーム目標', '個人目標JSON']]);
+      }
+      var key = payload.key; // "2026_3" 等
+      var teamGoal = payload.teamGoal || 0;
+      var memberKgi = payload.memberKgi || {};
+      // 既存行を検索
+      var data = sheet.getDataRange().getValues();
+      var found = -1;
+      for (var i = 1; i < data.length; i++) {
+        if (String(data[i][0]) === String(key)) { found = i + 1; break; }
+      }
+      if (found > 0) {
+        sheet.getRange(found, 2, 1, 2).setValues([[teamGoal, JSON.stringify(memberKgi)]]);
+      } else {
+        sheet.appendRow([key, teamGoal, JSON.stringify(memberKgi)]);
+      }
+      return ContentService.createTextOutput(JSON.stringify({ ok: true }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    if (action === 'getGoals') {
+      var ss = getSpreadsheet_();
+      var result = getGoalSettings_(ss);
+      return ContentService.createTextOutput(JSON.stringify(result))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
 
     if (action === 'kb_import') {
       var ss = getSpreadsheet_();
@@ -104,6 +154,36 @@ function doPost(e) {
       })).setMimeType(ContentService.MimeType.JSON);
     }
 
+    if (action === 'postRegister') {
+      var prResult = postAppRegister_(payload.id, payload.password);
+      return ContentService.createTextOutput(JSON.stringify(prResult))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    if (action === 'postLogin') {
+      var plResult = postAppLogin_(payload.id, payload.password);
+      return ContentService.createTextOutput(JSON.stringify(plResult))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    if (action === 'postSave') {
+      var psResult = postAppSave_(payload.token, payload.value, payload.col);
+      return ContentService.createTextOutput(JSON.stringify(psResult))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    if (action === 'postLoginStreak') {
+      var plsResult = postAppLoginStreak_(payload.token);
+      return ContentService.createTextOutput(JSON.stringify(plsResult))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    if (action === 'postSetGoal') {
+      var psgResult = postAppSetGoal_(payload.token, payload.goal);
+      return ContentService.createTextOutput(JSON.stringify(psgResult))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
     return ContentService.createTextOutput(JSON.stringify({ error: 'unknown action' }))
       .setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
@@ -115,19 +195,363 @@ function doPost(e) {
 function doGet(e) {
   var params = e ? e.parameter : {};
 
+  // デバッグ: 旧シート行6-30のデータ＋数式を全表示
+  if (params.action === 'verify') {
+    try {
+      var ss = getSpreadsheet_();
+      var settings = getGlobalSettings_(ss);
+      var oldSheet = getSheetByMonth_(ss, settings.month);
+      if (!oldSheet) return ContentService.createTextOutput(JSON.stringify({error:'no sheet'})).setMimeType(ContentService.MimeType.JSON);
+
+      var vals = oldSheet.getRange(1, 1, 35, 35).getValues();
+      var fmls = oldSheet.getRange(1, 1, 35, 35).getFormulas();
+
+      // メンバー名行（Row 4-5あたり）を検出
+      var memberSections = detectMemberSections_(oldSheet);
+      var sectionInfo = [];
+      for (var si = 0; si < memberSections.length; si++) {
+        sectionInfo.push({name: memberSections[si].name, col: memberSections[si].summaryCol, ds: memberSections[si].dataStart, de: memberSections[si].dataEnd});
+      }
+
+      // 行1-35の各メンバー列のデータと数式
+      var rows = [];
+      for (var r = 0; r < 35; r++) {
+        var rowData = {row: r+1, B: String(vals[r][1] || '')};
+        for (var mi = 0; mi < memberSections.length; mi++) {
+          var c = memberSections[mi].summaryCol - 1; // 0-based
+          var val = vals[r][c];
+          var fml = fmls[r][c];
+          rowData[memberSections[mi].name] = {v: val, f: fml || ''};
+        }
+        // AG列(33)
+        var agVal = vals[r][32];
+        var agFml = fmls[r][32];
+        rowData['AG'] = {v: agVal, f: agFml || ''};
+        rows.push(rowData);
+      }
+
+      return ContentService.createTextOutput(JSON.stringify({sections: sectionInfo, rows: rows}))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService.createTextOutput(JSON.stringify({ error: err.message, stack: err.stack }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  // 旧シート数式修正 + B列ラベル復元 + 同期
+  if (params.action === 'fixAndSync') {
+    try {
+      var fixResult = fixOldSheetFormulas();
+      syncFromOldSheet();
+      updateSummary();
+      return ContentService.createTextOutput(JSON.stringify({ fix: fixResult, status: 'synced' }))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService.createTextOutput(JSON.stringify({ error: err.message, stack: err.stack }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  // 同期+キャッシュクリア+データ返却（ダッシュボードの同期ボタン用）
+  if (params.action === 'syncAndFetch') {
+    try {
+      syncFromOldSheet();
+      updateSummary();
+      clearDashboardCache_();
+      var syncResult = getDashboardData(
+        params.month ? parseInt(params.month) : undefined,
+        params.year ? parseInt(params.year) : undefined,
+        true
+      );
+      return ContentService.createTextOutput(JSON.stringify(syncResult))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService.createTextOutput(JSON.stringify({ error: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  if (params.action === 'debugMember') {
+    try {
+      var targetD = params.d || '伊東';
+      var m = params.month ? parseInt(params.month) : undefined;
+      var y = params.year ? parseInt(params.year) : undefined;
+      var result = debugMemberRows(targetD, m, y);
+      return ContentService.createTextOutput(JSON.stringify(result, null, 2))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService.createTextOutput(JSON.stringify({ error: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  if (params.action === 'createAprilHope') {
+    try {
+      var result = createAprilHopeSheet();
+      return ContentService.createTextOutput(JSON.stringify(result))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService.createTextOutput(JSON.stringify({ error: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  if (params.action === 'designSamples') {
+    try {
+      var result = createDesignSamples();
+      return ContentService.createTextOutput(JSON.stringify(result))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService.createTextOutput(JSON.stringify({ error: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  if (params.action === 'addMembers') {
+    try {
+      var result = addMissingMembersToSheets(params.sheet || null);
+      return ContentService.createTextOutput(JSON.stringify(result))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService.createTextOutput(JSON.stringify({ error: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  if (params.action === 'extractNames') {
+    try {
+      var result = extractCustomerNames();
+      return ContentService.createTextOutput(JSON.stringify(result))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService.createTextOutput(JSON.stringify({ error: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  if (params.action === 'hideOldRows') {
+    try {
+      var result = autoHideNonCurrentMonth();
+      return ContentService.createTextOutput(JSON.stringify(result))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService.createTextOutput(JSON.stringify({ error: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  if (params.action === 'showAllRows') {
+    try {
+      var result = showAllMasterRows();
+      return ContentService.createTextOutput(JSON.stringify(result))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService.createTextOutput(JSON.stringify({ error: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  if (params.action === 'renameMembers') {
+    try {
+      var renames = {
+        'AをAでやる': '意思決定',
+        'ビッグマウス': 'ありのまま',
+        'ワントーン': 'スマイル',
+        'ドライ': 'ポジティブ'
+      };
+      var ss = getSpreadsheet_();
+      var sheet = ss.getSheetByName(SHEET_SETTINGS);
+      var lastRow = Math.min(sheet.getLastRow(), SETTINGS_ROW_GLOBAL_START - 2);
+      var changed = [];
+      for (var r = SETTINGS_ROW_DATA_START; r <= lastRow; r++) {
+        var nameVal = String(sheet.getRange(r, SETTINGS_COL_NAME).getValue()).trim();
+        var dispVal = String(sheet.getRange(r, SETTINGS_COL_DISPLAY_NAME).getValue()).trim();
+        var newName = renames[nameVal] || renames[dispVal];
+        if (newName) {
+          sheet.getRange(r, SETTINGS_COL_NAME).setValue(newName);
+          sheet.getRange(r, SETTINGS_COL_DISPLAY_NAME).setValue(newName);
+          changed.push(nameVal + ' → ' + newName);
+        }
+      }
+      return ContentService.createTextOutput(JSON.stringify({ ok: true, changed: changed }))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService.createTextOutput(JSON.stringify({ error: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  if (params.action === 'bottleneck') {
+    try {
+      var result = sendBottleneckNotification();
+      return ContentService.createTextOutput(JSON.stringify(result))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService.createTextOutput(JSON.stringify({ error: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
   if (params.action === 'api') {
     try {
+      var skipCache = params.fresh === '1';
       var result;
-      if (params.type === 'kpi') {
-        result = getKpiDashboardData();
-      } else if (params.type === 'months') {
+      if (params.type === 'months') {
         result = getAvailableMonths();
       } else if (params.month && params.year) {
-        result = getDashboardData(parseInt(params.month), parseInt(params.year));
+        result = getDashboardData(parseInt(params.month), parseInt(params.year), skipCache);
       } else {
-        result = getDashboardData();
+        result = getDashboardData(undefined, undefined, skipCache);
+      }
+      // ゴール設定を付与（キャッシュ外で常に最新）
+      if (params.type !== 'months') {
+        try {
+          var gss = getSpreadsheet_();
+          result.goalSettings = getGoalSettings_(gss);
+        } catch (ge) { result.goalSettings = {}; }
+        // 共創ポイント + メッセージ
+        try {
+          result.chatworkPoints = getChatworkPoints_();
+          result.chatworkMessages = getChatworkMessages_();
+        } catch (cpe) { result.chatworkPoints = {}; result.chatworkMessages = []; }
       }
       return ContentService.createTextOutput(JSON.stringify(result))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService.createTextOutput(JSON.stringify({ error: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  // ===== 経費ダッシュボード API =====
+  if (params.action === 'expense') {
+    try {
+      var expResult;
+      var expType = params.type || '';
+      if (expType === 'months') {
+        expResult = expGetMonths_();
+      } else if (expType === 'trends') {
+        expResult = expGetTrends_();
+      } else if (expType === 'detail') {
+        expResult = expGetDetail_(parseInt(params.year), parseInt(params.month), params.cat || '');
+      } else {
+        var em = params.month ? parseInt(params.month) : 0;
+        var ey = params.year ? parseInt(params.year) : 0;
+        expResult = expGetData_(ey, em);
+      }
+      return ContentService.createTextOutput(JSON.stringify(expResult))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService.createTextOutput(JSON.stringify({ error: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  // ===== 投稿本数入力アプリ API =====
+  if (params.action === 'postCheckId') {
+    try {
+      var pcResult = postAppCheckId_(params.id);
+      return ContentService.createTextOutput(JSON.stringify(pcResult))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService.createTextOutput(JSON.stringify({ error: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  if (params.action === 'postGet') {
+    try {
+      var pgResult = postAppGet_(params.token);
+      return ContentService.createTextOutput(JSON.stringify(pgResult))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService.createTextOutput(JSON.stringify({ error: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  if (params.action === 'postRegister') {
+    try {
+      var prResult = postAppRegister_(params.id, params.password);
+      return ContentService.createTextOutput(JSON.stringify(prResult))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService.createTextOutput(JSON.stringify({ error: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  if (params.action === 'postLogin') {
+    try {
+      var plResult = postAppLogin_(params.id, params.password);
+      return ContentService.createTextOutput(JSON.stringify(plResult))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService.createTextOutput(JSON.stringify({ error: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  if (params.action === 'postSave') {
+    try {
+      var psResult = postAppSave_(params.token, params.value, params.col);
+      return ContentService.createTextOutput(JSON.stringify(psResult))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService.createTextOutput(JSON.stringify({ error: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  if (params.action === 'postResetPassword') {
+    try {
+      var prpResult = postAppResetPassword_(params.id, params.email);
+      return ContentService.createTextOutput(JSON.stringify(prpResult))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService.createTextOutput(JSON.stringify({ error: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  if (params.action === 'postLoginStreak') {
+    try {
+      var plsResult = postAppLoginStreak_(params.token);
+      return ContentService.createTextOutput(JSON.stringify(plsResult))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService.createTextOutput(JSON.stringify({ error: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  if (params.action === 'postRanking') {
+    try {
+      var prkResult = postAppRanking_();
+      return ContentService.createTextOutput(JSON.stringify(prkResult))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService.createTextOutput(JSON.stringify({ error: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  if (params.action === 'postSetGoal') {
+    try {
+      var psgResult = postAppSetGoal_(params.token, params.goal);
+      return ContentService.createTextOutput(JSON.stringify(psgResult))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService.createTextOutput(JSON.stringify({ error: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  // ===== 万バズ台本 API =====
+  if (params.action === 'manbazu') {
+    try {
+      var mbResult = manbazuGetData_();
+      return ContentService.createTextOutput(JSON.stringify(mbResult))
         .setMimeType(ContentService.MimeType.JSON);
     } catch (err) {
       return ContentService.createTextOutput(JSON.stringify({ error: err.message }))
@@ -174,8 +598,6 @@ function doGet(e) {
       else if (fn === 'insertMemberImages') fnResult = insertMemberImages();
       else if (fn === 'setNameLinks') fnResult = setNameLinks();
       else if (fn === 'debugSheetByGid') fnResult = debugSheetByGid(params.gid, params.rows, params.formulas === '1');
-      else if (fn === 'repairKpiCalcSheet') fnResult = repairKpiCalcSheet();
-      else if (fn === 'getKpiDashboardData') fnResult = getKpiDashboardData();
       else if (fn === 'rebuildSummarySheet') {
         var ss2 = getSpreadsheet_();
         createSummarySheet_(ss2);
@@ -189,8 +611,120 @@ function doGet(e) {
       else if (fn === 'setupBotSheets') fnResult = setupBotSheets();
       else if (fn === 'importKB') fnResult = processStaging(params.sheet);
       else if (fn === 'testFeedback') fnResult = testFeedbackGeneration(params.roomId, params.msgBody);
-      else if (fn === 'renameMember') fnResult = renameMember(params.from, params.to);
-      else if (fn === 'fixCell') fnResult = fixCell(params.gid, params.row, params.col, params.val, params.formula);
+      else if (fn === 'generateKanonReport') fnResult = generateKanonReport();
+      else if (fn === 'kanonMembers') fnResult = getKanonSalesMembers();
+      else if (fn === 'generateKanonMTGDoc') fnResult = generateKanonMTGDoc();
+      else if (fn === 'inspectExtSheet') fnResult = inspectExtSheet_(params.ssid, params.gid, params.startRow, params.endRow);
+      else if (fn === 'repairSMCMaster') fnResult = repairSMCMaster();
+      else if (fn === 'setupFormSync') fnResult = setupFormSyncTrigger();
+      else if (fn === 'syncDebugLog') fnResult = getSyncDebugLog();
+      else if (fn === 'debugFormLatest') fnResult = debugFormLatest();
+      else if (fn === 'debugGhostRows') fnResult = debugGhostRows();
+      else if (fn === 'deleteGhostRows') fnResult = deleteGhostRows();
+      else if (fn === 'deleteDeadTriggers') fnResult = deleteDeadTriggers();
+      else if (fn === 'setupFormSubmitCleanup') fnResult = setupFormSubmitCleanup();
+      else if (fn === 'debugAllTriggersOnSMC') fnResult = debugAllTriggersOnSMC();
+      else if (fn === 'debugRowAP') fnResult = debugRowAP(params.row);
+      else if (fn === 'listMasterNames') fnResult = listMasterNames(params.month, params.year);
+      else if (fn === 'debugMemberRevenue') fnResult = debugMemberRevenue(params.member, params.month, params.year);
+      else if (fn === 'auditDuplicates') fnResult = auditDuplicates(params.month, params.year);
+      else if (fn === 'deduplicateSeiyaku') fnResult = deduplicateSeiyaku(params.month, params.year, params.dry);
+      else if (fn === 'clearAPDupeAmts') fnResult = clearAPDuplicateAmounts(params.month, params.year, params.dry);
+      else if (fn === 'dumpRows') fnResult = dumpRows(params.rows);
+      else if (fn === 'clearAPForNonSeiyaku') fnResult = clearAPForNonSeiyaku(params.dry);
+      else if (fn === 'debugMasterFormulas') fnResult = debugMasterFormulas();
+      else if (fn === 'checkFormTail') fnResult = checkFormTail();
+      else if (fn === 'backfill') fnResult = { error: '復旧モード: backfillは禁止されています' };
+      else if (fn === 'dryRunSync') fnResult = dryRunSyncRecentFormToMaster();
+      else if (fn === 'dryRunRepair') fnResult = repairDryRunSMCMaster();
+      else if (fn === 'upsertByCDE') fnResult = syncRecentFormToMaster_upsertByCDE();
+      else if (fn === 'dryRunUpsert') fnResult = dryRunSyncUpsertByCDE();
+      else if (fn === 'syncV2') fnResult = syncFormToMaster_v2();
+      else if (fn === 'dryRunV2') fnResult = dryRunSyncFormToMaster_v2();
+      else if (fn === 'diagPX') fnResult = diagnosePXProtection();
+      else if (fn === 'diagFormLink') fnResult = diagFormLink();
+      else if (fn === 'sortMaster') fnResult = sortMasterByDate();
+      else if (fn === 'removeOrangeFormat') fnResult = removeOrangeConditionalFormat();
+      else if (fn === 'setLFormat') fnResult = setLColumnFormatting();
+      else if (fn === 'setLValidation') fnResult = setLColumnValidation();
+      else if (fn === 'fixCX') {
+        var smc2 = SpreadsheetApp.openById(SMC_SS_ID);
+        var m2 = smc2.getSheetByName(SMC_MASTER_SHEET);
+        fnResult = { fixed: fixCXOverQ_(m2) };
+        SpreadsheetApp.flush();
+      }
+      else if (fn === 'flagRows') fnResult = flagRows(params.rows);
+      else if (fn === 'auditCandidates') fnResult = auditDuplicateCandidates(params.month, params.year, params.members, params.dry);
+      else if (fn === 'auditAll') fnResult = auditAllMembers(params.month, params.year);
+      else if (fn === 'auditCXvsQ') fnResult = auditCXvsQ(params.month, params.year);
+      else if (fn === 'deleteRow') {
+        fnResult = { error: '復旧モード: 物理削除は禁止されています' };
+      }
+      else if (fn === 'contToLost') fnResult = contToLost(params.dry);
+      else if (fn === 'setupDailyContToLost') fnResult = setupDailyContToLost();
+      else if (fn === 'replaceLStatus') fnResult = replaceLStatus(params.dry);
+      else if (fn === 'exportRevenue') fnResult = exportRevenueSheet(parseInt(params.month) || undefined, parseInt(params.year) || undefined);
+      else if (fn === 'calcRevenue') fnResult = calcRevenueFromMaster(parseInt(params.month) || undefined, parseInt(params.year) || undefined);
+      else if (fn === 'calcRevenueDebug') fnResult = calcRevenueDebug(parseInt(params.month) || undefined, parseInt(params.year) || undefined);
+      else if (fn === 'switchToV2') fnResult = switchToV2Trigger();
+      else if (fn === 'listTriggers') fnResult = listTriggers();
+      else if (fn === 'refreshDropdowns') fnResult = refreshSearchDropdowns();
+      else if (fn === 'setDValidation') fnResult = setDColumnValidation();
+      else if (fn === 'auditRules') fnResult = auditSheetRules();
+      else if (fn === 'normalizeD') fnResult = normalizeDColumn(params.dry);
+      else if (fn === 'debugMasterMember') {
+        var memberName = params.name || '';
+        var smc = SpreadsheetApp.openById('1KxHeLmrpdaw1IUhBaQ46UWSHu-8SCRZqcrHOE2hMwDo');
+        var ms = smc.getSheetByName('👑商談マスターデータ');
+        var lastRow = ms.getLastRow();
+        var vals = ms.getRange(2, 1, lastRow - 1, 102).getValues();
+        var tz = Session.getScriptTimeZone();
+        var rows = [];
+        for (var di = 0; di < vals.length; di++) {
+          var d = String(vals[di][3] || '').trim();
+          if (d !== memberName) continue;
+          var c = vals[di][2];
+          if (!rev_isTargetMonth_(c, 2026, 3, tz)) continue;
+          var l = String(vals[di][11] || '').trim();
+          var q = vals[di][16];
+          var cx = vals[di][101];
+          var r_name = String(vals[di][17] || '');
+          rows.push({row: di+2, D: d, L: l, Q: q, CX: cx, R: r_name});
+        }
+        fnResult = {member: memberName, count: rows.length, rows: rows};
+      }
+      else if (fn === 'debugDaily') {
+        var memberName = params.name || '';
+        var ss = getSpreadsheet_();
+        var sheet = getDailySheet_(ss, memberName);
+        if (!sheet) { fnResult = {error: 'sheet not found: ' + memberName}; }
+        else {
+          var data = sheet.getRange(1, 1, 45, 11).getValues();
+          var rows = [];
+          for (var dr = 0; dr < data.length; dr++) {
+            rows.push({row: dr+1, A: String(data[dr][0]), B: data[dr][1], C: data[dr][2], D: data[dr][3], E: data[dr][4], F: data[dr][5], G: data[dr][6]});
+          }
+          fnResult = {sheet: sheet.getName(), rows: rows};
+        }
+      }
+      else if (fn === 'testSort') fnResult = testSortOnCopy();
+      else if (fn === 'applySort') fnResult = applySortFromTest();
+      else if (fn === 'pauseFormSync') fnResult = pauseFormSync();
+      else if (fn === 'resumeFormSync') fnResult = resumeFormSync();
+      else if (fn === 'formSyncStatus') fnResult = getFormSyncStatus();
+      else if (fn === 'debugCalendar') {
+        // 指定IDのカレンダー + 全アクセス可能カレンダー一覧
+        var cal = CalendarApp.getCalendarById('allforone.namaka@gmail.com');
+        var calFound = cal ? true : false;
+        var evts = cal ? cal.getEvents(new Date(2026,2,1), new Date(2026,3,31,23,59,59)) : [];
+        var titles = [];
+        for (var ei = 0; ei < Math.min(evts.length, 50); ei++) titles.push(evts[ei].getTitle() + ' | ' + evts[ei].getStartTime());
+        // 全カレンダー一覧
+        var allCals = CalendarApp.getAllCalendars();
+        var calList = [];
+        for (var ci = 0; ci < allCals.length; ci++) calList.push({ name: allCals[ci].getName(), id: allCals[ci].getId() });
+        fnResult = { calFound: calFound, count: evts.length, titles: titles, calendars: calList };
+      }
       else fnResult = { error: 'unknown fn: ' + fn };
       return ContentService.createTextOutput(JSON.stringify({ ok: true, result: fnResult }))
         .setMimeType(ContentService.MimeType.JSON);
@@ -221,16 +755,34 @@ function doGet(e) {
 // getDashboardData — デュアルモード
 // ============================================
 
-function getDashboardData(targetMonth, targetYear) {
+function getDashboardData(targetMonth, targetYear, skipCache) {
+  var cache = CacheService.getScriptCache();
+
+  // キャッシュキー構築
+  var cacheKey = 'dash_' + (targetYear || 'cur') + '_' + (targetMonth || 'cur');
+
+  // キャッシュ確認（skipCache=trueの場合スキップ）
+  if (!skipCache) {
+    var cached = cache.get(cacheKey);
+    if (cached) {
+      try { return JSON.parse(cached); } catch (e) { /* キャッシュ破損→再取得 */ }
+    }
+  }
+
   var ss = getSpreadsheet_();
   var settings = getGlobalSettings_(ss);
+
+  var result;
 
   // 引数あり & 当月以外 → アーカイブから取得
   if (targetMonth && targetYear) {
     targetMonth = parseNum_(targetMonth);
     targetYear = parseNum_(targetYear);
     if (targetMonth !== settings.month || targetYear !== settings.year) {
-      return getDashboardDataFromArchive_(ss, targetYear, targetMonth);
+      result = getDashboardDataFromArchive_(ss, targetYear, targetMonth);
+      // アーカイブは長めにキャッシュ（30分）
+      try { cache.put(cacheKey, JSON.stringify(result), 1800); } catch (e) { }
+      return result;
     }
   }
 
@@ -246,11 +798,64 @@ function getDashboardData(targetMonth, targetYear) {
     }
 
     if (isNewStructureReady_(ss)) {
-      return getDashboardData_new_(ss);
+      result = getDashboardData_new_(ss);
+      // マスターシートの着金/売上データで上書き
+      try {
+        var masterData = calcRevenueFromMaster(settings.month, settings.year);
+        if (masterData && masterData.members) {
+          var masterMap = {};
+          for (var mi = 0; mi < masterData.members.length; mi++) {
+            masterMap[masterData.members[mi].name] = masterData.members[mi];
+          }
+          for (var ri = 0; ri < result.members.length; ri++) {
+            var m = result.members[ri];
+            var md = masterMap[m.name];
+            if (md) {
+              m.revenue = md.revenue;
+              m.sales = md.sales;
+              m.deals = md.deals;
+              m.closed = md.closed;
+              m.closeRate = md.closeRate;
+              m.avgPrice = md.avgPrice;
+              m.coRevenue = md.coRevenue;
+              m.coAmount = md.coAmount;
+              m.lost = md.lost;
+            }
+          }
+          // revenueでソートし直し
+          result.members.sort(function(a, b) { return b.revenue - a.revenue; });
+          for (var ri = 0; ri < result.members.length; ri++) {
+            result.members[ri].rank = ri + 1;
+            result.members[ri].gapToTop = ri === 0 ? 0 : round1_(result.members[0].revenue - result.members[ri].revenue);
+          }
+          result.totalRevenue = round1_(result.members.reduce(function(s, m) { return s + (m.revenue || 0); }, 0));
+        }
+      } catch (e) {
+        Logger.log('Master overlay error: ' + e.message);
+      }
+      // 当月は5分キャッシュ
+      try { cache.put(cacheKey, JSON.stringify(result), 300); } catch (e) { }
+      return result;
     }
   }
 
-  return getDashboardData_legacy_(ss);
+  result = getDashboardData_legacy_(ss);
+  try { cache.put(cacheKey, JSON.stringify(result), 90); } catch (e) { }
+  return result;
+}
+
+/**
+ * ダッシュボードキャッシュをクリア
+ */
+function clearDashboardCache_() {
+  var cache = CacheService.getScriptCache();
+  cache.removeAll(['dash_cur_cur']);
+  // 当月のキャッシュも念のため削除
+  var now = new Date();
+  var y = now.getFullYear();
+  for (var m = 1; m <= 12; m++) {
+    cache.remove('dash_' + y + '_' + m);
+  }
 }
 
 /**
@@ -363,13 +968,7 @@ function getDashboardDataFromArchive_(ss, year, month) {
   var members = [];
   for (var key in memberMap) {
     var m = memberMap[key];
-    var prev = prevData[key] || prevData[m.name];
-    if (!prev) {
-      for (var oldN in LEGACY_TO_V2_NAME) {
-        if (LEGACY_TO_V2_NAME[oldN] === key && prevData[oldN]) { prev = prevData[oldN]; break; }
-      }
-    }
-    if (!prev) prev = { revenue: 0, deals: 0, closed: 0, closeRate: 0 };
+    var prev = prevData[key] || { revenue: 0, deals: 0, closed: 0, closeRate: 0 };
     m.prevRevenue = prev.revenue;
     m.diffRevenue = round1_(m.revenue - prev.revenue);
     m.prevDeals = prev.deals;
@@ -428,58 +1027,99 @@ function getDashboardDataFromArchive_(ss, year, month) {
 // 新構造からデータ取得 (v2)
 // ============================================
 
+// ニックネーム→マスターD列名マップ
+var NICK_TO_MASTER_D_ = {
+  '意思決定': '阿部',
+  'ポジティブ': '伊東',
+  'ヒトコト': '久保田',
+  'ありのまま': '辻阪',
+  'けつだん': '福島',
+  'ぜんぶり': '五十嵐',
+  'スクリプト通りに営業するくん': '新居',
+  'スクリプトくん': '新居',
+  'スマイル': '佐々木',
+  'ゴン': '大久保',
+  'トニー': '矢吹',
+  'ガロウ': '大内',
+  'リヴァイ': '川合',
+  '嬴政': '嬴政'
+};
+
 function getDashboardData_new_(ss) {
   var settings = getGlobalSettings_(ss);
   var activeMembers = getActiveMembers_(ss);
   var currentMonth = settings.month;
 
-  var prevMonthData = getPrevMonthFromArchive_(ss, settings);
+  var prevMonthData = getPrevMonthFromMaster_(settings);
+
+  // マスターベースで全データ取得
+  var masterRevData = calcRevenueFromMaster(settings.month, settings.year);
+  var masterByD = {};
+  if (masterRevData && masterRevData.members) {
+    for (var ri = 0; ri < masterRevData.members.length; ri++) {
+      var rm = masterRevData.members[ri];
+      masterByD[rm.name] = rm;
+    }
+  }
+
+  // マスターから失注・継続等のステータス別カウントも取得
+  var masterStats = calcMasterStats_(settings.month, settings.year);
+  var statsByD = {};
+  if (masterStats) {
+    for (var si = 0; si < masterStats.length; si++) {
+      statsByD[masterStats[si].name] = masterStats[si];
+    }
+  }
+
+  // カレンダーから休みデータ取得
+  var holidayRaw = { counts: {}, byDate: {} };
+  try { holidayRaw = getHolidayData_(settings.month, settings.year); } catch(e) {}
+  var holidayData = holidayRaw.counts || {};
+  var holidayByDate = holidayRaw.byDate || {};
 
   var members = [];
 
   for (var i = 0; i < activeMembers.length; i++) {
     var m = activeMembers[i];
-    var dailySheet = getDailySheet_(ss, m.name);
-    var sheetData = readDailySheetData_(dailySheet);
+    var masterDName = NICK_TO_MASTER_D_[m.name] || NICK_TO_MASTER_D_[m.displayName] || m.name;
+    var mm = masterByD[masterDName] || { revenue: 0, deals: 0, closed: 0, closeRate: 0 };
+    var ms = statsByD[masterDName] || { deals: 0, closed: 0, conClosed: 0, onClosed: 0, lost: 0, lostCont: 0, cont: 0, sales: 0 };
+    var prev = prevMonthData[m.name] || prevMonthData[m.displayName] || { revenue: 0, deals: 0, closed: 0, closeRate: 0 };
 
-    if (!sheetData) {
-      members.push(createEmptyMember_(m, prevMonthData));
-      continue;
-    }
-
-    var d = sheetData.totals;
-    var prev = prevMonthData[m.name] || prevMonthData[m.displayName];
-    if (!prev) {
-      for (var oldN in LEGACY_TO_V2_NAME) {
-        if (LEGACY_TO_V2_NAME[oldN] === m.name && prevMonthData[oldN]) { prev = prevMonthData[oldN]; break; }
-      }
-    }
-    if (!prev) prev = { revenue: 0, deals: 0, closed: 0, closeRate: 0 };
+    var closeRate = mm.deals > 0 ? round1_((mm.closed / mm.deals) * 100) : 0;
+    var avgPrice = mm.closed > 0 ? round1_(mm.revenue / mm.closed) : 0;
 
     members.push({
       name: m.displayName,
       icon: m.iconUrl,
-      deals: d.totalDeals,
-      closed: d.fundedClosed,
-      revenue: d.revenue,
-      closeRate: d.closeRate,
-      fundedDeals: d.fundedDeals,
-      sales: d.sales,
-      avgPrice: d.avgPrice,
-      coRevenue: d.coCount,  // Dashboard互換: coRevenue→CO数
-      coAmount: d.coAmount,
-      creditCard: d.creditCard,
-      shinpan: d.shinpan,
-      cbs: sheetData.cbs,
-      lifety: sheetData.lifety,
+      deals: mm.deals,
+      closed: mm.closed,
+      revenue: mm.revenue,
+      closeRate: closeRate,
+      fundedDeals: mm.deals,
+      sales: ms.sales,
+      avgPrice: avgPrice,
+      coRevenue: ms.conClosed,
+      coAmount: 0,
+      creditCard: 0,
+      shinpan: 0,
+      cbs: ms.cbsTotal > 0 ? ms.cbsApproved + '/' + ms.cbsTotal : '-',
+      lifety: ms.lfTotal > 0 ? ms.lfApproved + '/' + ms.lfTotal : '-',
+      lifetyRate: ms.lfTotal > 0 ? round1_((ms.lfApproved / ms.lfTotal) * 100) : '-',
+      cbsRate: ms.cbsTotal > 0 ? round1_((ms.cbsApproved / ms.cbsTotal) * 100) : '-',
+      onClosed: ms.onClosed,
+      lost: ms.lost,
+      lostCont: ms.lostCont,
+      cont: ms.cont,
       prevRevenue: prev.revenue,
-      diffRevenue: round1_(d.revenue - prev.revenue),
+      diffRevenue: round1_(mm.revenue - prev.revenue),
       prevDeals: prev.deals,
-      diffDeals: d.totalDeals - prev.deals,
+      diffDeals: mm.deals - prev.deals,
       prevClosed: prev.closed,
-      diffClosed: d.fundedClosed - prev.closed,
+      diffClosed: mm.closed - prev.closed,
       prevCloseRate: prev.closeRate,
-      diffCloseRate: round1_(d.closeRate - prev.closeRate)
+      diffCloseRate: round1_(closeRate - prev.closeRate),
+      holidays: holidayData[m.displayName] || holidayData[m.name] || 0
     });
   }
 
@@ -521,6 +1161,26 @@ function getDashboardData_new_(ss) {
   // 着金速報
   var paymentNews = getPaymentNews_new_(ss, activeMembers);
 
+  // holidayByDateにアイコン情報を付与
+  var holidayByDateWithIcon = {};
+  for (var dk in holidayByDate) {
+    holidayByDateWithIcon[dk] = [];
+    for (var hi = 0; hi < holidayByDate[dk].length; hi++) {
+      var h = holidayByDate[dk][hi];
+      holidayByDateWithIcon[dk].push({
+        name: h.name,
+        type: h.type,
+        icon: iconUrl_(h.name)
+      });
+    }
+  }
+
+  // 日別プッシュ数（全メンバー合算）
+  var dailyPushes = {};
+  try {
+    dailyPushes = getDailyPushCounts_(ss, activeMembers, settings);
+  } catch(e) {}
+
   return {
     members: members,
     totalRevenue: totalRevenue,
@@ -531,6 +1191,8 @@ function getDashboardData_new_(ss) {
     daysLeft: daysLeft,
     currentMonth: currentMonth,
     paymentNews: paymentNews,
+    holidayByDate: holidayByDateWithIcon,
+    dailyPushes: dailyPushes,
     prevTotalDeals: prevTotalDeals,
     prevTotalRevenue: round1_(prevTotalRevenue),
     prevTotalClosed: prevTotalClosed,
@@ -542,13 +1204,7 @@ function getDashboardData_new_(ss) {
  * 空のメンバーデータを生成
  */
 function createEmptyMember_(m, prevMonthData) {
-  var prev = prevMonthData[m.name] || prevMonthData[m.displayName];
-  if (!prev) {
-    for (var oldN in LEGACY_TO_V2_NAME) {
-      if (LEGACY_TO_V2_NAME[oldN] === m.name && prevMonthData[oldN]) { prev = prevMonthData[oldN]; break; }
-    }
-  }
-  if (!prev) prev = { revenue: 0, deals: 0, closed: 0, closeRate: 0 };
+  var prev = prevMonthData[m.name] || prevMonthData[m.displayName] || { revenue: 0, deals: 0, closed: 0, closeRate: 0 };
   return {
     name: m.displayName, icon: m.iconUrl,
     deals: 0, closed: 0, revenue: 0, closeRate: 0,
@@ -562,33 +1218,181 @@ function createEmptyMember_(m, prevMonthData) {
 }
 
 /**
+ * 前月データをマスターシートから取得
+ * @returns {Object} { v2Name: { revenue, deals, closed, closeRate } }
+ */
+function getPrevMonthFromMaster_(settings) {
+  var prevMonth = settings.month === 1 ? 12 : settings.month - 1;
+  var prevYear = settings.month === 1 ? settings.year - 1 : settings.year;
+
+  var data = calcRevenueFromMaster(prevMonth, prevYear);
+  if (!data || !data.members) return {};
+
+  var result = {};
+  for (var i = 0; i < data.members.length; i++) {
+    var m = data.members[i];
+    result[m.name] = {
+      revenue: m.revenue,
+      deals: m.deals,
+      closed: m.closed,
+      closeRate: m.closeRate
+    };
+  }
+  return result;
+}
+
+/**
+ * 日別プッシュ数（全メンバー合算）をマスターシートから集計
+ * C列=日付, D列=担当者 の行数をカウント
+ */
+function getDailyPushCounts_(ss, activeMembers, settings) {
+  var totals = {};
+  var byMember = {};
+  var tz = Session.getScriptTimeZone();
+  var year = settings.year;
+  var month = settings.month;
+
+  var smc = SpreadsheetApp.openById(SMC_SS_ID);
+  var master = smc.getSheetByName(SMC_MASTER_SHEET);
+  if (!master) return { totals: totals, byMember: byMember };
+
+  var lastRow = master.getLastRow();
+  if (lastRow <= 1) return { totals: totals, byMember: byMember };
+  var data = master.getRange(2, 1, lastRow - 1, 12).getValues();
+
+  // メンバー名→表示名マップ
+  var displayMap = {};
+  for (var i = 0; i < activeMembers.length; i++) {
+    var dName = NICK_TO_MASTER_D_[activeMembers[i].name] || NICK_TO_MASTER_D_[activeMembers[i].displayName] || activeMembers[i].name;
+    displayMap[dName] = activeMembers[i].displayName;
+  }
+
+  // 日付別・担当者別にカウント
+  var countMap = {}; // { dateKey: { displayName: count } }
+  for (var r = 0; r < data.length; r++) {
+    var row = data[r];
+    var d = String(row[3] || '').trim();
+    if (!d || d === 'テスト') continue;
+    var dispName = displayMap[d];
+    if (!dispName) continue;
+
+    var c = row[2];
+    if (!rev_isTargetMonth_(c, year, month, tz)) continue;
+
+    // C列をDateオブジェクトに変換してdateKeyを生成
+    var dateObj;
+    if (c instanceof Date) {
+      dateObj = c;
+    } else {
+      var s = String(c).trim();
+      if (!s) continue;
+      var mt = s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+      if (mt) {
+        dateObj = new Date(parseInt(mt[1]), parseInt(mt[2]) - 1, parseInt(mt[3]));
+      } else {
+        dateObj = new Date(s);
+        if (isNaN(dateObj.getTime())) continue;
+      }
+    }
+    var dateKey = Utilities.formatDate(dateObj, tz, 'yyyy-MM-dd');
+
+    if (!countMap[dateKey]) countMap[dateKey] = {};
+    countMap[dateKey][dispName] = (countMap[dateKey][dispName] || 0) + 1;
+  }
+
+  // totals / byMember に変換
+  for (var dk in countMap) {
+    var dayTotal = 0;
+    var members = [];
+    for (var name in countMap[dk]) {
+      var cnt = countMap[dk][name];
+      dayTotal += cnt;
+      members.push({ name: name, count: cnt });
+    }
+    totals[dk] = dayTotal;
+    members.sort(function(a, b) { return b.count - a.count; });
+    byMember[dk] = members;
+  }
+
+  return { totals: totals, byMember: byMember };
+}
+
+/**
  * 新構造: 着金速報データを日別入力シートから取得
  */
+// マスターD列名→表示名の逆引きマップ
+var MASTER_D_TO_NICK_ = {};
+(function() {
+  for (var nick in NICK_TO_MASTER_D_) {
+    var d = NICK_TO_MASTER_D_[nick];
+    if (!MASTER_D_TO_NICK_[d]) MASTER_D_TO_NICK_[d] = nick;
+  }
+})();
+
 function getPaymentNews_new_(ss, activeMembers) {
+  var settings = getGlobalSettings_(ss);
+  var year = settings.year;
+  var month = settings.month;
+  var tz = 'Asia/Tokyo';
+
+  // アクティブメンバーの表示名・アイコンマップ（D列名→表示名/icon）
+  var memberInfo = {};
+  for (var mi = 0; mi < activeMembers.length; mi++) {
+    var am = activeMembers[mi];
+    var dName = NICK_TO_MASTER_D_[am.name] || NICK_TO_MASTER_D_[am.displayName] || am.name;
+    memberInfo[dName] = { displayName: am.displayName, icon: am.iconUrl };
+  }
+
+  // マスターシートから着金ブロックを読み取り
+  var smc = SpreadsheetApp.openById(SMC_SS_ID);
+  var master = smc.getSheetByName(SMC_MASTER_SHEET);
+  if (!master) return [];
+  var lastRow = master.getLastRow();
+  if (lastRow <= 1) return [];
+  var data = master.getRange(2, 1, lastRow - 1, 88).getValues();
+
+  // 着金ブロック定義: {amt: 金額列(0-indexed), date: 日付列(0-indexed)}
+  var blocks = [
+    {amt:15, date:2},   // P
+    {amt:21, date:2},   // V
+    {amt:29, date:2},   // AD
+    {amt:41, date:38},  // AP
+    {amt:48, date:45},  // AW
+    {amt:55, date:52},  // BD
+    {amt:66, date:63},  // BO
+    {amt:73, date:70},  // BV
+    {amt:80, date:77},  // CC
+    {amt:87, date:84}   // CJ
+  ];
+
   var news = [];
 
-  for (var i = 0; i < activeMembers.length; i++) {
-    var m = activeMembers[i];
-    var dailySheet = getDailySheet_(ss, m.name);
-    if (!dailySheet) continue;
+  for (var i = 0; i < data.length; i++) {
+    var row = data[i];
+    var l = String(row[11] || '').trim();
+    if (l !== '成約' && l !== '成約➔CO') continue;
 
-    var data = dailySheet.getRange(DAILY_ROW_DATA_START, 1, DAILY_ROW_DATA_END - DAILY_ROW_DATA_START + 1, COL_REVENUE + 1).getValues();
+    var d = String(row[3] || '').trim();
+    if (!d || d === 'テスト') continue;
+    var info = memberInfo[d];
+    if (!info) continue;
 
-    for (var r = 0; r < data.length; r++) {
-      var dateVal = data[r][COL_DATE];
-      var revVal = data[r][COL_REVENUE];
+    for (var bi = 0; bi < blocks.length; bi++) {
+      var blk = blocks[bi];
+      var dateVal = row[blk.date];
       if (!(dateVal instanceof Date)) continue;
+      if (dateVal.getFullYear() !== year || (dateVal.getMonth() + 1) !== month) continue;
 
-      var amount = round1_(parseNum_(revVal));
-      if (amount > 0) {
-        news.push({
-          date: Utilities.formatDate(dateVal, 'Asia/Tokyo', 'yyyy-MM-dd'),
-          dateShort: (dateVal.getMonth() + 1) + '/' + dateVal.getDate(),
-          name: m.displayName,
-          icon: m.iconUrl,
-          amount: amount
-        });
-      }
+      var amt = rev_parseNum_(row[blk.amt]);
+      if (amt <= 0) continue;
+
+      news.push({
+        date: Utilities.formatDate(dateVal, tz, 'yyyy-MM-dd'),
+        dateShort: (dateVal.getMonth() + 1) + '/' + dateVal.getDate(),
+        name: info.displayName,
+        icon: info.icon,
+        amount: round1_(amt)
+      });
     }
   }
 
@@ -797,4 +1601,61 @@ function getPaymentNews_legacy_(sheet, allData) {
   });
 
   return news;
+}
+
+/**
+ * 外部スプレッドシートのデータを検査
+ */
+function inspectExtSheet_(ssid, gid, startRow, endRow) {
+  if (!ssid) return { error: 'ssid required' };
+  var ss = SpreadsheetApp.openById(ssid);
+  var sheet = null;
+  if (gid) {
+    var sheets = ss.getSheets();
+    for (var i = 0; i < sheets.length; i++) {
+      if (String(sheets[i].getSheetId()) === String(gid)) {
+        sheet = sheets[i];
+        break;
+      }
+    }
+  }
+  if (!sheet) sheet = ss.getSheets()[0];
+
+  var lastRow = sheet.getLastRow();
+  var lastCol = sheet.getLastColumn();
+  var sr = startRow ? parseInt(startRow) : 1;
+  var er = endRow ? parseInt(endRow) : Math.min(sr + 9, lastRow);
+  er = Math.min(er, lastRow);
+
+  var info = {
+    name: sheet.getName(),
+    sheetId: sheet.getSheetId(),
+    totalRows: lastRow,
+    totalCols: lastCol,
+    allSheets: ss.getSheets().map(function(s) { return { name: s.getName(), gid: s.getSheetId(), rows: s.getLastRow(), cols: s.getLastColumn() }; })
+  };
+
+  if (lastRow < sr) return { info: info, data: [], formulas: [] };
+
+  var range = sheet.getRange(sr, 1, er - sr + 1, Math.min(lastCol, 80));
+  var vals = range.getValues();
+  var fmls = range.getFormulas();
+
+  var rows = [];
+  for (var r = 0; r < vals.length; r++) {
+    var row = {};
+    for (var c = 0; c < vals[r].length; c++) {
+      var v = vals[r][c];
+      var f = fmls[r][c];
+      if (v !== '' && v !== null && v !== undefined || f) {
+        var colLetter = '';
+        var cn = c + 1;
+        while (cn > 0) { colLetter = String.fromCharCode(((cn - 1) % 26) + 65) + colLetter; cn = Math.floor((cn - 1) / 26); }
+        row[colLetter] = f ? { v: String(v).substring(0, 80), f: f.substring(0, 120) } : String(v).substring(0, 80);
+      }
+    }
+    rows.push({ row: sr + r, data: row });
+  }
+
+  return { info: info, rows: rows };
 }

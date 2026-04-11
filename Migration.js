@@ -875,7 +875,7 @@ function migrateDailyDataDirect_(dailySheet, allData, memberName, sectionsMap) {
   var sectionStart = section.dataStart - 1; // 0-indexed
   var sectionEnd = section.dataEnd - 1;
 
-  // セクションヘッダー行から日別/着金額列を検出
+  // セクションヘッダー行から列を検出
   var dateCol = -1;
   var revCol = -1;
   var hdrRow = Math.max(0, sectionStart - 1); // ヘッダーはデータ開始の1行前
@@ -884,37 +884,79 @@ function migrateDailyDataDirect_(dailySheet, allData, memberName, sectionsMap) {
     if (label === '日別') dateCol = c;
     if (label === '着金額') revCol = c;
   }
-  if (dateCol < 0 || revCol < 0) {
-    Logger.log(memberName + ': 日別/着金額ヘッダーなし (hdrRow=' + (hdrRow+1) + ')');
-    return;
-  }
-  Logger.log(memberName + ': セクション rows ' + (sectionStart+1) + '-' + (sectionEnd+1) + ' (dateCol=' + dateCol + ', revCol=' + revCol + ')');
 
-  // まず既存の着金額データをクリア（前回sync時の誤データを消す）
-  var clearRange = dailySheet.getRange(DAILY_ROW_DATA_START, COL_REVENUE + 1, DAILY_ROW_DATA_END - DAILY_ROW_DATA_START + 1, 1);
-  clearRange.clearContent();
+  // セクション内の列マッピング（固定構造: C=商談, F=成約, I=着金, L=売上, O=CO数, R=CO額, Y=資金なし成約, Z=資金なし商談）
+  var SEC_FUNDED_DEALS  = 2;   // C (0-indexed)
+  var SEC_FUNDED_CLOSED = 5;   // F
+  var SEC_REVENUE       = 8;   // I
+  var SEC_SALES         = 11;  // L
+  var SEC_CO_COUNT      = 14;  // O
+  var SEC_CO_AMOUNT     = 17;  // R
+  var SEC_UNFUNDED_CLOSED = 24; // Y
+  var SEC_UNFUNDED_DEALS  = 25; // Z
 
-  // データ行から日別着金額を読み取り
-  var dailyRevenues = {};
+  // 日別ヘッダーがない場合、着金額列をセクション構造から推定
+  if (revCol < 0) revCol = SEC_REVENUE;
+  var useDateCol = (dateCol >= 0);
+  Logger.log(memberName + ': セクション rows ' + (sectionStart+1) + '-' + (sectionEnd+1) + ' (dateCol=' + dateCol + ', revCol=' + revCol + ', useDateCol=' + useDateCol + ')');
+
+  // セクション→日別シート列のマッピング (secCol → dailyCol, both 0-indexed)
+  var colMapping = [
+    { sec: SEC_FUNDED_DEALS,    daily: COL_FUNDED_DEALS },
+    { sec: SEC_FUNDED_CLOSED,   daily: COL_FUNDED_CLOSED },
+    { sec: SEC_REVENUE,         daily: COL_REVENUE },
+    { sec: SEC_SALES,           daily: COL_SALES },
+    { sec: SEC_CO_COUNT,        daily: COL_CO_COUNT },
+    { sec: SEC_CO_AMOUNT,       daily: COL_CO_AMOUNT },
+    { sec: SEC_UNFUNDED_CLOSED, daily: COL_UNFUNDED_CLOSED },
+    { sec: SEC_UNFUNDED_DEALS,  daily: COL_UNFUNDED_DEALS }
+  ];
+
+  // まず既存の日別データをクリア（前回sync時の誤データを消す）
+  dailySheet.getRange(DAILY_ROW_DATA_START, COL_FUNDED_DEALS + 1, DAILY_ROW_DATA_END - DAILY_ROW_DATA_START + 1, DAILY_COL_COUNT - 1).clearContent();
+
+  // データ行から日別全データを読み取り
+  var dailyData = {}; // { day: { dailyCol: value } }
   for (var r = sectionStart; r <= sectionEnd && r < allData.length; r++) {
-    var dateVal = allData[r][dateCol];
-    var revVal = allData[r][revCol];
-    if (dateVal instanceof Date && revVal && revVal !== 0) {
-      var amount = round1_(parseNum_(revVal));
-      if (amount > 0) {
-        var day = dateVal.getDate();
-        dailyRevenues[day] = (dailyRevenues[day] || 0) + amount;
+    var day;
+    if (useDateCol) {
+      var dateVal = allData[r][dateCol];
+      if (!(dateVal instanceof Date)) continue;
+      day = dateVal.getDate();
+    } else {
+      // 日付列がない場合: 行位置から日を推定 (sectionStart=1日目)
+      day = (r - sectionStart) + 1;
+      if (day < 1 || day > 31) continue;
+    }
+    if (!dailyData[day]) dailyData[day] = {};
+
+    for (var ci = 0; ci < colMapping.length; ci++) {
+      var secCol = colMapping[ci].sec;
+      var dailyCol = colMapping[ci].daily;
+      var val = parseNum_(allData[r][secCol]);
+      if (val !== 0) {
+        dailyData[day][dailyCol] = (dailyData[day][dailyCol] || 0) + val;
       }
     }
   }
 
   // v2日別シートに書き込み
-  if (Object.keys(dailyRevenues).length > 0) {
-    for (var day in dailyRevenues) {
-      var rowNum = DAILY_ROW_DATA_START + (parseInt(day) - 1);
-      dailySheet.getRange(rowNum, COL_REVENUE + 1).setValue(dailyRevenues[day]);
+  var dayCount = 0;
+  for (var day in dailyData) {
+    var rowNum = DAILY_ROW_DATA_START + (parseInt(day) - 1);
+    var dd = dailyData[day];
+    for (var dailyCol in dd) {
+      var val = dd[dailyCol];
+      if (parseInt(dailyCol) === COL_REVENUE || parseInt(dailyCol) === COL_SALES ||
+          parseInt(dailyCol) === COL_CO_AMOUNT) {
+        val = round1_(val);
+      }
+      dailySheet.getRange(rowNum, parseInt(dailyCol) + 1).setValue(val);
     }
-    Logger.log(memberName + ': 日別着金(直接) ' + Object.keys(dailyRevenues).length + '日分移行');
+    dayCount++;
+  }
+  if (dayCount > 0) {
+    Logger.log(memberName + ': 日別全データ(直接) ' + dayCount + '日分移行');
   }
 }
 
@@ -1165,15 +1207,59 @@ function syncFromOldSheet() {
   };
 
   for (var r = 0; r < Math.min(40, allData.length); r++) {
-    var label = String(allData[r][0] || '').replace(/\s+/g, '').replace(/[\(\)（）]/g, '');
+    var label = String(allData[r][0] || '').replace(/\s+/g, '').replace(/[\(\)（）]/g, '').replace(/無し/g, 'なし');
     if (!label) {
-      label = String(allData[r][1] || '').replace(/\s+/g, '').replace(/[\(\)（）]/g, '');
+      label = String(allData[r][1] || '').replace(/\s+/g, '').replace(/[\(\)（）]/g, '').replace(/無し/g, 'なし');
     }
     for (var key in labelPatterns) {
       if (!rowMap[key] && label.indexOf(labelPatterns[key]) !== -1) {
         rowMap[key] = r;
       }
     }
+  }
+
+  // ラベルが見つからない場合、数式パターンでrowMap検出（3月以降対応）
+  if (Object.keys(rowMap).length < 3) {
+    var syncFormulas = allFormulas;
+    // 最初のメンバー列(C=2, 0-indexed)の数式で行を検出
+    var fc = 2; // column C (0-indexed)
+    for (var r = 0; r < Math.min(40, syncFormulas.length); r++) {
+      var f = String(syncFormulas[r][fc] || '');
+      if (!f) continue;
+      if (f.indexOf('RANK') !== -1) { rowMap.ranking = r; continue; }
+      if (!rowMap.currentRev && /^=SUM\(I\d+:I\d+\)$/i.test(f)) { rowMap.currentRev = r; continue; }
+      if (!rowMap.sales && /^=SUM\(L\d+:L\d+\)/i.test(f)) { rowMap.sales = r; continue; }
+      if (!rowMap.fundedDeals && /^=SUM\(C\d+:C\d+\)$/i.test(f)) { rowMap.fundedDeals = r; continue; }
+      if (!rowMap.fundedClosed && /^=SUM\(F\d+:F\d+\)$/i.test(f)) { rowMap.fundedClosed = r; continue; }
+      if (!rowMap.unfundedDeals && /^=SUM\(Z\d+:Z\d+\)$/i.test(f)) { rowMap.unfundedDeals = r; continue; }
+      if (!rowMap.unfundedClosed && /^=SUM\(Y\d+:Y\d+\)$/i.test(f)) { rowMap.unfundedClosed = r; continue; }
+      if (!rowMap.coCount && /^=SUM\(O\d+:O\d+\)$/i.test(f)) { rowMap.coCount = r; continue; }
+      if (!rowMap.coAmount && /^=SUM\(R\d+:R\d+\)$/i.test(f)) { rowMap.coAmount = r; continue; }
+    }
+    // 合成行を検出
+    for (var r = 0; r < Math.min(40, syncFormulas.length); r++) {
+      var f = String(syncFormulas[r][fc] || '');
+      if (!f) continue;
+      if (!rowMap.revenue && rowMap.currentRev !== undefined) {
+        if (f.indexOf('C' + (rowMap.currentRev + 1)) !== -1 && f.indexOf('+C') !== -1 && f.indexOf('SUM') === -1) {
+          rowMap.revenue = r; continue;
+        }
+      }
+      if (!rowMap.closed && rowMap.fundedClosed !== undefined && rowMap.unfundedClosed !== undefined) {
+        if (f === '=C' + (rowMap.fundedClosed + 1) + '+C' + (rowMap.unfundedClosed + 1)) {
+          rowMap.closed = r; continue;
+        }
+      }
+      if (!rowMap.deals && rowMap.fundedDeals !== undefined && rowMap.unfundedDeals !== undefined) {
+        if (f === '=C' + (rowMap.fundedDeals + 1) + '+C' + (rowMap.unfundedDeals + 1)) {
+          rowMap.deals = r; continue;
+        }
+      }
+    }
+    if (rowMap.currentRev !== undefined && rowMap.carryoverRev === undefined) {
+      rowMap.carryoverRev = rowMap.currentRev + 1;
+    }
+    Logger.log('syncFromOldSheet: 数式パターンでrowMap検出: ' + JSON.stringify(rowMap));
   }
 
   // === Step 2: メンバー列を名前行から検索 ===
@@ -1228,11 +1314,10 @@ function syncFromOldSheet() {
     memberCols[v2Name] = c;
   }
 
-  // === Step 2.5: セクション行範囲を動的検出 ===
-  var detectedSections = detectMemberSections_(oldSheet);
+  // === Step 2.5: 静的MEMBER_SECTIONSを使用 ===
   var sectionsMap = {};
-  for (var ds = 0; ds < detectedSections.length; ds++) {
-    sectionsMap[detectedSections[ds].name] = detectedSections[ds];
+  for (var ds = 0; ds < MEMBER_SECTIONS.length; ds++) {
+    sectionsMap[MEMBER_SECTIONS[ds].name] = MEMBER_SECTIONS[ds];
   }
 
   // === Step 3: 各メンバーのデータを同期 ===
@@ -1262,18 +1347,20 @@ function syncFromOldSheet() {
     var creditVal = rowMap.credit !== undefined ? round1_(parseNum_(allData[rowMap.credit][col])) : 0;
     var shinpanVal = rowMap.shinpan !== undefined ? round1_(parseNum_(allData[rowMap.shinpan][col])) : 0;
 
-    // 前月繰越行にセット（前月繰り越し着金額を直接使用）
+    // 前月繰越行にセット
+    // 日別データがmigrateDailyDataDirect_でコピーされるため、
+    // 繰越行は前月繰越着金額のみ（他は0で二重計上を防止）
     var carryoverData = [
-      fundedDeals,     // B: 資金有商談数
-      fundedClosed > 0 ? fundedClosed : closed,  // C: 資金有成約数
+      0,               // B: 資金有商談数（日別データにあるため0）
+      0,               // C: 資金有成約数（日別データにあるため0）
       carryoverRev,    // D: 着金額（前月繰り越し分のみ）
-      sales,           // E: 売上
-      coCount,         // F: CO数
-      coAmount,        // G: CO金額
+      0,               // E: 売上（日別データにあるため0）
+      0,               // F: CO数（日別データにあるため0）
+      0,               // G: CO金額（日別データにあるため0）
       0,               // H: 資金有で見送り
       0,               // I: 資金なし見送り数
-      unfundedClosed,  // J: 資金なし成約数
-      unfundedDeals    // K: 資金なし商談数
+      0,               // J: 資金なし成約数（日別データにあるため0）
+      0                // K: 資金なし商談数（日別データにあるため0）
     ];
     dailySheet.getRange(DAILY_ROW_CARRYOVER, 2, 1, DAILY_COL_COUNT - 1)
       .setValues([carryoverData]);
@@ -1555,80 +1642,6 @@ function syncAndUpdate() {
 }
 
 /**
- * メンバー名リネーム（設定シート + 日別シート + サマリー）
- * API: ?action=run&fn=renameMember&from=ドライ&to=ポジティブ
- */
-function renameMember(oldName, newName) {
-  if (!oldName || !newName) return { error: 'from/to required' };
-  var ss = getSpreadsheet_();
-  var result = { renamed: [] };
-
-  // 1. 設定シートのメンバー名・表示名を更新
-  var settingsSheet = getSettingsSheet_(ss);
-  if (settingsSheet) {
-    var lastRow = Math.min(settingsSheet.getLastRow(), SETTINGS_ROW_GLOBAL_START - 2);
-    for (var r = SETTINGS_ROW_DATA_START; r <= lastRow; r++) {
-      var name = String(settingsSheet.getRange(r, 1).getValue()).trim();
-      if (name === oldName) {
-        settingsSheet.getRange(r, 1).setValue(newName);
-        settingsSheet.getRange(r, 2).setValue(newName);
-        result.renamed.push('設定シート row ' + r);
-      }
-    }
-  }
-
-  // 2. 日別入力シートをリネーム
-  var oldSheetName = SHEET_DAILY_PREFIX + oldName;
-  var newSheetName = SHEET_DAILY_PREFIX + newName;
-  var dailySheet = ss.getSheetByName(oldSheetName);
-  if (dailySheet) {
-    dailySheet.setName(newSheetName);
-    result.renamed.push(oldSheetName + ' → ' + newSheetName);
-  }
-
-  // 3. サマリーシートのヘッダーを更新
-  var summarySheet = ss.getSheetByName(SHEET_SUMMARY);
-  if (summarySheet) {
-    var headers = summarySheet.getRange(1, 1, 1, summarySheet.getLastColumn()).getValues()[0];
-    for (var c = 0; c < headers.length; c++) {
-      if (String(headers[c]).trim() === oldName) {
-        summarySheet.getRange(1, c + 1).setValue(newName);
-        result.renamed.push('サマリー col ' + (c + 1));
-      }
-    }
-  }
-
-  SpreadsheetApp.flush();
-  return result;
-}
-
-/**
- * 旧シート上のセルを修正（汎用）
- * API: ?action=run&fn=fixCell&gid=XXX&row=YY&col=ZZ&val=VALUE&formula=1
- */
-function fixCell(gid, row, col, val, isFormula) {
-  var ss = getSpreadsheet_();
-  var sheets = ss.getSheets();
-  var sheet = null;
-  var gidNum = parseInt(gid);
-  for (var i = 0; i < sheets.length; i++) {
-    if (sheets[i].getSheetId() === gidNum) { sheet = sheets[i]; break; }
-  }
-  if (!sheet) return { error: 'gid not found' };
-  var r = parseInt(row);
-  var c = parseInt(col);
-  var cell = sheet.getRange(r, c);
-  if (isFormula === '1' || isFormula === true) {
-    cell.setFormula(val);
-  } else {
-    var numVal = parseFloat(val);
-    cell.setValue(isNaN(numVal) ? val : numVal);
-  }
-  SpreadsheetApp.flush();
-  return { fixed: sheet.getName() + '!' + cell.getA1Notation(), value: cell.getValue() };
-}
-
-/**
  * 3月旧シートの集計行数式を修正
  * 各メンバーのセクション（rows 41-71, 77-107, ...）は統一列構造:
  *   col C(3)=資金有商談, F(6)=資金有成約, I(9)=着金額, L(12)=売上,
@@ -1649,15 +1662,17 @@ function fixOldSheetFormulas() {
   var oldSheet = getSheetByMonth_(ss, settings.month);
   if (!oldSheet) return { error: 'シートなし' };
 
-  // 動的セクション検出で正しいdataStart/dataEndを取得
-  var memberSections = detectMemberSections_(oldSheet);
+  // 静的MEMBER_SECTIONSを使用（3月確定版、detectMemberSections_は対応ミスが発生するため）
+  var memberSections = MEMBER_SECTIONS;
 
   // rowMapを構築
-  var allData = oldSheet.getRange(1, 1, Math.min(35, oldSheet.getLastRow()), 2).getValues();
+  var scanRows = Math.min(35, oldSheet.getLastRow());
+  var scanCols = Math.min(35, oldSheet.getLastColumn());
+  var allData = oldSheet.getRange(1, 1, scanRows, scanCols).getValues();
   var rowMap = {};
   for (var r = 0; r < allData.length; r++) {
-    var label = String(allData[r][0] || '').replace(/\s+/g, '').replace(/[\(\)（）]/g, '');
-    if (!label) label = String(allData[r][1] || '').replace(/\s+/g, '').replace(/[\(\)（）]/g, '');
+    var label = String(allData[r][0] || '').replace(/\s+/g, '').replace(/[\(\)（）]/g, '').replace(/無し/g, 'なし');
+    if (!label) label = String(allData[r][1] || '').replace(/\s+/g, '').replace(/[\(\)（）]/g, '').replace(/無し/g, 'なし');
     if (!label) continue;
     if (!rowMap.sales && label.indexOf('合計売上') !== -1) rowMap.sales = r + 1; // 1-indexed
     if (!rowMap.avgPrice && label.indexOf('平均単価') !== -1) rowMap.avgPrice = r + 1;
@@ -1671,9 +1686,74 @@ function fixOldSheetFormulas() {
     if (!rowMap.unfundedClosed && label.indexOf('資金なし成約数') !== -1) rowMap.unfundedClosed = r + 1;
     if (!rowMap.unfundedDeals && label.indexOf('資金なしの合計商談数') !== -1) rowMap.unfundedDeals = r + 1;
     if (!rowMap.coCount && label.indexOf('CO数') !== -1) rowMap.coCount = r + 1;
-    if (!rowMap.coAmount && label.indexOf('CO額') !== -1 || label.indexOf('CO金額') !== -1) rowMap.coAmount = r + 1;
+    if (!rowMap.coAmount && (label.indexOf('CO額') !== -1 || label.indexOf('CO金額') !== -1)) rowMap.coAmount = r + 1;
     if (!rowMap.currentRev && label.indexOf('当月着金額') !== -1) rowMap.currentRev = r + 1;
     if (!rowMap.carryoverRev && label.indexOf('前月繰り越し') !== -1) rowMap.carryoverRev = r + 1;
+  }
+
+  // ラベルが見つからない場合、数式パターンで行を検出（3月以降のラベルなしシート対応）
+  if (Object.keys(rowMap).length < 3) {
+    var formulas = oldSheet.getRange(1, 1, scanRows, scanCols).getFormulas();
+    // 最初のメンバー列(C=3)の数式パターンで検出
+    var fc = memberSections[0] ? memberSections[0].summaryCol - 1 : 2;
+    for (var r = 0; r < formulas.length; r++) {
+      var f = String(formulas[r][fc] || '');
+      if (!f) continue;
+      // RANK数式 → ランキング行
+      if (f.indexOf('RANK') !== -1) { rowMap.ranking = r + 1; continue; }
+      // SUM(I...) → 当月着金額 (I=着金列)
+      if (!rowMap.currentRev && /^=SUM\(I\d+:I\d+\)$/i.test(f)) { rowMap.currentRev = r + 1; continue; }
+      // SUM(L...)+... → 合計売上 (L=売上列)
+      if (!rowMap.sales && /^=SUM\(L\d+:L\d+\)/i.test(f)) { rowMap.sales = r + 1; continue; }
+      // SUM(C...) → 資金有商談数 (C=商談列)
+      if (!rowMap.fundedDeals && /^=SUM\(C\d+:C\d+\)$/i.test(f)) { rowMap.fundedDeals = r + 1; continue; }
+      // SUM(F...) → 資金有成約数 (F=成約列)
+      if (!rowMap.fundedClosed && /^=SUM\(F\d+:F\d+\)$/i.test(f)) { rowMap.fundedClosed = r + 1; continue; }
+      // SUM(Z...) → 資金なし商談数 (Z=資金なし商談列)
+      if (!rowMap.unfundedDeals && /^=SUM\(Z\d+:Z\d+\)$/i.test(f)) { rowMap.unfundedDeals = r + 1; continue; }
+      // SUM(Y...) → 資金なし成約数 (Y=資金なし成約列)
+      if (!rowMap.unfundedClosed && /^=SUM\(Y\d+:Y\d+\)$/i.test(f)) { rowMap.unfundedClosed = r + 1; continue; }
+      // SUM(O...) → CO数 (O=CO数列)
+      if (!rowMap.coCount && /^=SUM\(O\d+:O\d+\)$/i.test(f)) { rowMap.coCount = r + 1; continue; }
+      // SUM(R...) → CO金額 (R=CO金額列)
+      if (!rowMap.coAmount && /^=SUM\(R\d+:R\d+\)$/i.test(f)) { rowMap.coAmount = r + 1; continue; }
+    }
+    // 合成行を数式パターンで検出（=X8+X9 等）
+    var scLetter0 = columnToLetter_(memberSections[0] ? memberSections[0].summaryCol : 3);
+    for (var r = 0; r < formulas.length; r++) {
+      var f = String(formulas[r][fc] || '');
+      if (!f) continue;
+      // =X{currentRev}+X{carryoverRev} → 合計着金額
+      if (!rowMap.revenue && rowMap.currentRev) {
+        var revPattern = '=' + scLetter0 + rowMap.currentRev + '+' + scLetter0;
+        if (f.indexOf(revPattern) === 0) { rowMap.revenue = r + 1; continue; }
+      }
+      // =X{fundedClosed}+X{unfundedClosed} → 成約数
+      if (!rowMap.closed && rowMap.fundedClosed && rowMap.unfundedClosed) {
+        var closedPattern = '=' + scLetter0 + rowMap.fundedClosed + '+' + scLetter0 + rowMap.unfundedClosed;
+        if (f === closedPattern) { rowMap.closed = r + 1; continue; }
+      }
+      // =X{fundedDeals}+X{unfundedDeals} → 合計商談数
+      if (!rowMap.deals && rowMap.fundedDeals && rowMap.unfundedDeals) {
+        var dealsPattern = '=' + scLetter0 + rowMap.fundedDeals + '+' + scLetter0 + rowMap.unfundedDeals;
+        if (f === dealsPattern) { rowMap.deals = r + 1; continue; }
+      }
+      // IF(X{closed}=0,"",X{sales}/X{closed}) → 平均単価
+      if (!rowMap.avgPrice && f.indexOf('IF(') !== -1 && f.indexOf('""') !== -1) { rowMap.avgPrice = r + 1; continue; }
+      // IF(X{sales}=0,0,X{revenue}/X{sales}) → 着金率
+      if (!rowMap.paymentRate && rowMap.sales && f.indexOf('IF(') !== -1 && f.indexOf(scLetter0 + rowMap.sales) !== -1) {
+        rowMap.paymentRate = r + 1; continue;
+      }
+      // 成約率: IF((X25+X26)=0,0,...) パターン
+      if (!rowMap.closeRate && rowMap.fundedDeals && f.indexOf(scLetter0 + rowMap.fundedDeals) !== -1 && f.indexOf(scLetter0 + (rowMap.unfundedDeals || 0)) !== -1 && f.indexOf('IF(') !== -1) {
+        rowMap.closeRate = r + 1; continue;
+      }
+    }
+    // carryoverRev: currentRevの次の行（数式なし or 値のみ）
+    if (rowMap.currentRev && !rowMap.carryoverRev) {
+      rowMap.carryoverRev = rowMap.currentRev + 1;
+    }
+    Logger.log('数式パターンでrowMap検出: ' + JSON.stringify(rowMap));
   }
 
   // セクション内の列マッピング（全セクション共通）
@@ -1688,7 +1768,6 @@ function fixOldSheetFormulas() {
   var SEC_COL_UNFUNDED_DEALS = 26; // Z
 
   var fixed = [];
-  var carryoverRow = 36; // 繰り越し売り上げ行
 
   for (var i = 0; i < memberSections.length; i++) {
     var ms = memberSections[i];
@@ -1710,9 +1789,10 @@ function fixOldSheetFormulas() {
     var coCountLetter = columnToLetter_(SEC_COL_CO_COUNT);     // O
     var coAmountLetter = columnToLetter_(SEC_COL_CO_AMOUNT);   // R
 
-    // 行13: 合計売上 = SUM(セクション売上列) + 繰り越し
+    // 行13: 合計売上 = SUM(セクション売上列)
+    // ※売上に前月繰越は含めない（繰越は着金額のみ。売上は成約月に計上済み）
     if (rowMap.sales) {
-      var formula = '=SUM(' + salesColLetter + ds + ':' + salesColLetter + de + ')+' + scLetter + carryoverRow;
+      var formula = '=SUM(' + salesColLetter + ds + ':' + salesColLetter + de + ')';
       oldSheet.getRange(rowMap.sales, sc).setFormula(formula);
       fixed.push(ms.name + ' sales: ' + formula);
     }
@@ -1886,8 +1966,8 @@ function fixOldSheetFormulas() {
       // 前月の合計商談数行を検索
       var prevDealsRow = -1;
       for (var pr = 0; pr < prevData.length; pr++) {
-        var pLabel = String(prevData[pr][0] || '').replace(/\s+/g, '').replace(/[\(\)（）]/g, '');
-        if (!pLabel) pLabel = String(prevData[pr][1] || '').replace(/\s+/g, '').replace(/[\(\)（）]/g, '');
+        var pLabel = String(prevData[pr][0] || '').replace(/\s+/g, '').replace(/[\(\)（）]/g, '').replace(/無し/g, 'なし');
+        if (!pLabel) pLabel = String(prevData[pr][1] || '').replace(/\s+/g, '').replace(/[\(\)（）]/g, '').replace(/無し/g, 'なし');
         if (pLabel.indexOf('合計商談数') !== -1 && pLabel.indexOf('資金') === -1) {
           prevDealsRow = pr;
           break;
@@ -1938,6 +2018,35 @@ function fixOldSheetFormulas() {
       }
     }
   }
+
+  // === B列にラベルを復元（3月以降のラベルなしシート対応） ===
+  var labelMap = {};
+  if (rowMap.ranking)        labelMap[rowMap.ranking]        = 'ランキング';
+  if (rowMap.revenue)        labelMap[rowMap.revenue]        = '合計着金額';
+  if (rowMap.closed)         labelMap[rowMap.closed]         = '成約数';
+  if (rowMap.currentRev)     labelMap[rowMap.currentRev]     = '当月着金額';
+  if (rowMap.carryoverRev)   labelMap[rowMap.carryoverRev]   = '前月繰り越し着金額';
+  if (rowMap.deals)          labelMap[rowMap.deals]          = '合計商談数（当月のみ）';
+  if (rowMap.sales)          labelMap[rowMap.sales]          = '合計売上';
+  if (rowMap.avgPrice)       labelMap[rowMap.avgPrice]       = '平均単価';
+  if (rowMap.paymentRate)    labelMap[rowMap.paymentRate]    = '着金率';
+  if (rowMap.closeRate)      labelMap[rowMap.closeRate]      = '成約率';
+  if (rowMap.fundedDeals)    labelMap[rowMap.fundedDeals]    = '資金有の合計商談数';
+  if (rowMap.unfundedDeals)  labelMap[rowMap.unfundedDeals]  = '資金なしの合計商談数';
+  if (rowMap.fundedClosed)   labelMap[rowMap.fundedClosed]   = '資金有成約数';
+  if (rowMap.unfundedClosed) labelMap[rowMap.unfundedClosed] = '資金なし成約数';
+  if (rowMap.coCount)        labelMap[rowMap.coCount]        = 'CO数';
+  if (rowMap.coAmount)       labelMap[rowMap.coAmount]       = 'CO額';
+  // 資金あり成約率 (closeRateの次の行)
+  if (rowMap.closeRate)      labelMap[rowMap.closeRate + 1]  = '資金あり成約率';
+
+  for (var labelRow in labelMap) {
+    var rowNum = parseInt(labelRow);
+    if (rowNum > 0) {
+      oldSheet.getRange(rowNum, 2).setValue(labelMap[labelRow]);
+    }
+  }
+  fixed.push('B列ラベル復元: ' + Object.keys(labelMap).length + '行');
 
   SpreadsheetApp.flush();
   return { status: 'fixed', rowMap: rowMap, fixed: fixed };
@@ -2740,4 +2849,184 @@ function listSheets() {
     });
   }
   return list;
+}
+
+/**
+ * デバッグ: 旧シートのサマリー行 vs v2日別シート合計行を比較
+ */
+function verifyAllMemberData() {
+  var ss = getSpreadsheet_();
+  var settings = getGlobalSettings_(ss);
+  var oldSheet = getSheetByMonth_(ss, settings.month);
+  if (!oldSheet) return { error: 'シートなし' };
+
+  var allData = oldSheet.getDataRange().getValues();
+  var allFormulas = oldSheet.getDataRange().getFormulas();
+  var memberSections = MEMBER_SECTIONS;
+
+  // rowMapを数式パターンで検出（syncFromOldSheetと同じロジック）
+  var scanRows = Math.min(30, allData.length);
+  var scanCols = Math.min(allData[0].length, 40);
+  var rowMap = {};
+
+  // ラベルスキャン
+  for (var r = 0; r < scanRows; r++) {
+    for (var c = 0; c < Math.min(2, scanCols); c++) {
+      var label = String(allData[r][c] || '').replace(/\s+/g, '');
+      if (label.indexOf('着金額') !== -1 || label === '着金') rowMap.currentRev = r;
+      if (label.indexOf('前月繰越') !== -1) rowMap.carryoverRev = r;
+      if (label.indexOf('売上') !== -1 && !rowMap.sales) rowMap.sales = r;
+      if (label.indexOf('商談数') !== -1 && label.indexOf('資金なし') === -1 && !rowMap.fundedDeals) rowMap.fundedDeals = r;
+      if (label.indexOf('成約数') !== -1 && label.indexOf('資金なし') === -1 && !rowMap.fundedClosed) rowMap.fundedClosed = r;
+    }
+  }
+
+  // 数式パターンフォールバック
+  if (Object.keys(rowMap).length < 3 && memberSections.length > 0) {
+    var fc = memberSections[0].summaryCol - 1;
+    for (var r = 0; r < scanRows; r++) {
+      var f = String(allFormulas[r][fc] || '');
+      if (!f) continue;
+      if (!rowMap.currentRev && /^=SUM\(I\d+:I\d+\)$/i.test(f)) { rowMap.currentRev = r; continue; }
+      if (!rowMap.sales && /^=SUM\(L\d+:L\d+\)/i.test(f)) { rowMap.sales = r; continue; }
+      if (!rowMap.fundedDeals && /^=SUM\(C\d+:C\d+\)$/i.test(f)) { rowMap.fundedDeals = r; continue; }
+      if (!rowMap.fundedClosed && /^=SUM\(F\d+:F\d+\)$/i.test(f)) { rowMap.fundedClosed = r; continue; }
+      if (!rowMap.unfundedDeals && /^=SUM\(Z\d+:Z\d+\)$/i.test(f)) { rowMap.unfundedDeals = r; continue; }
+      if (!rowMap.unfundedClosed && /^=SUM\(Y\d+:Y\d+\)$/i.test(f)) { rowMap.unfundedClosed = r; continue; }
+    }
+    // revenue = currentRev + carryover 複合行
+    for (var r = 0; r < scanRows; r++) {
+      var f = String(allFormulas[r][fc] || '');
+      if (f && rowMap.currentRev !== undefined) {
+        var crCell = columnToLetter_(fc + 1) + (rowMap.currentRev + 1);
+        if (f.indexOf(crCell) !== -1 && f.indexOf('+') !== -1 && r !== rowMap.currentRev) {
+          rowMap.revenue = r;
+        }
+      }
+    }
+    if (rowMap.currentRev !== undefined && !rowMap.carryoverRev) {
+      rowMap.carryoverRev = rowMap.currentRev + 1;
+    }
+  }
+
+  var results = [];
+  for (var i = 0; i < memberSections.length; i++) {
+    var sec = memberSections[i];
+    var col = sec.summaryCol - 1; // 0-based
+    var entry = {
+      name: sec.name,
+      summaryCol: sec.summaryCol,
+      dataStart: sec.dataStart,
+      dataEnd: sec.dataEnd,
+      oldSheet: {}
+    };
+
+    // 旧シートサマリー値
+    if (rowMap.revenue !== undefined) entry.oldSheet.revenue = allData[rowMap.revenue][col];
+    if (rowMap.currentRev !== undefined) entry.oldSheet.currentRev = allData[rowMap.currentRev][col];
+    if (rowMap.carryoverRev !== undefined) entry.oldSheet.carryoverRev = allData[rowMap.carryoverRev][col];
+    if (rowMap.fundedDeals !== undefined) entry.oldSheet.fundedDeals = allData[rowMap.fundedDeals][col];
+    if (rowMap.fundedClosed !== undefined) entry.oldSheet.fundedClosed = allData[rowMap.fundedClosed][col];
+    if (rowMap.sales !== undefined) entry.oldSheet.sales = allData[rowMap.sales][col];
+    if (rowMap.unfundedDeals !== undefined) entry.oldSheet.unfundedDeals = allData[rowMap.unfundedDeals][col];
+    if (rowMap.unfundedClosed !== undefined) entry.oldSheet.unfundedClosed = allData[rowMap.unfundedClosed][col];
+
+    // v2日別シートの合計行
+    var v2name = NAME_MAP[sec.name] || LEGACY_TO_V2_NAME[sec.name] || sec.name;
+    var dailySheet = ss.getSheetByName(SHEET_DAILY_PREFIX + v2name);
+    if (!dailySheet) dailySheet = ss.getSheetByName(SHEET_DAILY_PREFIX + sec.name);
+    if (dailySheet) {
+      var totalRow = dailySheet.getRange(DAILY_ROW_TOTAL, 1, 1, DAILY_COL_COUNT).getValues()[0];
+      entry.v2Daily = {
+        fundedDeals: totalRow[COL_FUNDED_DEALS],
+        fundedClosed: totalRow[COL_FUNDED_CLOSED],
+        revenue: totalRow[COL_REVENUE],
+        sales: totalRow[COL_SALES],
+        unfundedClosed: totalRow[COL_UNFUNDED_CLOSED],
+        unfundedDeals: totalRow[COL_UNFUNDED_DEALS]
+      };
+    } else {
+      entry.v2Daily = 'sheet not found: ' + SHEET_DAILY_PREFIX + v2name;
+    }
+
+    // セクションの最初5行のデータ（売上列含む）を取得
+    var secRows = [];
+    for (var sr = sec.dataStart - 1; sr < Math.min(sec.dataStart + 4, allData.length); sr++) {
+      var row = { row: sr + 1 };
+      // A列(日付?), C列(fundedDeals), F列(fundedClosed), I列(revenue), L列(sales)
+      if (allData[sr]) {
+        row.A = allData[sr][0] || '';
+        row.B = allData[sr][1] || '';
+        row.C = allData[sr][2] || '';  // funded deals
+        row.F = allData[sr][5] || '';  // funded closed
+        row.I = allData[sr][8] || '';  // revenue
+        row.L = allData[sr][11] || ''; // sales
+        // セクション列（メンバーのsummaryCol基準）
+        var sc = sec.summaryCol - 1;
+        row.secI = allData[sr][sc + 6] || '';  // section I-column (revenue)
+        row.secL = allData[sr][sc + 9] || '';  // section L-column (sales)
+      }
+      secRows.push(row);
+    }
+    entry.sectionPreview = secRows;
+
+    results.push(entry);
+  }
+
+  // B列チェック: 旧シートのB列データ
+  var colBdata = [];
+  for (var r = 0; r < Math.min(30, allData.length); r++) {
+    var bVal = allData[r][1];
+    if (bVal !== '' && bVal !== null && bVal !== undefined) {
+      colBdata.push({ row: r + 1, val: String(bVal).substring(0, 40) });
+    }
+  }
+
+  // サマリーシートのB列
+  var summarySheet = ss.getSheetByName(SHEET_SUMMARY);
+  var summaryBdata = [];
+  if (summarySheet) {
+    var sData = summarySheet.getRange(1, 2, Math.min(25, summarySheet.getLastRow()), 1).getValues();
+    for (var r = 0; r < sData.length; r++) {
+      if (sData[r][0] !== '' && sData[r][0] !== null && sData[r][0] !== undefined) {
+        summaryBdata.push({ row: r + 1, val: String(sData[r][0]).substring(0, 40) });
+      }
+    }
+  }
+
+  // 全シート名とB列の存在確認
+  var allSheets = ss.getSheets();
+  var sheetColBcheck = [];
+  for (var si = 0; si < allSheets.length; si++) {
+    var sn = allSheets[si].getName();
+    if (sn.indexOf('日別入力') !== -1) {
+      var cols = allSheets[si].getMaxColumns();
+      var hidden = allSheets[si].isColumnHiddenByUser(2);
+      sheetColBcheck.push({ name: sn, totalCols: cols, colBhidden: hidden });
+    }
+  }
+
+  return { rowMap: rowMap, members: results, oldSheetColB: colBdata, summaryColB: summaryBdata, dailySheetCheck: sheetColBcheck };
+}
+
+/**
+ * 設定シートのポジティブ→ドライ修正（A列=ドライ, B列=ポジティブ）
+ * API: ?action=run&fn=fixMemberName
+ */
+function fixMemberName() {
+  var ss = getSpreadsheet_();
+  var settingsSheet = getSettingsSheet_(ss);
+  if (!settingsSheet) return { error: 'no settings' };
+  var lastRow = Math.min(settingsSheet.getLastRow(), 13);
+  var data = settingsSheet.getRange(2, 1, lastRow - 1, 2).getValues();
+  var fixed = [];
+  for (var i = 0; i < data.length; i++) {
+    var name = String(data[i][0] || '').trim();
+    if (name === 'ポジティブ') {
+      settingsSheet.getRange(i + 2, 1).setValue('ドライ');
+      settingsSheet.getRange(i + 2, 2).setValue('ポジティブ');
+      fixed.push('row ' + (i + 2) + ': A=ドライ, B=ポジティブ');
+    }
+  }
+  return { fixed: fixed };
 }

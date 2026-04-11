@@ -1,7 +1,11 @@
 *.key
+*.log
 .claude_api_key
-qa_history.json
-backups/
+.env
 .DS_Store
 node_modules/
+backups/
+cache/*.json
+qa_history.json
+goal-settings-data.json
 BotConfig.js

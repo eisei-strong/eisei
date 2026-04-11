@@ -65,7 +65,7 @@ function getRankingFromSummary_(ss) {
   var summarySheet = getSummarySheet_(ss);
   if (!summarySheet) return null;
 
-  var data = summarySheet.getRange(SM_ROW_MEMBER_START, 1, 8, SM_COL_GAP_TO_TOP).getValues();
+  var data = summarySheet.getRange(SM_ROW_MEMBER_START, 1, SM_ROW_MEMBER_END - SM_ROW_MEMBER_START + 1, SM_COL_GAP_TO_TOP).getValues();
   var ranking = [];
 
   for (var i = 0; i < data.length; i++) {
