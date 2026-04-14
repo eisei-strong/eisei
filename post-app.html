@@ -587,6 +587,7 @@ function escHtml(s){var d=document.createElement('div');d.textContent=s;return d
 var loginData=null;
 var currentTab='post';
 var prevCharaIdx=-1; // レベルアップ検出用
+var streak=0; // 連続投稿日数（renderEvoTableからも参照）
 
 // キャラクター進化テーブル
 var CHARA=[
@@ -1166,7 +1167,7 @@ function renderMain(){
   document.getElementById('bottomNav').classList.add('active');
   document.getElementById('userName').textContent='';
 
-  var totalDays=0,totalPosts=0,streak=0,maxStreak=0,cur=0;
+  var totalDays=0,totalPosts=0,maxStreak=0,cur=0;streak=0;
   var today=new Date();
   var todayLabel=(today.getMonth()+1)+'/'+today.getDate();
 
