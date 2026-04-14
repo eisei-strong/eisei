@@ -25,18 +25,40 @@ var SMC_MASTER_ID_COL = 2;       // B列: ID (1-indexed)
 var SMC_MASTER_CONTRACT_COL = 36; // AJ列: 契約日 (1-indexed)
 var SMC_MASTER_EMAIL_COL = 35;   // AI列: 契約メールアドレス (1-indexed)
 
-// ---- 認証ヘルパー ----
+// ---- 認証ヘルパー（PropertiesService版） ----
 
-function getAuthSheet_() {
-  var ss = SpreadsheetApp.openById(POST_APP_SS_ID);
-  var sheet = ss.getSheetByName(POST_APP_AUTH_SHEET);
-  if (!sheet) {
-    sheet = ss.insertSheet(POST_APP_AUTH_SHEET);
-    sheet.getRange(1, 1, 1, 2).setValues([['ID', 'パスワード']]);
-    sheet.getRange(1, 1, 1, 2).setFontWeight('bold');
-    sheet.hideSheet();
-  }
-  return sheet;
+function getAuthData_() {
+  var props = PropertiesService.getScriptProperties();
+  var raw = props.getProperty('postapp_auth');
+  return raw ? JSON.parse(raw) : {};
+}
+
+function saveAuthData_(data) {
+  var props = PropertiesService.getScriptProperties();
+  props.setProperty('postapp_auth', JSON.stringify(data));
+}
+
+// 旧認証シートからPropertiesServiceへ移行（初回のみ）
+function migrateAuthToProps_() {
+  var props = PropertiesService.getScriptProperties();
+  if (props.getProperty('postapp_auth_migrated')) return;
+  try {
+    var ss = SpreadsheetApp.openById(POST_APP_SS_ID);
+    var sheet = ss.getSheetByName(POST_APP_AUTH_SHEET);
+    if (sheet) {
+      var lastRow = sheet.getLastRow();
+      if (lastRow >= 2) {
+        var data = sheet.getRange(2, 1, lastRow - 1, 2).getValues();
+        var auth = {};
+        for (var i = 0; i < data.length; i++) {
+          var id = String(data[i][0]).trim();
+          if (id) auth[id] = String(data[i][1]);
+        }
+        saveAuthData_(auth);
+      }
+    }
+  } catch (e) { /* 認証シートが読めなくても続行 */ }
+  props.setProperty('postapp_auth_migrated', 'true');
 }
 
 function hashPassword_(pw) {
@@ -56,9 +78,9 @@ function verifyToken_(token) {
 }
 
 function postAppResetAuth_() {
-  var ss = SpreadsheetApp.openById(POST_APP_SS_ID);
-  var sheet = ss.getSheetByName(POST_APP_AUTH_SHEET);
-  if (sheet) ss.deleteSheet(sheet);
+  var props = PropertiesService.getScriptProperties();
+  props.deleteProperty('postapp_auth');
+  props.deleteProperty('postapp_auth_migrated');
   return { ok: true };
 }
 
@@ -77,15 +99,9 @@ function postAppCheckId_(id) {
   for (var i = 0; i < ids.length; i++) {
     if (String(ids[i][0]).trim() === String(id).trim()) {
       var name = sheet.getRange(i + 2, POST_APP_NAME_COL).getValue();
-      var authSheet = getAuthSheet_();
-      var authLast = authSheet.getLastRow();
-      var hasPassword = false;
-      if (authLast >= 2) {
-        var authData = authSheet.getRange(2, 1, authLast - 1, 2).getValues();
-        for (var a = 0; a < authData.length; a++) {
-          if (String(authData[a][0]).trim() === String(id).trim()) { hasPassword = true; break; }
-        }
-      }
+      migrateAuthToProps_();
+      var authMap = getAuthData_();
+      var hasPassword = !!authMap[String(id).trim()];
       var contract = sheet.getRange(i + 2, 2).getValue(); // B列: 契約日
       var contractStr = '';
       if (contract instanceof Date) {
@@ -115,20 +131,10 @@ function postAppRegister_(id, password) {
   }
   if (!found) return { error: 'IDが見つかりません' };
 
-  var authSheet = getAuthSheet_();
-  var authLast = authSheet.getLastRow();
-  // 既存パスワードがあれば上書き
-  if (authLast >= 2) {
-    var authData = authSheet.getRange(2, 1, authLast - 1, 1).getValues();
-    for (var a = 0; a < authData.length; a++) {
-      if (String(authData[a][0]).trim() === String(id).trim()) {
-        authSheet.getRange(a + 2, 2).setValue(hashPassword_(password));
-        return { ok: true };
-      }
-    }
-  }
-
-  authSheet.appendRow([String(id).trim(), hashPassword_(password)]);
+  migrateAuthToProps_();
+  var authMap = getAuthData_();
+  authMap[String(id).trim()] = hashPassword_(password);
+  saveAuthData_(authMap);
   return { ok: true };
 }
 
@@ -155,17 +161,11 @@ function postAppResetPassword_(id, email) {
   }
   if (!matched) return { error: 'メールアドレスが一致しません' };
 
-  // 認証シートからパスワードを削除
-  var authSheet = getAuthSheet_();
-  var authLast = authSheet.getLastRow();
-  if (authLast >= 2) {
-    var authData = authSheet.getRange(2, 1, authLast - 1, 1).getValues();
-    for (var a = authData.length - 1; a >= 0; a--) {
-      if (String(authData[a][0]).trim() === String(id).trim()) {
-        authSheet.deleteRow(a + 2);
-      }
-    }
-  }
+  // PropertiesServiceからパスワードを削除
+  migrateAuthToProps_();
+  var authMap = getAuthData_();
+  delete authMap[String(id).trim()];
+  saveAuthData_(authMap);
 
   return { ok: true };
 }
@@ -190,20 +190,12 @@ function postAppLogin_(id, password) {
   }
   if (memberRow < 0) return { error: 'IDが見つかりません' };
 
-  var authSheet = getAuthSheet_();
-  var authLast = authSheet.getLastRow();
-  if (authLast < 2) return { error: 'パスワードが未設定です。先にパスワードを登録してください。' };
-
-  var authData = authSheet.getRange(2, 1, authLast - 1, 2).getValues();
+  migrateAuthToProps_();
+  var authMap = getAuthData_();
+  var storedHash = authMap[String(id).trim()];
+  if (!storedHash) return { error: 'パスワードが未設定です。先にパスワードを登録してください。' };
   var hash = hashPassword_(password);
-  var matched = false;
-  for (var a = 0; a < authData.length; a++) {
-    if (String(authData[a][0]).trim() === String(id).trim()) {
-      if (authData[a][1] === hash) matched = true;
-      break;
-    }
-  }
-  if (!matched) return { error: 'パスワードが正しくありません' };
+  if (storedHash !== hash) return { error: 'パスワードが正しくありません' };
 
   // トークン生成
   var token = hashPassword_(id + '_' + new Date().getTime() + '_' + Math.random());
@@ -350,16 +342,18 @@ function getLoginStreakData_(id) {
 
   // 現在の連続日数（今日から遡る）
   var streak = 0;
-  var checkDate = new Date(now.getTime());
-  // JSTに合わせる
-  var jstOffset = 9 * 60 * 60 * 1000;
-  checkDate = new Date(checkDate.getTime() + jstOffset);
+  // todayStrのインデックスから遡る（日付文字列ベースで計算、タイムゾーン二重変換を回避）
+  var todayParts = todayStr.split('-');
+  var checkY = parseInt(todayParts[0]);
+  var checkM = parseInt(todayParts[1]) - 1;
+  var checkD = parseInt(todayParts[2]);
 
   while (true) {
-    var ds = Utilities.formatDate(checkDate, 'Asia/Tokyo', 'yyyy-MM-dd');
+    var cd = new Date(checkY, checkM, checkD);
+    var ds = checkY + '-' + ('0' + (cd.getMonth() + 1)).slice(-2) + '-' + ('0' + cd.getDate()).slice(-2);
     if (dates.indexOf(ds) >= 0) {
       streak++;
-      checkDate = new Date(checkDate.getTime() - 86400000);
+      checkD--;
     } else {
       break;
     }

@@ -6,108 +6,133 @@
 <title>投稿記録</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif;background:#0F172A;color:#E2E8F0;min-height:100dvh;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif;background:#F7F7F7;color:#3C3C3C;min-height:100dvh;-webkit-tap-highlight-color:transparent}
 
 /* 共通 */
 .screen{display:none;flex-direction:column;align-items:center;justify-content:center;min-height:100dvh;padding:24px}
 .screen.active{display:flex}
-.screen h1{font-size:24px;margin-bottom:8px}
-.sub{color:#94A3B8;font-size:14px;margin-bottom:24px;text-align:center}
-.fi{width:100%;max-width:280px;padding:14px 16px;font-size:18px;border:2px solid #334155;border-radius:12px;background:#1E293B;color:#E2E8F0;outline:none;-webkit-appearance:none;margin-bottom:10px}
-.fi:focus{border-color:#3B82F6}
-.fi::placeholder{color:#475569}
-.fb{margin-top:6px;width:100%;max-width:280px;padding:16px;font-size:18px;font-weight:700;border:none;border-radius:12px;background:#3B82F6;color:#fff;cursor:pointer}
-.fb:active{background:#2563EB}
-.fb:disabled{background:#334155;color:#64748B}
-.fb.green{background:#22C55E}
-.fb.green:active{background:#16A34A}
-.fe{color:#F87171;font-size:14px;margin-top:8px;text-align:center;max-width:280px}
-.fn{color:#60A5FA;font-size:20px;font-weight:700;margin-bottom:16px}
+.screen h1{font-size:26px;font-weight:800;margin-bottom:8px;color:#3C3C3C}
+.sub{color:#777;font-size:15px;margin-bottom:24px;text-align:center}
+.fi{width:100%;max-width:300px;padding:14px 16px;font-size:18px;border:2px solid #E0E0E0;border-radius:16px;background:#fff;color:#3C3C3C;outline:none;-webkit-appearance:none;margin-bottom:10px}
+.fi:focus{border-color:#58CC02}
+.fi::placeholder{color:#AFAFAF}
+.fb{margin-top:6px;width:100%;max-width:300px;padding:16px;font-size:18px;font-weight:800;border:none;border-radius:16px;background:#58CC02;color:#fff;cursor:pointer;box-shadow:0 4px 0 #46A302;transition:all .1s}
+.fb:active{transform:translateY(2px);box-shadow:0 2px 0 #46A302}
+.fb:disabled{background:#E0E0E0;color:#AFAFAF;box-shadow:0 4px 0 #CACACA}
+.fb.green{background:#58CC02;box-shadow:0 4px 0 #46A302}
+.fb.green:active{background:#46A302}
+.fe{color:#FF4B4B;font-size:14px;margin-top:8px;text-align:center;max-width:300px}
+.fn{color:#1CB0F6;font-size:22px;font-weight:800;margin-bottom:16px}
 
 /* メイン */
 .main{display:none;padding:12px 12px 80px;max-width:420px;margin:0 auto}
 .main.active{display:block}
 .hdr{display:flex;justify-content:space-between;align-items:center;padding:8px 0 4px}
 .hdr-left{display:flex;align-items:center;gap:8px}
-.hdr-name{font-size:16px;font-weight:700}
-.hdr-sub{font-size:12px;color:#64748B}
-.logout{font-size:11px;color:#64748B;background:none;border:1px solid #334155;border-radius:8px;padding:4px 10px;cursor:pointer}
+.hdr-name{font-size:17px;font-weight:800;color:#3C3C3C}
+.hdr-sub{font-size:12px;color:#AFAFAF;font-weight:600}
+.logout{font-size:12px;color:#AFAFAF;background:#fff;border:2px solid #E0E0E0;border-radius:12px;padding:5px 12px;cursor:pointer;font-weight:700}
 
 @keyframes statusPulse{0%,100%{opacity:1}50%{opacity:.6}}
 
 /* キャラクターカード */
-.chara-card{background:linear-gradient(135deg,#1E3A5F,#0F172A);border-radius:16px;padding:16px;text-align:center;margin-bottom:12px;border:1px solid #334155;position:relative;overflow:hidden}
-.chara-card.danger{border-color:#EF444444;animation:dangerPulse 3s ease-in-out infinite}
-@keyframes dangerPulse{0%,100%{border-color:#EF444444}50%{border-color:#EF4444AA}}
-.chara-emoji{font-size:64px;line-height:1;margin-bottom:8px;transition:all .5s;background:radial-gradient(circle,rgba(96,165,250,.15) 0%,transparent 70%);border-radius:50%;width:90px;height:90px;display:flex;align-items:center;justify-content:center;margin:0 auto 8px}
-.chara-emoji.dim{opacity:.4;filter:grayscale(.8)!important}
-.chara-name{font-size:14px;font-weight:700;color:#60A5FA}
-.chara-level{font-size:11px;color:#94A3B8;margin-top:2px}
-.streak-badge{display:inline-flex;align-items:center;gap:4px;background:#F59E0B22;border:1px solid #F59E0B55;border-radius:20px;padding:4px 12px;font-size:13px;font-weight:700;color:#F59E0B;margin-top:8px}
-.streak-badge.none{background:#33415522;border-color:#33415555;color:#64748B}
-.chara-danger-msg{font-size:11px;color:#F87171;margin-top:6px;font-weight:600;animation:statusPulse 2s ease-in-out infinite}
-.chara-encourage{font-size:11px;color:#94A3B8;margin-top:6px;font-style:italic}
+.chara-card{background:#fff;border-radius:20px;padding:20px 16px;text-align:center;margin-bottom:12px;border:2px solid #E0E0E0;position:relative;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.04)}
+.chara-card.danger{border-color:#FF4B4B88;animation:dangerPulse 3s ease-in-out infinite}
+@keyframes dangerPulse{0%,100%{border-color:#FF4B4B44}50%{border-color:#FF4B4BAA}}
+.chara-emoji{font-size:64px;line-height:1;margin-bottom:8px;transition:all .5s;background:radial-gradient(circle,rgba(88,204,2,.1) 0%,transparent 70%);border-radius:50%;width:90px;height:90px;display:flex;align-items:center;justify-content:center;margin:0 auto 8px}
+.chara-emoji.dim{opacity:.7;filter:saturate(0.4)!important}
+.chara-name{font-size:15px;font-weight:800;color:#58CC02}
+.chara-level{font-size:12px;color:#AFAFAF;margin-top:2px;font-weight:700}
+.streak-badge{display:inline-flex;align-items:center;gap:4px;background:#FFF3E0;border:2px solid #FF9600;border-radius:20px;padding:5px 14px;font-size:14px;font-weight:800;color:#FF9600;margin-top:8px}
+.streak-badge.none{background:#F0F0F0;border-color:#E0E0E0;color:#AFAFAF}
+.chara-danger-msg{font-size:12px;color:#FF4B4B;margin-top:6px;font-weight:700;animation:statusPulse 2s ease-in-out infinite}
+.chara-encourage{font-size:12px;color:#777;margin-top:6px;font-style:italic}
 
 /* 次の進化プログレスバー */
-.next-evo{margin-top:10px}
-.next-evo-label{font-size:10px;color:#64748B;margin-bottom:4px}
-.next-evo-bar{height:6px;background:#334155;border-radius:3px;overflow:hidden}
-.next-evo-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,#3B82F6,#60A5FA);transition:width .5s}
-.next-evo-text{font-size:10px;color:#60A5FA;margin-top:3px;font-weight:600}
+.next-evo{margin-top:12px}
+.next-evo-label{font-size:11px;color:#AFAFAF;margin-bottom:4px;font-weight:600}
+.next-evo-bar{height:8px;background:#E0E0E0;border-radius:4px;overflow:hidden}
+.next-evo-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,#58CC02,#78E030);transition:width .5s}
+.next-evo-text{font-size:11px;color:#58CC02;margin-top:4px;font-weight:700}
 
+/* 統計 - ストリークヒーロー */
+.streak-hero{text-align:center;margin-bottom:12px}
+.streak-hero-icon{font-size:40px;line-height:1}
+.streak-hero-num{font-size:52px;font-weight:900;color:#FF9600;line-height:1.1}
+.streak-hero-label{font-size:14px;color:#AFAFAF;font-weight:700;margin-top:2px}
 /* 統計バー */
 .stats{display:flex;gap:8px;margin-bottom:12px}
-.stat{flex:1;background:#1E293B;border-radius:12px;padding:10px 8px;text-align:center}
-.stat-num{font-size:24px;font-weight:800;color:#60A5FA}
-.stat-label{font-size:10px;color:#64748B;margin-top:2px}
+.stat{flex:1;background:#fff;border-radius:16px;padding:12px 8px;text-align:center;border:2px solid #E0E0E0}
+.stat-num{font-size:26px;font-weight:900;color:#1CB0F6}
+.stat-label{font-size:11px;color:#AFAFAF;margin-top:2px;font-weight:600}
+
+/* 目標プログレス */
+.goal-bar{background:#fff;border-radius:16px;padding:12px 16px;margin-bottom:12px;border:2px solid #E0E0E0;cursor:pointer}
+.goal-label{font-size:13px;font-weight:700;color:#3C3C3C;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center}
+.goal-progress{height:10px;background:#E0E0E0;border-radius:5px;overflow:hidden}
+.goal-fill{height:100%;border-radius:5px;background:linear-gradient(90deg,#58CC02,#78E030);transition:width .5s;width:0%}
+.goal-pct{font-size:13px;font-weight:800;color:#58CC02}
+
+/* 目標設定モーダル */
+.goal-modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:60;align-items:center;justify-content:center}
+.goal-modal-bg.active{display:flex}
+.goal-modal{background:#fff;border-radius:24px;padding:24px 20px;width:90%;max-width:340px;text-align:center}
+.goal-modal h3{font-size:18px;font-weight:800;margin-bottom:16px;color:#3C3C3C}
+.goal-opts{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.goal-opt{padding:14px 0;font-size:18px;font-weight:800;border:2px solid #E0E0E0;border-radius:14px;background:#fff;color:#3C3C3C;cursor:pointer;box-shadow:0 3px 0 #E0E0E0}
+.goal-opt:active{transform:translateY(2px);box-shadow:0 1px 0 #E0E0E0}
+.goal-opt.sel{border-color:#58CC02;background:#E8F5E9;color:#58CC02;box-shadow:0 3px 0 #46A302}
+.goal-custom{display:flex;gap:8px;align-items:center;justify-content:center;margin-bottom:16px}
+.goal-custom input{width:80px;padding:10px;font-size:18px;font-weight:800;text-align:center;border:2px solid #E0E0E0;border-radius:14px;outline:none}
+.goal-custom input:focus{border-color:#58CC02}
+.goal-custom span{font-size:16px;font-weight:700;color:#777}
 
 /* カレンダー */
 .cal-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
-.cal-title{font-size:15px;font-weight:700}
-.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:16px}
-.cal-dow{text-align:center;font-size:10px;color:#475569;padding:4px 0}
-.cal-day{aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:10px;cursor:pointer;transition:all .12s;font-size:13px;font-weight:600;border:2px solid transparent;position:relative;-webkit-user-select:none;user-select:none}
+.cal-title{font-size:16px;font-weight:800;color:#3C3C3C}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-bottom:16px}
+.cal-dow{text-align:center;font-size:11px;color:#AFAFAF;padding:4px 0;font-weight:700}
+.cal-day{aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:14px;cursor:pointer;transition:all .12s;font-size:14px;font-weight:700;border:2px solid transparent;position:relative;-webkit-user-select:none;user-select:none}
 .cal-day:active{transform:scale(.92)}
 .cal-day.empty{pointer-events:none}
-.cal-day.future{background:transparent;color:#334155;pointer-events:none;cursor:default;border-color:transparent}
-/* ヒートマップ: 未投稿=暗い、1本=薄青、2本=青、3本=緑、4本=紫、5本=オレンジ、6本=ゴールド */
-.cal-day.miss{background:#1E293B;color:#475569}
-.cal-day.done1{background:#1E3A5F;color:#60A5FA;border-color:#3B82F644}
-.cal-day.done2{background:#1E4D8C;color:#93C5FD;border-color:#3B82F6AA}
-.cal-day.done3{background:#16532D;color:#4ADE80;border-color:#22C55EAA}
-.cal-day.done4{background:#4C1D95;color:#A78BFA;border-color:#8B5CF6AA}
-.cal-day.done5{background:#7C2D12;color:#FB923C;border-color:#F97316AA}
-.cal-day.done6{background:#78350F;color:#FCD34D;border-color:#F59E0BAA}
-.cal-day.today{box-shadow:0 0 0 2px #F59E0B}
+.cal-day.future{background:transparent;color:#DDD;pointer-events:none;cursor:default;border-color:transparent}
+.cal-day.miss{background:#F0F0F0;color:#AFAFAF}
+.cal-day.done1{background:#E3F2FD;color:#1CB0F6;border-color:#1CB0F644}
+.cal-day.done2{background:#BBDEFB;color:#1976D2;border-color:#1CB0F6AA}
+.cal-day.done3{background:#E8F5E9;color:#58CC02;border-color:#58CC02AA}
+.cal-day.done4{background:#C8E6C9;color:#2E7D32;border-color:#58CC02}
+.cal-day.done5{background:#FFF3E0;color:#FF9600;border-color:#FF9600AA}
+.cal-day.done6{background:#FFE0B2;color:#E65100;border-color:#FF9600}
+.cal-day.today{box-shadow:0 0 0 3px #FFC800}
 .cal-day .cal-val{font-size:9px;margin-top:1px;opacity:.7}
 
 /* 入力モーダル */
-.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:50;align-items:flex-end;justify-content:center}
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:50;align-items:flex-end;justify-content:center}
 .modal-bg.active{display:flex}
-.modal{background:#1E293B;border-radius:20px 20px 0 0;padding:20px 20px 32px;width:100%;max-width:420px;animation:slideUp .2s}
+.modal{background:#fff;border-radius:24px 24px 0 0;padding:24px 20px 32px;width:100%;max-width:420px;animation:slideUp .2s}
 @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
-.modal-date{text-align:center;font-size:18px;font-weight:700;margin-bottom:16px}
+.modal-date{text-align:center;font-size:20px;font-weight:800;margin-bottom:16px;color:#3C3C3C}
 .modal-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
-.modal-opt{padding:18px 0;font-size:20px;font-weight:700;text-align:center;border:2px solid #334155;border-radius:14px;background:#0F172A;color:#CBD5E1;cursor:pointer;transition:all .12s;-webkit-user-select:none;user-select:none}
-.modal-opt:active{transform:scale(.95)}
-.modal-opt.sel{border-color:#3B82F6;background:#1E3A5F;color:#60A5FA}
-.modal-opt.x{color:#64748B}
-.modal-opt.x.sel{border-color:#475569;color:#94A3B8}
-.modal-cancel{width:100%;padding:14px;font-size:16px;font-weight:600;border:none;border-radius:12px;background:#334155;color:#94A3B8;cursor:pointer}
+.modal-opt{padding:18px 0;font-size:20px;font-weight:800;text-align:center;border:2px solid #E0E0E0;border-radius:16px;background:#fff;color:#3C3C3C;cursor:pointer;transition:all .12s;-webkit-user-select:none;user-select:none;box-shadow:0 3px 0 #E0E0E0}
+.modal-opt:active{transform:translateY(2px);box-shadow:0 1px 0 #E0E0E0}
+.modal-opt.sel{border-color:#1CB0F6;background:#E3F2FD;color:#1CB0F6;box-shadow:0 3px 0 #1CB0F6AA}
+.modal-opt.x{color:#AFAFAF}
+.modal-opt.x.sel{border-color:#AFAFAF;background:#F0F0F0;color:#777;box-shadow:0 3px 0 #CACACA}
+.modal-cancel{width:100%;padding:14px;font-size:16px;font-weight:700;border:none;border-radius:14px;background:#F0F0F0;color:#777;cursor:pointer}
 
-.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#22C55E;color:#fff;padding:10px 20px;border-radius:12px;font-weight:700;font-size:15px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:100}
+.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#58CC02;color:#fff;padding:12px 24px;border-radius:16px;font-weight:800;font-size:16px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:100;box-shadow:0 4px 12px rgba(88,204,2,.3)}
 .toast.show{opacity:1}
-.spinner{display:inline-block;width:20px;height:20px;border:3px solid #334155;border-top-color:#3B82F6;border-radius:50%;animation:spin .6s linear infinite}
+.spinner{display:inline-block;width:20px;height:20px;border:3px solid #E0E0E0;border-top-color:#58CC02;border-radius:50%;animation:spin .6s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
-a{color:#475569}
+a{color:#1CB0F6;font-weight:600}
 
 /* ボトムナビ */
-.bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:#1E293B;border-top:1px solid #334155;z-index:40;padding:0 0 env(safe-area-inset-bottom)}
+.bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:2px solid #E0E0E0;z-index:40;padding:0 0 env(safe-area-inset-bottom)}
 .bottom-nav.active{display:flex}
 .bottom-nav-inner{display:flex;max-width:420px;margin:0 auto;width:100%}
-.nav-tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 0;cursor:pointer;color:#64748B;font-size:10px;font-weight:600;transition:color .2s;-webkit-user-select:none;user-select:none}
-.nav-tab.active{color:#3B82F6}
-.nav-tab-icon{font-size:20px;margin-bottom:2px}
+.nav-tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 0;cursor:pointer;color:#AFAFAF;font-size:11px;font-weight:700;transition:color .2s;-webkit-user-select:none;user-select:none}
+.nav-tab.active{color:#1CB0F6}
+.nav-tab-icon{font-size:22px;margin-bottom:2px}
 
 /* ===== 紙吹雪 ===== */
 .confetti-container{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:200;overflow:hidden}
@@ -119,63 +144,104 @@ a{color:#475569}
 }
 
 /* ===== レベルアップオーバーレイ ===== */
-.levelup-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:150;align-items:center;justify-content:center;flex-direction:column}
+.levelup-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:150;align-items:center;justify-content:center;flex-direction:column}
 .levelup-overlay.active{display:flex}
-.levelup-flash{position:absolute;inset:0;background:radial-gradient(circle,rgba(96,165,250,.3) 0%,transparent 70%);animation:flashPulse .8s ease-out}
+.levelup-flash{position:absolute;inset:0;background:radial-gradient(circle,rgba(88,204,2,.2) 0%,transparent 70%);animation:flashPulse .8s ease-out}
 @keyframes flashPulse{0%{opacity:0;transform:scale(.5)}50%{opacity:1}100%{opacity:0;transform:scale(2)}}
 .levelup-emoji{font-size:80px;animation:levelupBounce .6s ease-out;position:relative;z-index:1}
 @keyframes levelupBounce{0%{transform:scale(0) rotate(-30deg);opacity:0}60%{transform:scale(1.3) rotate(10deg)}100%{transform:scale(1) rotate(0deg);opacity:1}}
-.levelup-text{font-size:20px;font-weight:900;color:#60A5FA;margin-top:12px;animation:levelupFadeIn .4s ease-out .3s both;position:relative;z-index:1}
-.levelup-sub{font-size:14px;color:#94A3B8;margin-top:4px;animation:levelupFadeIn .4s ease-out .5s both;position:relative;z-index:1}
+.levelup-text{font-size:22px;font-weight:900;color:#58CC02;margin-top:12px;animation:levelupFadeIn .4s ease-out .3s both;position:relative;z-index:1}
+.levelup-sub{font-size:15px;color:#fff;margin-top:4px;animation:levelupFadeIn .4s ease-out .5s both;position:relative;z-index:1;font-weight:700}
+.levelup-extra{font-size:13px;color:#ddd;margin-top:8px;animation:levelupFadeIn .4s ease-out .7s both;position:relative;z-index:1}
 @keyframes levelupFadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 
-/* ===== 連続ログイン画面 ===== */
+/* ===== 連続ログイン画面（進化表） ===== */
 .login-streak{display:none;padding:12px 12px 80px;max-width:420px;margin:0 auto}
 .login-streak.active{display:block}
 
-.ls-hero{background:linear-gradient(135deg,#1E3A5F 0%,#0F172A 50%,#1A1A2E 100%);border-radius:20px;padding:24px 16px;text-align:center;margin-bottom:16px;border:1px solid #334155;position:relative;overflow:hidden}
-.ls-hero::before{content:'';position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:radial-gradient(circle,rgba(245,158,11,.06) 0%,transparent 70%);pointer-events:none}
+.ls-hero{background:linear-gradient(135deg,#FFF8E1 0%,#FFF3E0 50%,#FFE0B2 100%);border-radius:20px;padding:24px 16px;text-align:center;margin-bottom:16px;border:2px solid #FFB74D;position:relative;overflow:hidden}
+.ls-hero::before{content:'';position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:radial-gradient(circle,rgba(255,152,0,.08) 0%,transparent 70%);pointer-events:none}
 .ls-flame{font-size:56px;line-height:1;margin-bottom:4px;animation:flamePulse 2s ease-in-out infinite}
 @keyframes flamePulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
-.ls-streak-num{font-size:48px;font-weight:900;color:#F59E0B;line-height:1}
-.ls-streak-label{font-size:13px;color:#94A3B8;margin-top:4px;font-weight:600}
-.ls-message{font-size:12px;color:#F59E0B;margin-top:8px;font-weight:600;opacity:.8}
+.ls-streak-num{font-size:48px;font-weight:900;color:#FF9600;line-height:1}
+.ls-streak-label{font-size:14px;color:#777;margin-top:4px;font-weight:700}
+.ls-message{font-size:13px;color:#FF9600;margin-top:8px;font-weight:700;opacity:.9}
 
 /* 次のマイルストーン進捗 */
 .ls-next-ms{margin-top:12px}
-.ls-next-ms-label{font-size:10px;color:#64748B;margin-bottom:4px}
-.ls-next-ms-bar{height:6px;background:#334155;border-radius:3px;overflow:hidden}
-.ls-next-ms-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,#F59E0B,#FBBF24);transition:width .5s}
-.ls-next-ms-text{font-size:10px;color:#F59E0B;margin-top:3px;font-weight:600}
+.ls-next-ms-label{font-size:11px;color:#AFAFAF;margin-bottom:4px;font-weight:600}
+.ls-next-ms-bar{height:8px;background:#FFE0B2;border-radius:4px;overflow:hidden}
+.ls-next-ms-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,#FF9600,#FFC107);transition:width .5s}
+.ls-next-ms-text{font-size:11px;color:#FF9600;margin-top:4px;font-weight:700}
 
 .ls-stats{display:flex;gap:8px;margin-bottom:16px}
-.ls-stat{flex:1;background:#1E293B;border-radius:12px;padding:12px 8px;text-align:center}
-.ls-stat-num{font-size:22px;font-weight:800;color:#F59E0B}
-.ls-stat-num.blue{color:#60A5FA}
-.ls-stat-label{font-size:10px;color:#64748B;margin-top:2px}
+.ls-stat{flex:1;background:#fff;border-radius:16px;padding:12px 8px;text-align:center;border:2px solid #E0E0E0}
+.ls-stat-num{font-size:24px;font-weight:900;color:#FF9600}
+.ls-stat-num.blue{color:#1CB0F6}
+.ls-stat-label{font-size:11px;color:#AFAFAF;margin-top:2px;font-weight:600}
 
 .ls-milestones{margin-bottom:16px}
-.ls-section-title{font-size:14px;font-weight:700;margin-bottom:10px;color:#94A3B8}
-.ls-milestone{display:flex;align-items:center;gap:12px;background:#1E293B;border-radius:12px;padding:12px;margin-bottom:8px;border:1px solid transparent;transition:all .2s}
-.ls-milestone.achieved{border-color:#F59E0B44;background:linear-gradient(135deg,#1E293B,#2D1F0F)}
-.ls-milestone.next{border-color:#33415588}
+.ls-section-title{font-size:15px;font-weight:800;margin-bottom:10px;color:#3C3C3C}
+.ls-milestone{display:flex;align-items:center;gap:12px;background:#fff;border-radius:16px;padding:14px;margin-bottom:8px;border:2px solid #E0E0E0;transition:all .2s}
+.ls-milestone.achieved{border-color:#FFC107;background:linear-gradient(135deg,#fff,#FFF8E1)}
+.ls-milestone.next{border-color:#E0E0E0}
 .ls-ms-icon{font-size:28px;width:40px;text-align:center;flex-shrink:0}
-.ls-ms-icon.locked{filter:grayscale(1) opacity(.4)}
+.ls-ms-icon.locked{filter:grayscale(1) opacity(.3)}
 .ls-ms-info{flex:1}
-.ls-ms-name{font-size:13px;font-weight:700;color:#E2E8F0}
-.ls-ms-desc{font-size:11px;color:#64748B;margin-top:2px}
-.ls-ms-check{font-size:16px;color:#22C55E;flex-shrink:0}
+.ls-ms-name{font-size:14px;font-weight:800;color:#3C3C3C}
+.ls-ms-desc{font-size:12px;color:#AFAFAF;margin-top:2px}
+.ls-ms-check{font-size:16px;color:#58CC02;flex-shrink:0}
 .ls-ms-progress{flex-shrink:0;width:40px;text-align:right}
-.ls-ms-progress-text{font-size:11px;color:#64748B;font-weight:600}
+.ls-ms-progress-text{font-size:12px;color:#AFAFAF;font-weight:700}
 
 .ls-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:16px}
-.ls-cal-day{aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:10px;font-size:13px;font-weight:600;border:2px solid transparent;-webkit-user-select:none;user-select:none}
+.ls-cal-day{aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:12px;font-size:14px;font-weight:700;border:2px solid transparent;-webkit-user-select:none;user-select:none}
 .ls-cal-day.empty{pointer-events:none}
-.ls-cal-day.logged{background:#2D1F0F;color:#F59E0B;border-color:#F59E0B44}
-.ls-cal-day.not-logged{background:#1E293B;color:#475569}
-.ls-cal-day.future{background:transparent;color:#334155}
-.ls-cal-day.today{box-shadow:0 0 0 2px #F59E0B}
+.ls-cal-day.logged{background:#FFF3E0;color:#FF9600;border-color:#FFB74D}
+.ls-cal-day.not-logged{background:#F0F0F0;color:#AFAFAF}
+.ls-cal-day.future{background:transparent;color:#DDD}
+.ls-cal-day.today{box-shadow:0 0 0 3px #FFC800}
 .ls-cal-day .ls-check{font-size:9px;margin-top:1px}
+/* ===== アイコン設定 ===== */
+.icon-wrap{position:relative;width:90px;height:90px;margin:0 auto 8px;cursor:pointer}
+.icon-wrap .chara-emoji{margin:0}
+.user-icon{width:90px;height:90px;border-radius:50%;object-fit:cover;border:3px solid #E0E0E0}
+.icon-edit-badge{position:absolute;bottom:0;right:0;background:#1CB0F6;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-size:13px;border:2px solid #fff;z-index:3}
+.rank-chara{position:relative;width:40px;height:40px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.rank-chara .rank-emoji{font-size:28px}
+.rank-user-icon{width:20px;height:20px;border-radius:50%;object-fit:cover;border:1.5px solid #fff;position:absolute;bottom:-2px;right:-4px}
+
+/* ===== ランキング ===== */
+.ranking-screen{display:none;padding:12px 12px 80px;max-width:420px;margin:0 auto}
+.ranking-screen.active{display:block}
+.rank-list{display:flex;flex-direction:column;gap:8px}
+.rank-row{display:flex;align-items:center;gap:12px;background:#fff;border-radius:16px;padding:14px 16px;border:2px solid #E0E0E0}
+.rank-row.me{border-color:#1CB0F6;background:linear-gradient(135deg,#fff,#E3F2FD)}
+.rank-row.top1{border-color:#FFC107;background:linear-gradient(135deg,#fff,#FFF8E1)}
+.rank-pos{width:28px;font-size:18px;font-weight:900;text-align:center;flex-shrink:0;color:#AFAFAF}
+.rank-pos.g{color:#FFC107}
+.rank-pos.s{color:#C0C0C0}
+.rank-pos.b{color:#CD7F32}
+.rank-emoji{font-size:28px;width:36px;text-align:center;flex-shrink:0}
+.rank-info{flex:1;min-width:0}
+.rank-name{font-size:15px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#3C3C3C}
+.rank-streak{font-size:12px;color:#FF9600;font-weight:700}
+.rank-score{font-size:18px;font-weight:900;color:#1CB0F6;flex-shrink:0;text-align:right}
+.rank-unit{font-size:11px;color:#AFAFAF;font-weight:700}
+.rank-loading{text-align:center;padding:40px;color:#AFAFAF;font-weight:700}
+
+/* ===== 進化表 ===== */
+.evo-table{display:flex;flex-direction:column;gap:10px;margin-top:8px}
+.evo-row{display:flex;align-items:center;gap:12px;background:#fff;border-radius:16px;padding:14px 16px;border:2px solid #E0E0E0;transition:all .2s}
+.evo-row.current{border-color:#58CC02;background:linear-gradient(135deg,#fff,#E8F5E9)}
+.evo-row.locked{opacity:.35}
+.evo-emoji{font-size:32px;width:44px;text-align:center;flex-shrink:0}
+.evo-info{flex:1}
+.evo-name{font-size:16px;font-weight:800}
+.evo-cond{font-size:12px;color:#AFAFAF;margin-top:2px;font-weight:600}
+.evo-check{font-size:16px;flex-shrink:0}
+.evo-tier{font-size:13px;font-weight:800;color:#777;padding:12px 0 4px;border-bottom:2px solid #E0E0E0;margin-bottom:2px}
+
 /* ===== オープニング演出 ===== */
 .opening-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:radial-gradient(ellipse at center,#1a1a3e 0%,#0f0f23 100%);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;opacity:1;transition:opacity .5s ease}
 .opening-overlay.fade-out{opacity:0;pointer-events:none}
@@ -184,23 +250,30 @@ a{color:#475569}
 #ocPoseSad{animation:ocSadTremble 2s ease-in-out infinite}
 @keyframes ocSadTremble{0%,100%{transform:translateY(0)}50%{transform:translateY(2px)}}
 .oc-sad-svg{filter:drop-shadow(0 4px 8px rgba(0,0,0,.3))}
-.oc-happy-svg{filter:drop-shadow(0 0 20px rgba(96,165,250,.5))}
+.oc-happy-svg{filter:drop-shadow(0 0 20px rgba(252,211,77,.5))}
 .oc-pop{animation:ocPopIn .6s cubic-bezier(.34,1.56,.64,1)}
 @keyframes ocPopIn{0%{transform:scale(0) translateY(20px);opacity:0}40%{transform:scale(1.15) translateY(-15px);opacity:1}65%{transform:scale(.95) translateY(0)}100%{transform:scale(1) translateY(0);opacity:1}}
-.opening-text{font-size:28px;font-weight:700;letter-spacing:6px;color:transparent;background:linear-gradient(90deg,#60A5FA,#93C5FD,#fff,#60A5FA);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;opacity:0}
+.opening-text{font-size:28px;font-weight:700;letter-spacing:6px;color:transparent;background:linear-gradient(90deg,#FCD34D,#FDE68A,#fff,#FCD34D);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;opacity:0}
 .opening-text.show{animation:openShine 1.2s ease-out forwards}
 @keyframes openShine{0%{opacity:0;background-position:200% 0;filter:blur(8px);transform:scale(.7)}25%{opacity:1;filter:blur(0);transform:scale(1.08)}40%{background-position:0% 0;transform:scale(1)}100%{opacity:1;background-position:-100% 0}}
 .opening-particles{position:absolute;width:100%;height:100%;overflow:hidden;pointer-events:none}
-.opening-particle{position:absolute;width:3px;height:3px;border-radius:50%;background:#60A5FA;opacity:0;animation:particleFly 2s ease-out forwards}
-.opening-flash{position:absolute;top:0;left:0;right:0;bottom:0;background:radial-gradient(circle at 50% 50%,rgba(255,255,255,.95),rgba(96,165,250,.6) 25%,rgba(147,197,253,.2) 50%,transparent 70%);opacity:0;pointer-events:none;animation:screenFlash .5s ease-out forwards}
+.opening-particle{position:absolute;width:3px;height:3px;border-radius:50%;background:#FCD34D;opacity:0;animation:particleFly 2s ease-out forwards}
+.opening-flash{position:absolute;top:0;left:0;right:0;bottom:0;background:radial-gradient(circle at 50% 50%,rgba(255,255,255,.95),rgba(252,211,77,.6) 25%,rgba(253,230,138,.2) 50%,transparent 70%);opacity:0;pointer-events:none;animation:screenFlash .5s ease-out forwards}
 @keyframes screenFlash{0%{opacity:0}15%{opacity:1}40%{opacity:.5}100%{opacity:0}}
-.opening-ring{position:absolute;width:10px;height:10px;border-radius:50%;border:2px solid rgba(96,165,250,.8);transform:translate(-50%,-50%) scale(0);opacity:0;pointer-events:none;animation:ringExpand .6s ease-out forwards}
+.opening-ring{position:absolute;width:10px;height:10px;border-radius:50%;border:2px solid rgba(252,211,77,.8);transform:translate(-50%,-50%) scale(0);opacity:0;pointer-events:none;animation:ringExpand .6s ease-out forwards}
 @keyframes ringExpand{0%{opacity:1;transform:translate(-50%,-50%) scale(0)}50%{opacity:.6}100%{opacity:0;transform:translate(-50%,-50%) scale(40)}}
 @keyframes particleFly{0%{opacity:0;transform:translate(0,0) scale(0)}15%{opacity:1;transform:translate(0,0) scale(1.2)}100%{opacity:0;transform:translate(var(--dx,0px),var(--dy,-100px)) scale(0)}}
 @media(max-width:480px){.opening-text{font-size:20px;letter-spacing:4px}.oc-sad-svg{width:60px;height:60px}.oc-happy-svg{width:76px;height:68px}}
+@media(min-width:600px){.main,.login-streak,.ranking-screen{max-width:480px}.main.active,.login-streak.active{display:flex;flex-direction:column;min-height:calc(100dvh - 56px)}.cal-grid,.ls-cal-grid{flex:1;align-content:start;gap:8px}.cal-day,.ls-cal-day{aspect-ratio:auto;min-height:52px}.stat-num{font-size:28px}.chara-card{padding:24px 20px}}
 </style>
 </head>
 <body>
+
+<!-- ローディング画面 -->
+<div id="loadingScreen" class="screen" style="display:none;justify-content:center;align-items:center;flex-direction:column;min-height:80vh">
+  <span class="spinner" style="width:36px;height:36px;border-width:4px;margin-bottom:16px"></span>
+  <div style="color:#777;font-size:16px;font-weight:700">読み込み中...</div>
+</div>
 
 <!-- オープニング演出 -->
 <div class="opening-overlay" id="openingOverlay">
@@ -224,28 +297,28 @@ a{color:#475569}
     <div class="oc-pose" id="ocPoseHappy" style="display:none">
       <svg class="oc-happy-svg" width="100" height="90" viewBox="0 0 100 90" fill="none">
         <ellipse cx="50" cy="40" rx="40" ry="35" fill="url(#auraGradPA)" opacity="0.4"/>
-        <defs><radialGradient id="auraGradPA"><stop offset="0%" stop-color="#60A5FA" stop-opacity="0.5"/><stop offset="100%" stop-color="#60A5FA" stop-opacity="0"/></radialGradient></defs>
-        <path d="M38 40 Q30 34 20 30" stroke="#60A5FA" stroke-width="6" stroke-linecap="round" fill="none"/>
-        <circle cx="19" cy="29" r="4" fill="#60A5FA"/>
-        <path d="M62 40 Q70 34 80 30" stroke="#60A5FA" stroke-width="6" stroke-linecap="round" fill="none"/>
-        <circle cx="81" cy="29" r="4" fill="#60A5FA"/>
-        <circle cx="50" cy="24" r="15" fill="#60A5FA" stroke="rgba(255,255,255,0.4)" stroke-width="2"/>
-        <text x="50" y="29" text-anchor="middle" fill="#fff" font-size="14" font-weight="900">!</text>
-        <rect x="40" y="39" width="20" height="16" rx="4" fill="#60A5FA" opacity="0.7"/>
-        <rect x="41" y="55" width="8" height="14" rx="3" fill="#60A5FA" opacity="0.5"/>
-        <rect x="51" y="55" width="8" height="14" rx="3" fill="#60A5FA" opacity="0.5"/>
-        <ellipse cx="50" cy="74" rx="22" ry="5" fill="#60A5FA" opacity="0.3"/>
+        <defs><radialGradient id="auraGradPA"><stop offset="0%" stop-color="#FCD34D" stop-opacity="0.5"/><stop offset="100%" stop-color="#FCD34D" stop-opacity="0"/></radialGradient></defs>
+        <path d="M38 40 Q30 34 20 30" stroke="#FCD34D" stroke-width="6" stroke-linecap="round" fill="none"/>
+        <circle cx="19" cy="29" r="4" fill="#FCD34D"/>
+        <path d="M62 40 Q70 34 80 30" stroke="#FCD34D" stroke-width="6" stroke-linecap="round" fill="none"/>
+        <circle cx="81" cy="29" r="4" fill="#FCD34D"/>
+        <circle cx="50" cy="24" r="15" fill="#FCD34D" stroke="rgba(255,255,255,0.4)" stroke-width="2"/>
+        <circle cx="44" cy="22" r="2" fill="#fff"/><circle cx="56" cy="22" r="2" fill="#fff"/><path d="M43 28 Q50 34 57 28" stroke="#fff" stroke-width="2" stroke-linecap="round" fill="none"/>
+        <rect x="40" y="39" width="20" height="16" rx="4" fill="#FCD34D" opacity="0.7"/>
+        <rect x="41" y="55" width="8" height="14" rx="3" fill="#FCD34D" opacity="0.5"/>
+        <rect x="51" y="55" width="8" height="14" rx="3" fill="#FCD34D" opacity="0.5"/>
+        <ellipse cx="50" cy="74" rx="22" ry="5" fill="#FCD34D" opacity="0.3"/>
       </svg>
     </div>
   </div>
-  <div class="opening-text" id="openingText">投稿が人生を変える</div>
+  <div class="opening-text" id="openingText">全ての人は輝ける</div>
 </div>
 
 <!-- ID入力 -->
 <div id="idScreen" class="screen">
   <h1>投稿記録</h1>
   <p class="sub">受講生IDを入力してください</p>
-  <input id="inputId" class="fi" type="tel" placeholder="例: 5229" inputmode="numeric" autocomplete="off">
+  <input id="inputId" class="fi" type="tel" placeholder="例: 1279" inputmode="numeric" autocomplete="off">
   <button id="idBtn" class="fb" onclick="checkId()">次へ</button>
   <div id="idError" class="fe"></div>
 </div>
@@ -253,18 +326,19 @@ a{color:#475569}
 <!-- パスワード登録 -->
 <div id="registerScreen" class="screen">
   <h1>パスワード設定</h1>
-  <div class="fn" id="regName"></div>
-  <p class="sub">初回のみ。次からは自動ログイン</p>
+  <div class="fn" id="regName" style="display:none"></div>
+  <p class="sub">⚠️初回のみ。次からは自動ログイン</p>
   <input id="regPw1" class="fi" type="password" placeholder="パスワード（4文字以上）" autocomplete="new-password">
   <input id="regPw2" class="fi" type="password" placeholder="もう一度入力" autocomplete="new-password">
   <button id="regBtn" class="fb green" onclick="doRegister()">登録してログイン</button>
   <div id="regError" class="fe"></div>
+  <div style="margin-top:16px"><a href="#" onclick="goToLogin();return false">すでにパスワード登録済みの方</a></div>
 </div>
 
 <!-- ログイン -->
 <div id="loginScreen" class="screen">
   <h1>投稿記録</h1>
-  <div class="fn" id="loginName"></div>
+  <div class="fn" id="loginName" style="display:none"></div>
   <input id="loginPw" class="fi" type="password" placeholder="パスワード" autocomplete="current-password">
   <button id="loginBtn" class="fb" onclick="doLogin()">ログイン</button>
   <div id="loginError" class="fe"></div>
@@ -298,7 +372,11 @@ a{color:#475569}
 
   <!-- キャラクター -->
   <div class="chara-card" id="charaCard">
-    <div class="chara-emoji" id="charaEmoji">🥚</div>
+    <div class="icon-wrap" id="iconWrap" onclick="pickIcon()">
+      <div class="chara-emoji" id="charaEmoji">🥚</div>
+      <div class="icon-edit-badge">📷</div>
+    </div>
+    <input type="file" id="iconInput" accept="image/*" style="display:none" onchange="uploadIcon(this)">
     <div class="chara-name" id="charaName">たまご</div>
     <div class="chara-level" id="charaLevel">Lv.0</div>
     <div class="streak-badge none" id="streakBadge">🔥 0日連続</div>
@@ -312,11 +390,24 @@ a{color:#475569}
     </div>
   </div>
 
+  <!-- ストリークヒーロー -->
+  <div class="streak-hero">
+    <div class="streak-hero-icon">🔥</div>
+    <div class="streak-hero-num" id="statStreak">0</div>
+    <div class="streak-hero-label">日連続投稿</div>
+  </div>
+
   <!-- 統計 -->
   <div class="stats">
-    <div class="stat"><div class="stat-num" id="statTotal">0</div><div class="stat-label">投稿した日</div></div>
-    <div class="stat"><div class="stat-num" id="statStreak">0</div><div class="stat-label">連続日数</div></div>
+    <div class="stat"><div class="stat-num" id="statPosts" style="color:#58CC02">0</div><div class="stat-label">合計本数</div></div>
+    <div class="stat"><div class="stat-num" id="statTotal">0</div><div class="stat-label">投稿日数</div></div>
     <div class="stat"><div class="stat-num" id="statMax">0</div><div class="stat-label">最長連続</div></div>
+  </div>
+
+  <!-- 目標プログレス -->
+  <div class="goal-bar" id="goalBar" onclick="openGoalModal()">
+    <div class="goal-label"><span id="goalText">目標を設定しよう</span></div>
+    <div class="goal-progress"><div class="goal-fill" id="goalFill"></div></div>
   </div>
 
   <!-- カレンダー -->
@@ -324,39 +415,24 @@ a{color:#475569}
   <div class="cal-grid" id="calGrid"></div>
 </div>
 
-<!-- 連続ログイン画面 -->
+<!-- 進化表画面 -->
 <div id="loginStreakScreen" class="login-streak">
   <div class="hdr">
-    <div><div class="hdr-name" id="lsUserName"></div><div class="hdr-sub" id="lsUserSub"></div></div>
+    <div><div class="hdr-name"></div><div class="hdr-sub">進化表</div></div>
     <button class="logout" onclick="doLogout()">ログアウト</button>
   </div>
+  <div class="evo-table" id="evoTable"></div>
+</div>
 
-  <div class="ls-hero">
-    <div class="ls-flame" id="lsFlame">🔥</div>
-    <div class="ls-streak-num" id="lsStreakNum">0</div>
-    <div class="ls-streak-label">日連続ログイン</div>
-    <div class="ls-message" id="lsMessage"></div>
-    <!-- 次のマイルストーン進捗バー -->
-    <div class="ls-next-ms" id="lsNextMs">
-      <div class="ls-next-ms-label" id="lsNextMsLabel"></div>
-      <div class="ls-next-ms-bar"><div class="ls-next-ms-fill" id="lsNextMsFill" style="width:0"></div></div>
-      <div class="ls-next-ms-text" id="lsNextMsText"></div>
-    </div>
+<!-- ランキング画面 -->
+<div id="rankingScreen" class="ranking-screen">
+  <div class="hdr">
+    <div><div class="hdr-name"></div><div class="hdr-sub">今月のランキング</div></div>
+    <button class="logout" onclick="doLogout()">ログアウト</button>
   </div>
-
-  <div class="ls-stats">
-    <div class="ls-stat"><div class="ls-stat-num" id="lsStatStreak">0</div><div class="ls-stat-label">現在の連続</div></div>
-    <div class="ls-stat"><div class="ls-stat-num" id="lsStatMax">0</div><div class="ls-stat-label">最長連続</div></div>
-    <div class="ls-stat"><div class="ls-stat-num blue" id="lsStatMonth">0</div><div class="ls-stat-label">今月のログイン</div></div>
+  <div class="rank-list" id="rankList">
+    <div class="rank-loading">読み込み中...</div>
   </div>
-
-  <div class="ls-milestones">
-    <div class="ls-section-title">マイルストーン</div>
-    <div id="lsMilestones"></div>
-  </div>
-
-  <div class="ls-section-title" id="lsCalTitle">4月</div>
-  <div class="ls-cal-grid" id="lsCalGrid"></div>
 </div>
 
 <!-- ボトムナビ -->
@@ -366,9 +442,13 @@ a{color:#475569}
       <span class="nav-tab-icon">📝</span>
       投稿記録
     </div>
+    <div class="nav-tab" id="tabRanking" onclick="switchTab('ranking')">
+      <span class="nav-tab-icon">🏆</span>
+      ランキング
+    </div>
     <div class="nav-tab" id="tabLogin" onclick="switchTab('login')">
-      <span class="nav-tab-icon">🔥</span>
-      連続ログイン
+      <span class="nav-tab-icon">📊</span>
+      進化表
     </div>
   </div>
 </div>
@@ -390,12 +470,31 @@ a{color:#475569}
   </div>
 </div>
 
+<!-- 目標設定モーダル -->
+<div class="goal-modal-bg" id="goalModalBg" onclick="closeGoalModal(event)">
+  <div class="goal-modal" onclick="event.stopPropagation()">
+    <h3>今月の投稿目標</h3>
+    <div class="goal-opts">
+      <div class="goal-opt" onclick="selectGoal(30)">30本</div>
+      <div class="goal-opt" onclick="selectGoal(60)">60本</div>
+      <div class="goal-opt" onclick="selectGoal(90)">90本</div>
+    </div>
+    <div class="goal-custom">
+      <input type="number" id="goalInput" placeholder="0" min="1" max="999">
+      <span>本</span>
+    </div>
+    <button class="fb green" style="max-width:100%" onclick="saveGoal()">設定する</button>
+    <button class="modal-cancel" style="margin-top:8px" onclick="closeGoalModal()">キャンセル</button>
+  </div>
+</div>
+
 <!-- レベルアップオーバーレイ -->
 <div class="levelup-overlay" id="levelupOverlay" onclick="closeLevelup()">
   <div class="levelup-flash"></div>
   <div class="levelup-emoji" id="levelupEmoji"></div>
   <div class="levelup-text" id="levelupText"></div>
   <div class="levelup-sub" id="levelupSub"></div>
+  <div class="levelup-extra" id="levelupExtra"></div>
 </div>
 
 <div id="toast" class="toast"></div>
@@ -444,9 +543,9 @@ function playOpening(callback){
     if(t<1){
       var glow=ctx.createRadialGradient(px,py,0,px,py,30);
       glow.addColorStop(0,'rgba(255,255,255,1)');
-      glow.addColorStop(0.3,'rgba(96,165,250,0.7)');
-      glow.addColorStop(0.6,'rgba(147,197,253,0.3)');
-      glow.addColorStop(1,'rgba(147,197,253,0)');
+      glow.addColorStop(0.3,'rgba(252,211,77,0.7)');
+      glow.addColorStop(0.6,'rgba(253,230,138,0.3)');
+      glow.addColorStop(1,'rgba(253,230,138,0)');
       ctx.beginPath();ctx.arc(px,py,30,0,Math.PI*2);ctx.fillStyle=glow;ctx.fill();
       ctx.beginPath();ctx.arc(px,py,5,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();
       requestAnimationFrame(drawFrame);
@@ -468,7 +567,7 @@ function playOpening(callback){
         p.style.left=pctX+'%';p.style.top=pctY+'%';
         p.style.setProperty('--dx',dx+'px');p.style.setProperty('--dy',dy+'px');
         p.style.animationDelay=(Math.random()*0.15)+'s';
-        p.style.background=['#60A5FA','#93C5FD','#fff','#3B82F6','#BFDBFE'][Math.floor(Math.random()*5)];
+        p.style.background=['#FCD34D','#FDE68A','#fff','#FBBF24','#FEF3C7'][Math.floor(Math.random()*5)];
         particles.appendChild(p);
       }
       setTimeout(function(){textEl.classList.add('show')},200);
@@ -483,22 +582,42 @@ function playOpening(callback){
 document.addEventListener('DOMContentLoaded',function(){playOpening(function(){initApp()})});
 
 var API='https://script.google.com/macros/s/AKfycby6qaaiUoadCBnxHlUNKd-RkHxarE0WBGiitkdV0IbzL6ninM-df0FFx4SYRYVfdwcxqg/exec';
-var token='',userId='',userName='',userContract='',monthDays=[],selectedCol=-1;
+var token='',userId='',userName='',userContract='',monthDays=[],selectedCol=-1,userGoal=0;
+function escHtml(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML}
 var loginData=null;
 var currentTab='post';
 var prevCharaIdx=-1; // レベルアップ検出用
 
 // キャラクター進化テーブル
 var CHARA=[
-  {min:0,emoji:'🥚',name:'たまご',color:'#64748B'},
-  {min:1,emoji:'🐣',name:'ひよこ',color:'#FCD34D'},
-  {min:3,emoji:'🐥',name:'こがも',color:'#FBBF24'},
-  {min:5,emoji:'🐤',name:'わかどり',color:'#F59E0B'},
-  {min:7,emoji:'🐓',name:'にわとり',color:'#EF4444'},
-  {min:10,emoji:'🦅',name:'はやぶさ',color:'#8B5CF6'},
-  {min:14,emoji:'🐲',name:'ドラゴン',color:'#3B82F6'},
-  {min:21,emoji:'🔱',name:'しんりゅう',color:'#22D3EE'},
-  {min:30,emoji:'👑',name:'伝説の投稿者',color:'#F59E0B'}
+  {min:0,emoji:'🥚',name:'たまご',color:'#FFFFFF',tier:'準備期'},
+  {min:1,emoji:'🐜',name:'アリ',color:'#888888',tier:'雑草期'},
+  {min:2,emoji:'🦗',name:'バッタ',color:'#4a8a2a',tier:'雑草期'},
+  {min:3,emoji:'🐭',name:'ネズミ',color:'#aaaaaa',tier:'雑草期'},
+  {min:5,emoji:'🐰',name:'ウサギ',color:'#dddddd',tier:'雑草期'},
+  {min:7,emoji:'🐸',name:'カエル',color:'#4ab870',tier:'成長期'},
+  {min:9,emoji:'🦝',name:'タヌキ',color:'#a0845a',tier:'成長期'},
+  {min:11,emoji:'🦊',name:'キツネ',color:'#e8772a',tier:'成長期'},
+  {min:14,emoji:'🐵',name:'サル',color:'#a07040',tier:'成長期'},
+  {min:17,emoji:'🐺',name:'オオカミ',color:'#7a7a9a',tier:'覚醒期'},
+  {min:20,emoji:'🐯',name:'トラ',color:'#e8a030',tier:'覚醒期'},
+  {min:23,emoji:'🐻',name:'クマ',color:'#6a4020',tier:'覚醒期'},
+  {min:26,emoji:'🦁',name:'ライオン',color:'#e8a020',tier:'覚醒期'},
+  {min:30,emoji:'🐲',name:'ドラゴン',color:'#3a8a3a',tier:'神話期'},
+  {min:40,emoji:'🔥',name:'鳳凰',color:'#e85a10',tier:'神話期'},
+  {min:50,emoji:'🦊',name:'九尾の狐',color:'#e8c060',tier:'神話期'},
+  {min:60,emoji:'🐅',name:'白虎',color:'#e8e8f8',tier:'伝説'},
+  {min:75,emoji:'🐉',name:'龍神',color:'#5090ff',tier:'伝説'},
+  {min:90,emoji:'👑',name:'神獣',color:'#ffa020',tier:'伝説'},
+  {min:120,emoji:'🌊',name:'海神',color:'#00BFFF',tier:'超越'},
+  {min:150,emoji:'⚡',name:'雷帝',color:'#FFD700',tier:'超越'},
+  {min:180,emoji:'☀️',name:'太陽神',color:'#FF6347',tier:'超越'},
+  {min:210,emoji:'🌙',name:'月読',color:'#C0C0FF',tier:'不滅'},
+  {min:240,emoji:'💎',name:'天帝',color:'#E0E0FF',tier:'不滅'},
+  {min:270,emoji:'🔱',name:'創造神',color:'#9370DB',tier:'不滅'},
+  {min:300,emoji:'🌟',name:'宇宙王',color:'#FFD700',tier:'永遠'},
+  {min:330,emoji:'✨',name:'時の支配者',color:'#FFFACD',tier:'永遠'},
+  {min:365,emoji:'🏆',name:'不滅の王',color:'#FFD700',tier:'永遠'}
 ];
 
 // マイルストーン定義
@@ -507,7 +626,11 @@ var MILESTONES=[
   {days:7,icon:'🌟',name:'7日連続',desc:'1週間クリア！'},
   {days:14,icon:'💫',name:'14日連続',desc:'2週間の壁突破！'},
   {days:21,icon:'🏆',name:'21日連続',desc:'習慣化達成！'},
-  {days:30,icon:'👑',name:'30日連続',desc:'1ヶ月完走！伝説！'}
+  {days:30,icon:'👑',name:'30日連続',desc:'1ヶ月完走！'},
+  {days:60,icon:'🐅',name:'60日連続',desc:'2ヶ月！白虎降臨！'},
+  {days:90,icon:'👑',name:'90日連続',desc:'3ヶ月！神獣覚醒！'},
+  {days:180,icon:'☀️',name:'180日連続',desc:'半年！太陽神！'},
+  {days:365,icon:'🏆',name:'365日連続',desc:'1年完走！不滅の王！'}
 ];
 
 // ===== 励ましメッセージ（状況別） =====
@@ -567,14 +690,6 @@ var MSG_ENCOURAGE=[
     'パーフェクト！言うことなし！',
     '3本出した日は特別な日！',
     'フルパワー！その調子！'
-  ]},
-  // 4本以上投稿した日
-  {cond:function(s,t,td){return td==='4本'||td==='5本'||td==='6本'},msgs:[
-    '異次元の投稿量！モンスター！',
-    'ぶっちぎりの行動量！最強！',
-    '圧倒的！誰も追いつけない！',
-    'この量こなせるのはあなただけ！',
-    '努力の鬼！結果がついてくる！'
   ]}
 ];
 
@@ -589,7 +704,11 @@ var LOGIN_MSGS=[
   {min:30,msgs:['30日！あなたは伝説！','1ヶ月完走！偉業達成！','30日...言葉が出ない。すごい']}
 ];
 
-function api(p){return fetch(API+'?'+p,{redirect:'follow'}).then(function(r){return r.json()})}
+function api(p){
+  var ctrl=new AbortController();
+  var tid=setTimeout(function(){ctrl.abort()},25000);
+  return fetch(API+'?'+p,{redirect:'follow',signal:ctrl.signal}).then(function(r){clearTimeout(tid);return r.text().then(function(t){try{return JSON.parse(t)}catch(e){return{error:'サーバーエラー。再試行してください'}}})}).catch(function(e){clearTimeout(tid);if(e.name==='AbortError')return{error:'タイムアウト。再試行してください'};return{error:'通信エラー。再試行してください'}})
+}
 
 function show(id){
   var els=document.querySelectorAll('.screen,.main,.login-streak');
@@ -621,16 +740,83 @@ function celebrate(){
 
 // ===== レベルアップ演出 =====
 function showLevelup(ch){
+  showCelebrationOverlay(ch.emoji,'進化！'+ch.name+'！','Lv.'+ch.min+' 到達','',ch.color);
+}
+function showCelebrationOverlay(emoji,title,sub,extra,color){
   var ol=document.getElementById('levelupOverlay');
-  document.getElementById('levelupEmoji').textContent=ch.emoji;
-  document.getElementById('levelupText').textContent='進化！'+ch.name+'！';
-  document.getElementById('levelupSub').textContent='Lv.'+ch.min+' 到達';
-  document.getElementById('levelupText').style.color=ch.color;
+  document.getElementById('levelupEmoji').textContent=emoji;
+  document.getElementById('levelupText').textContent=title;
+  document.getElementById('levelupText').style.color=color||'#60A5FA';
+  document.getElementById('levelupSub').textContent=sub||'';
+  document.getElementById('levelupExtra').textContent=extra||'';
   ol.classList.add('active');
   celebrate();
-  setTimeout(function(){ol.classList.remove('active')},2500);
+  setTimeout(function(){ol.classList.remove('active')},2800);
 }
 function closeLevelup(){document.getElementById('levelupOverlay').classList.remove('active')}
+
+// ===== 投稿マイルストーン判定 =====
+function checkPostMilestone(streak,totalPostDays,val,oldVal){
+  // 初投稿（全日程で初めて投稿した瞬間）
+  var wasFirstPost=oldVal==='❌'&&val!=='❌';
+  if(wasFirstPost){
+    var prevTotal=0;
+    for(var i=0;i<monthDays.length;i++){
+      if(i===selectedCol)continue;
+      if(monthDays[i].value&&monthDays[i].value!=='❌')prevTotal++;
+    }
+    if(prevTotal===0){
+      setTimeout(function(){showCelebrationOverlay('🎉','初投稿おめでとう！','投稿記録スタート！','ここから伝説が始まる','#22C55E')},400);
+      return;
+    }
+  }
+  // 連続投稿マイルストーン
+  var milestones=[
+    {days:3,emoji:'⭐',title:'3日連続投稿！',sub:'スタートダッシュ成功！',color:'#F59E0B'},
+    {days:7,emoji:'🌟',title:'7日連続投稿！',sub:'1週間クリア！すごい！',color:'#F59E0B'},
+    {days:14,emoji:'💫',title:'14日連続投稿！',sub:'2週間の壁突破！',color:'#60A5FA'},
+    {days:21,emoji:'🏆',title:'21日連続投稿！',sub:'習慣化達成！',color:'#8B5CF6'},
+    {days:30,emoji:'👑',title:'30日連続投稿！',sub:'1ヶ月完走！伝説だ！',color:'#FFD700'}
+  ];
+  for(var m=milestones.length-1;m>=0;m--){
+    if(streak===milestones[m].days){
+      var ms=milestones[m];
+      (function(ms2){setTimeout(function(){showCelebrationOverlay(ms2.emoji,ms2.title,ms2.sub,'',ms2.color)},400)})(ms);
+      return;
+    }
+  }
+}
+
+// ===== ログイン連続演出 =====
+function showLoginStreakCelebration(streak){
+  if(!streak||streak<2)return;
+  var events=[
+    {days:2,emoji:'🔥',title:'2日連続ログイン！',sub:'いい調子！続けよう！',color:'#F59E0B'},
+    {days:3,emoji:'⭐',title:'3日連続ログイン！',sub:'三日坊主を超えた！',color:'#F59E0B'},
+    {days:5,emoji:'🌟',title:'5日連続ログイン！',sub:'5日達成！勢いに乗ってる！',color:'#F59E0B'},
+    {days:7,emoji:'💫',title:'7日連続ログイン！',sub:'1週間クリア！',color:'#60A5FA'},
+    {days:10,emoji:'🔥',title:'10日連続ログイン！',sub:'10日！本物だ！',color:'#EF4444'},
+    {days:14,emoji:'⚡',title:'14日連続ログイン！',sub:'2週間突破！止まらない！',color:'#8B5CF6'},
+    {days:21,emoji:'🏆',title:'21日連続ログイン！',sub:'習慣化完了！',color:'#FFD700'},
+    {days:30,emoji:'👑',title:'30日連続ログイン！',sub:'1ヶ月！あなたは伝説！',color:'#FFD700'},
+    {days:60,emoji:'🐅',title:'60日連続ログイン！',sub:'2ヶ月！白虎降臨！',color:'#E8E8F8'},
+    {days:90,emoji:'👑',title:'90日連続ログイン！',sub:'3ヶ月！神獣覚醒！',color:'#FFA020'},
+    {days:180,emoji:'☀️',title:'180日連続ログイン！',sub:'半年！太陽神！',color:'#FF6347'},
+    {days:365,emoji:'🏆',title:'365日連続ログイン！',sub:'1年完走！不滅の王！',color:'#FFD700'}
+  ];
+  // ぴったり一致するマイルストーンがあれば大きな演出
+  for(var i=events.length-1;i>=0;i--){
+    if(streak===events[i].days){
+      var ev=events[i];
+      (function(ev2){setTimeout(function(){showCelebrationOverlay(ev2.emoji,ev2.title,ev2.sub,'',ev2.color)},600)})(ev);
+      return;
+    }
+  }
+  // それ以外の2日以上は軽いトースト
+  if(streak>=2){
+    setTimeout(function(){toast('🔥 '+streak+'日連続ログイン！')},500);
+  }
+}
 
 // ===== 励ましメッセージ取得 =====
 function getEncourageMsg(streak,todayVal){
@@ -660,22 +846,195 @@ function getLoginMsg(streak){
 function switchTab(tab){
   currentTab=tab;
   document.getElementById('tabPost').className=tab==='post'?'nav-tab active':'nav-tab';
+  document.getElementById('tabRanking').className=tab==='ranking'?'nav-tab active':'nav-tab';
   document.getElementById('tabLogin').className=tab==='login'?'nav-tab active':'nav-tab';
+  document.getElementById('mainScreen').classList.remove('active');
+  document.getElementById('rankingScreen').classList.remove('active');
+  document.getElementById('loginStreakScreen').classList.remove('active');
   if(tab==='post'){
-    document.getElementById('loginStreakScreen').classList.remove('active');
     document.getElementById('mainScreen').classList.add('active');
+  }else if(tab==='ranking'){
+    document.getElementById('rankingScreen').classList.add('active');
+    loadRanking();
   }else{
-    document.getElementById('mainScreen').classList.remove('active');
     document.getElementById('loginStreakScreen').classList.add('active');
-    if(!loginData){
-      api('action=postLoginStreak&token='+encodeURIComponent(token)).then(function(d){
-        if(d.error)return;
-        loginData=d.login;
-        localStorage.setItem('pa_login',JSON.stringify(loginData));
-        renderLoginStreak();
-      }).catch(function(){});
-    }
+    renderEvoTable();
   }
+}
+
+// ---- ランキング読み込み ----
+var rankingCache=null;
+var rankIconVer=Math.floor(Date.now()/3600000); // 1時間ごとにキャッシュ更新
+function loadRanking(){
+  if(rankingCache){renderRanking(rankingCache);return}
+  document.getElementById('rankList').innerHTML='<div class="rank-loading"><span class="spinner"></span></div>';
+  api('action=postRanking').then(function(d){
+    if(d.ranking){rankingCache=d.ranking;renderRanking(d.ranking)}
+  }).catch(function(){document.getElementById('rankList').innerHTML='<div class="rank-loading">読み込みエラー</div>'});
+}
+
+function renderRanking(list){
+  var el=document.getElementById('rankList');
+  if(!list||!list.length){el.innerHTML='<div class="rank-loading">まだデータがありません</div>';return}
+  // CHARAからキャラ特定
+  var html='';
+  for(var i=0;i<list.length;i++){
+    var m=list[i];
+    var pos=i+1;
+    var posClass=pos===1?'g':pos===2?'s':pos===3?'b':'';
+    var medal=pos===1?'🥇':pos===2?'🥈':pos===3?'🥉':pos;
+    var isMe=m.id===userId;
+    // キャラ絵文字
+    var charaEmoji='🥚';
+    for(var c=CHARA.length-1;c>=0;c--){if(m.total>=CHARA[c].min){charaEmoji=CHARA[c].emoji;break}}
+    html+='<div class="rank-row'+(isMe?' me':'')+(pos===1?' top1':'')+'">';
+    html+='<div class="rank-pos '+posClass+'">'+medal+'</div>';
+    html+='<div class="rank-chara"><div class="rank-emoji">'+charaEmoji+'</div>';
+    html+='<img class="rank-user-icon" src="'+getIconUrl(m.id)+'?v='+rankIconVer+'" onerror="this.remove()"></div>';
+    html+='<div class="rank-info"><div class="rank-name">'+escHtml(m.name)+'</div>';
+    if(m.streak>0)html+='<div class="rank-streak">🔥 '+m.streak+'日連続</div>';
+    html+='</div>';
+    html+='<div class="rank-score">'+m.total+'<span class="rank-unit"> 本</span></div>';
+    html+='</div>';
+  }
+  el.innerHTML=html;
+}
+
+// ---- アイコン設定 ----
+function pickIcon(){document.getElementById('iconInput').click()}
+
+function uploadIcon(input){
+  if(!input.files||!input.files[0])return;
+  var file=input.files[0];
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var img=new Image();
+    img.onload=function(){
+      var canvas=document.createElement('canvas');
+      canvas.width=128;canvas.height=128;
+      var ctx=canvas.getContext('2d');
+      var s=Math.min(img.width,img.height);
+      var sx=(img.width-s)/2,sy=(img.height-s)/2;
+      ctx.drawImage(img,sx,sy,s,s,0,0,128,128);
+      var dataUrl=canvas.toDataURL('image/jpeg',0.8);
+      // アップロード
+      fetch('https://giver.work/post-app/upload-icon.php',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({userId:userId,image:dataUrl})
+      }).then(function(r){return r.json()}).then(function(d){
+        if(d.ok){
+          var url=d.url+'?t='+Date.now();
+          localStorage.setItem('pa_icon',url);
+          showUserIcon();
+          rankingCache=null;
+          rankIconVer=Date.now(); // アップロード直後はキャッシュ即更新
+        }
+      }).catch(function(){toast('アイコンのアップロードに失敗しました')});
+    };
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+  input.value='';
+}
+
+function showUserIcon(){
+  var url=localStorage.getItem('pa_icon')||'';
+  var wrap=document.getElementById('iconWrap');
+  if(!wrap)return;
+  var existing=wrap.querySelector('.user-icon');
+  var emoji=wrap.querySelector('.chara-emoji');
+  if(url){
+    if(existing){existing.src=url}
+    else{
+      var img=document.createElement('img');
+      img.className='user-icon';img.src=url;
+      img.onerror=function(){this.remove();if(emoji)emoji.style.display=''};
+      if(emoji)emoji.style.display='none';
+      wrap.insertBefore(img,wrap.firstChild);
+    }
+  }else if(existing){
+    existing.remove();
+    if(emoji)emoji.style.display='';
+  }
+}
+
+function getIconUrl(id){return'https://giver.work/post-app/icons/'+id+'.jpg'}
+
+function loadIconFromServer(id){
+  if(localStorage.getItem('pa_icon'))return;
+  var img=new Image();
+  img.onload=function(){localStorage.setItem('pa_icon',getIconUrl(id)+'?t='+Date.now());showUserIcon()};
+  img.onerror=function(){};
+  img.src=getIconUrl(id)+'?t='+Date.now();
+}
+
+// ---- 目標設定モーダル ----
+function openGoalModal(){
+  document.getElementById('goalModalBg').classList.add('active');
+  document.getElementById('goalInput').value=userGoal||'';
+  // 既存選択をハイライト
+  var opts=document.querySelectorAll('.goal-opt');
+  for(var i=0;i<opts.length;i++)opts[i].classList.remove('sel');
+}
+function closeGoalModal(e){
+  if(e&&e.target!==e.currentTarget)return;
+  document.getElementById('goalModalBg').classList.remove('active');
+}
+function selectGoal(n){
+  document.getElementById('goalInput').value=n;
+  var opts=document.querySelectorAll('.goal-opt');
+  for(var i=0;i<opts.length;i++){
+    opts[i].classList.toggle('sel',parseInt(opts[i].textContent)===n);
+  }
+}
+function saveGoal(){
+  var g=parseInt(document.getElementById('goalInput').value)||0;
+  if(g<1){toast('1以上の数値を入力してください');return}
+  userGoal=g;
+  localStorage.setItem('pa_goal',String(g));
+  document.getElementById('goalModalBg').classList.remove('active');
+  renderMain();
+  toast('目標を'+g+'本に設定しました！');
+  // サーバーに保存
+  if(token){
+    api('action=postSetGoal&token='+encodeURIComponent(token)+'&goal='+g).catch(function(){});
+  }
+}
+
+// ---- セッション切れ → IDを保持してパスワード画面へ ----
+function handleSessionExpired(){
+  localStorage.removeItem('pa_t');
+  localStorage.removeItem('pa_month');
+  localStorage.removeItem('pa_login');
+  token='';monthDays=[];loginData=null;currentTab='post';prevCharaIdx=-1;
+  document.getElementById('bottomNav').classList.remove('active');
+  document.getElementById('mainScreen').classList.remove('active');
+  document.getElementById('loginStreakScreen').classList.remove('active');
+  document.getElementById('rankingScreen').classList.remove('active');
+  if(userId){
+    autoRelogin();
+  }else{
+    show('idScreen');
+  }
+}
+
+function autoRelogin(){
+  // 過去にログイン成功済み → 常にログイン画面
+  if(localStorage.getItem('pa_has_pw')){
+    show('loginScreen');document.getElementById('loginPw').focus();
+    return;
+  }
+  show('loadingScreen');
+  api('action=postCheckId&id='+encodeURIComponent(userId)).then(function(d){
+    if(d.error){show('idScreen');return}
+    userName=d.name;userContract=d.contract||'';
+    if(d.hasPassword){
+      show('loginScreen');document.getElementById('loginPw').focus();
+    }else{
+      show('registerScreen');document.getElementById('regPw1').focus();
+    }
+  }).catch(function(){show('idScreen')});
 }
 
 // ---- 初期化（オープニング後に呼ばれる） ----
@@ -686,16 +1045,21 @@ function initApp(){
   var cachedMonth=localStorage.getItem('pa_month');
   var cachedLogin=localStorage.getItem('pa_login');
   userContract=localStorage.getItem('pa_contract')||'';
+  userGoal=parseInt(localStorage.getItem('pa_goal'))||0;
   if(cachedLogin){try{loginData=JSON.parse(cachedLogin)}catch(e){}}
-  if(token&&cachedMonth){
-    monthDays=JSON.parse(cachedMonth);
-    renderMain();
-    if(loginData)renderLoginStreak();
+  if(token){
+    // キャッシュがあれば即表示、なければローディング画面
+    if(cachedMonth){try{monthDays=JSON.parse(cachedMonth)}catch(e){monthDays=[]}}
+    if(monthDays.length){renderMain()}else{show('loadingScreen')}
+    // 常にAPIで最新データ取得
     api('action=postGet&token='+encodeURIComponent(token)).then(function(d){
-      if(d.error){doLogout();return}
+      if(d.error){handleSessionExpired();return}
       monthDays=d.month.days;
+      userName=d.name||userName;
       userContract=d.month.contract||'';
+      if(d.goal){userGoal=d.goal;localStorage.setItem('pa_goal',String(userGoal))}
       localStorage.setItem('pa_month',JSON.stringify(monthDays));
+      localStorage.setItem('pa_name',userName);
       localStorage.setItem('pa_contract',userContract);
       renderMain();
       if(d.login){
@@ -703,23 +1067,10 @@ function initApp(){
         localStorage.setItem('pa_login',JSON.stringify(loginData));
         renderLoginStreak();
       }
-    }).catch(function(){});
-  } else if(token){
-    api('action=postGet&token='+encodeURIComponent(token)).then(function(d){
-      if(d.error){doLogout();return}
-      monthDays=d.month.days;
-      userName=d.name;
-      userContract=d.month.contract||'';
-      localStorage.setItem('pa_month',JSON.stringify(monthDays));
-      localStorage.setItem('pa_name',d.name);
-      localStorage.setItem('pa_contract',userContract);
-      renderMain();
-      if(d.login){
-        loginData=d.login;
-        localStorage.setItem('pa_login',JSON.stringify(loginData));
-        renderLoginStreak();
-      }
-    }).catch(function(){doLogout()});
+    }).catch(function(){if(!monthDays.length)handleSessionExpired()});
+  } else if(userId){
+    // IDが保存されている → パスワード画面へ直行
+    autoRelogin();
   } else {
     show('idScreen');
   }
@@ -739,11 +1090,11 @@ function checkId(){
     btn.disabled=false;btn.textContent='次へ';
     if(d.error){document.getElementById('idError').textContent=d.error;return}
     userId=id;userName=d.name;userContract=d.contract||'';
+    localStorage.setItem('pa_id',userId);
     if(d.hasPassword){
-      document.getElementById('loginName').textContent=d.name;
+      localStorage.setItem('pa_has_pw','1');
       show('loginScreen');document.getElementById('loginPw').focus();
     }else{
-      document.getElementById('regName').textContent=d.name;
       show('registerScreen');document.getElementById('regPw1').focus();
     }
   }).catch(function(){btn.disabled=false;btn.textContent='次へ';document.getElementById('idError').textContent='通信エラー'});
@@ -788,14 +1139,21 @@ function doLoginWith(pw){
     localStorage.setItem('pa_t',token);
     localStorage.setItem('pa_id',userId);
     localStorage.setItem('pa_name',userName);
+    localStorage.setItem('pa_has_pw','1');
     localStorage.setItem('pa_contract',userContract);
     localStorage.setItem('pa_month',JSON.stringify(monthDays));
+    if(d.goal){userGoal=d.goal;localStorage.setItem('pa_goal',String(userGoal))}
     if(d.login){
       loginData=d.login;
       localStorage.setItem('pa_login',JSON.stringify(loginData));
     }
+    // アイコン引き継ぎ（他端末でも復元）
+    loadIconFromServer(userId);
     renderMain();
-    if(loginData)renderLoginStreak();
+    if(loginData){
+      renderLoginStreak();
+      showLoginStreakCelebration(loginData.streak);
+    }
   }).catch(function(){
     document.getElementById('loginBtn').disabled=false;document.getElementById('loginBtn').textContent='ログイン';
     document.getElementById('loginError').textContent='通信エラー';
@@ -806,9 +1164,9 @@ function doLoginWith(pw){
 function renderMain(){
   show('mainScreen');
   document.getElementById('bottomNav').classList.add('active');
-  document.getElementById('userName').textContent=userName;
+  document.getElementById('userName').textContent='';
 
-  var total=0,streak=0,maxStreak=0,cur=0;
+  var totalDays=0,totalPosts=0,streak=0,maxStreak=0,cur=0;
   var today=new Date();
   var todayLabel=(today.getMonth()+1)+'/'+today.getDate();
 
@@ -821,7 +1179,10 @@ function renderMain(){
 
   for(var i=0;i<monthDays.length;i++){
     var v=monthDays[i].value;
-    if(v&&v!=='❌'){total++;cur++;if(cur>maxStreak)maxStreak=cur}
+    if(v&&v!=='❌'){
+      totalDays++;cur++;if(cur>maxStreak)maxStreak=cur;
+      totalPosts+=(parseInt(v)||0);
+    }
     else{cur=0}
   }
   streak=0;
@@ -831,26 +1192,46 @@ function renderMain(){
     var dayDate=new Date(today.getFullYear(),parseInt(parts[0])-1,parseInt(parts[1]));
     if(dayDate>today)continue;
     if(v2&&v2!=='❌')streak++;
+    else if(dayDate.toDateString()===today.toDateString())continue;
     else break;
   }
 
-  document.getElementById('statTotal').textContent=total;
+  document.getElementById('statPosts').textContent=totalPosts;
+  document.getElementById('statTotal').textContent=totalDays;
   document.getElementById('statStreak').textContent=streak;
   document.getElementById('statMax').textContent=maxStreak;
-  // 開始日（契約日）と経過日数
-  if(userContract){
-    var cp=userContract.split('/');
-    var cd=new Date(parseInt(cp[0]),parseInt(cp[1])-1,parseInt(cp[2]));
-    var elapsed=Math.floor((today.getTime()-cd.getTime())/86400000);
-    document.getElementById('userSub').textContent='開始 '+parseInt(cp[1])+'/'+parseInt(cp[2])+' ('+elapsed+'日目)';
+
+  // 目標プログレス
+  var goalBar=document.getElementById('goalBar');
+  var goalText=document.getElementById('goalText');
+  var goalFill=document.getElementById('goalFill');
+  if(userGoal>0){
+    var pct=Math.min(Math.round(totalPosts/userGoal*100),100);
+    goalText.innerHTML='目標 <b>'+userGoal+'本</b>　達成 <b>'+totalPosts+'本</b>　<span class="goal-pct">'+pct+'%</span>';
+    goalFill.style.width=pct+'%';
+    if(pct>=100)goalFill.style.background='linear-gradient(90deg,#FF9600,#FFC800)';
+    else goalFill.style.background='linear-gradient(90deg,#58CC02,#78E030)';
   }else{
-    document.getElementById('userSub').textContent='今月 '+total+'/'+monthDays.length+'日';
+    goalText.textContent='タップして目標を設定しよう 🎯';
+    goalFill.style.width='0%';
+  }
+  // 開始日（契約日）と経過日数
+  if(userContract&&userContract.indexOf('/')>0){
+    var cp=userContract.split('/');
+    var cm=parseInt(cp[1]),cday=parseInt(cp[2]);
+    if(!isNaN(cm)&&!isNaN(cday)){
+      document.getElementById('userSub').textContent='開始 '+cm+'/'+cday;
+    }else{
+      document.getElementById('userSub').textContent='';
+    }
+  }else{
+    document.getElementById('userSub').textContent='';
   }
 
-  // キャラクター
+  // キャラクター（合計投稿本数ベースで進化）
   var charaIdx=0;
   for(var c=CHARA.length-1;c>=0;c--){
-    if(streak>=CHARA[c].min){charaIdx=c;break}
+    if(totalPosts>=CHARA[c].min){charaIdx=c;break}
   }
   var ch=CHARA[charaIdx];
 
@@ -891,8 +1272,20 @@ function renderMain(){
   badge.textContent='🔥 '+streak+'日連続';
   badge.className=streak>0?'streak-badge':'streak-badge none';
 
-  // ===== 励ましメッセージ =====
-  document.getElementById('charaEncourage').textContent=getEncourageMsg(streak,todayVal);
+  // ===== 励ましメッセージ（目標絡み優先） =====
+  var encourageMsg='';
+  if(userGoal>0){
+    var pct2=Math.round(totalPosts/userGoal*100);
+    var remain=userGoal-totalPosts;
+    if(pct2>=100) encourageMsg='🎉 目標'+userGoal+'本達成！おめでとう！';
+    else if(pct2>=75) encourageMsg='🔥 あと'+remain+'本で目標達成！ラストスパート！';
+    else if(pct2>=50) encourageMsg='💪 半分超えた！目標まであと'+remain+'本！';
+    else if(pct2>=25) encourageMsg='✨ いい調子！目標の'+pct2+'%達成中！';
+    else encourageMsg='🎯 目標'+userGoal+'本に向けてスタート！';
+  }else{
+    encourageMsg=getEncourageMsg(streak,todayVal);
+  }
+  document.getElementById('charaEncourage').textContent=encourageMsg;
 
   // ===== 次の進化プログレスバー =====
   var nextEvoEl=document.getElementById('nextEvo');
@@ -900,12 +1293,12 @@ function renderMain(){
     var nextCh=CHARA[charaIdx+1];
     var prevMin=ch.min;
     var range=nextCh.min-prevMin;
-    var progress=streak-prevMin;
+    var progress=totalPosts-prevMin;
     var pct=Math.min(100,Math.round(progress/range*100));
-    var remain=nextCh.min-streak;
+    var remain=nextCh.min-totalPosts;
     document.getElementById('nextEvoLabel').textContent='次の進化: '+nextCh.emoji+' '+nextCh.name;
     document.getElementById('nextEvoFill').style.width=pct+'%';
-    document.getElementById('nextEvoText').textContent='あと'+remain+'日 ('+pct+'%)';
+    document.getElementById('nextEvoText').textContent='あと'+remain+'本 ('+pct+'%)';
     nextEvoEl.style.display='block';
   }else{
     nextEvoEl.style.display='none';
@@ -947,18 +1340,76 @@ function renderMain(){
   }
   grid.innerHTML=html;
 
+  showUserIcon();
+
   if(currentTab==='login'){
     document.getElementById('mainScreen').classList.remove('active');
     document.getElementById('loginStreakScreen').classList.add('active');
   }
 }
 
+// ---- 進化表描画 ----
+function renderEvoTable(){
+  var container=document.getElementById('evoTable');
+  container.innerHTML='';
+  var totalForEvo=parseInt(document.getElementById('statPosts').textContent)||0;
+  var currentIdx=0;
+  for(var c=CHARA.length-1;c>=0;c--){if(totalForEvo>=CHARA[c].min){currentIdx=c;break}}
+  var lastTier='';
+  for(var i=0;i<CHARA.length;i++){
+    var ch=CHARA[i];
+    if(ch.tier&&ch.tier!==lastTier){
+      lastTier=ch.tier;
+      var tierEl=document.createElement('div');
+      tierEl.className='evo-tier';
+      tierEl.textContent=ch.tier;
+      container.appendChild(tierEl);
+    }
+    var row=document.createElement('div');
+    row.className='evo-row';
+    var achieved=streak>=ch.min;
+    var isCurrent=i===currentIdx;
+    if(isCurrent)row.classList.add('current');
+    if(!achieved)row.classList.add('locked');
+    row.innerHTML='<div class="evo-emoji">'+ch.emoji+'</div>'
+      +'<div class="evo-info"><div class="evo-name" style="color:'+ch.color+'">'+ch.name+'</div>'
+      +'<div class="evo-cond">'+(ch.min===0?'初期状態':ch.min+'日連続ログインで進化')+'</div></div>'
+      +'<div class="evo-check">'+(achieved?'✅':isCurrent?'':'🔒')+'</div>';
+    container.appendChild(row);
+  }
+}
+
+// ---- ログイン連続日数を月内データから再計算（バックエンドv487の不具合対策） ----
+function recalcLoginStreak(ld){
+  if(!ld||!ld.monthDates)return ld?ld.streak:0;
+  var nowD=new Date();
+  var todayD=nowD.getDate();
+  var dates=ld.monthDates.slice();
+  if(dates.indexOf(todayD)<0)dates.push(todayD);
+  var streak=0;
+  for(var d=todayD;d>=1;d--){
+    if(dates.indexOf(d)>=0)streak++;
+    else break;
+  }
+  // バックエンドのstreakの方が大きければ採用（前月またぎ対応）
+  return Math.max(streak,ld.streak||0);
+}
+
 // ---- 連続ログイン描画 ----
 function renderLoginStreak(){
   if(!loginData)return;
+  if(!document.getElementById('lsUserName'))return;
   var ld=loginData;
+  // バックエンドv487の不具合対策: 今日を確実にカウントに含める
+  var nowD=new Date();
+  ld.today=nowD.getDate();
+  if(!ld.monthDates)ld.monthDates=[];
+  if(ld.monthDates.indexOf(ld.today)<0)ld.monthDates.push(ld.today);
+  ld.totalThisMonth=ld.monthDates.length;
+  ld.streak=recalcLoginStreak(ld);
+  if(ld.streak>(ld.maxStreak||0))ld.maxStreak=ld.streak;
 
-  document.getElementById('lsUserName').textContent=userName;
+  document.getElementById('lsUserName').textContent='';
   document.getElementById('lsUserSub').textContent='連続ログイン記録';
 
   document.getElementById('lsStreakNum').textContent=ld.streak;
@@ -1046,6 +1497,9 @@ function renderLoginStreak(){
 
 // ---- モーダル ----
 function openModal(col){
+  // 未来日ブロック（当日までのみ入力可能）
+  var now=new Date();
+  if(col>=now.getDate()) return;
   selectedCol=col;
   var day=monthDays[col];
   document.getElementById('modalDate').textContent=day.label;
@@ -1062,28 +1516,47 @@ function closeModal(e){
   document.getElementById('modalBg').classList.remove('active');
 }
 
+var _saving=false;
 function pickValue(el){
+  if(_saving)return;
+  _saving=true;setTimeout(function(){_saving=false},1000);
   var val=el.getAttribute('data-v');
   var oldVal=monthDays[selectedCol].value;
   monthDays[selectedCol].value=val;
   localStorage.setItem('pa_month',JSON.stringify(monthDays));
+  rankingCache=null; // 保存時にランキングキャッシュをクリア
   renderMain();
   document.getElementById('modalBg').classList.remove('active');
 
-  // ===== 祝福アニメーション（全投稿数で盛り上がる） =====
+  // ===== 祝福アニメーション =====
   if(val!=='❌'){
     celebrate();
     var cheers=[
       ['🎉 1本！えらい！','💪 その一歩が大事！','✨ 投稿できた！すごい！'],
       ['🔥 2本！絶好調！','⚡ 勢いに乗ってる！','🌟 2本！さすが！'],
       ['👑 3本！パーフェクト！','🏆 今日のMVP！','💎 3本！最強！'],
-      ['🚀 4本！異次元！','💥 止まらない！','⚡ 4本！怒涛の投稿量！'],
-      ['🔥 5本！圧倒的！','🌋 もはや別格！','👑 5本！伝説級！'],
-      ['💎 6本！最強！','🏆 ぶっちぎり！','🔱 6本！モンスター！']
+      ['🚀 4本！超ハイペース！','⚡ 4本！止まらない！','🌈 4本！天才！'],
+      ['💥 5本！異次元！','🔥 5本！プロ級！','🏅 5本！圧巻！'],
+      ['👑 6本！神！！','🌟 6本！伝説！','💎 6本！最強すぎる！']
     ];
-    var idx={'1本':0,'2本':1,'3本':2,'4本':3,'5本':4,'6本':5}[val]||0;
+    var idx=Math.min((parseInt(val)||1)-1,5);
     var msgs=cheers[idx];
     toast(msgs[Math.floor(Math.random()*msgs.length)]);
+    // 連続投稿・初投稿マイルストーン判定
+    var streak=0;
+    for(var j=monthDays.length-1;j>=0;j--){
+      var v2=monthDays[j].value;
+      var parts=monthDays[j].label.split('/');
+      var now2=new Date();
+      var dayDate=new Date(now2.getFullYear(),parseInt(parts[0])-1,parseInt(parts[1]));
+      if(dayDate>now2)continue;
+      if(v2&&v2!=='❌')streak++;
+      else if(dayDate.toDateString()===now2.toDateString())continue;
+      else break;
+    }
+    var totalPostDays=0;
+    for(var k=0;k<monthDays.length;k++){if(monthDays[k].value&&monthDays[k].value!=='❌')totalPostDays++}
+    checkPostMilestone(streak,totalPostDays,val,oldVal);
   }else{
     toast('記録しました');
   }
@@ -1091,19 +1564,28 @@ function pickValue(el){
   api('action=postSave&token='+encodeURIComponent(token)+'&value='+encodeURIComponent(val)+'&col='+selectedCol)
     .then(function(d){
       if(d.error){
-        if(d.error.indexOf('セッション')>=0){doLogout();return}
+        // 保存失敗 → 元に戻す
+        monthDays[selectedCol].value=oldVal;
+        localStorage.setItem('pa_month',JSON.stringify(monthDays));
+        renderMain();
+        if(d.error.indexOf('セッション')>=0){handleSessionExpired();return}
         toast('保存失敗: '+d.error);
       }
-    }).catch(function(){toast('通信エラー。後で再読み込みしてください')});
+    }).catch(function(){
+      monthDays[selectedCol].value=oldVal;
+      localStorage.setItem('pa_month',JSON.stringify(monthDays));
+      renderMain();
+      toast('通信エラー。後で再読み込みしてください');
+    });
 }
 
 // ---- ログアウト ----
 function doLogout(){
   localStorage.removeItem('pa_t');localStorage.removeItem('pa_id');
   localStorage.removeItem('pa_name');localStorage.removeItem('pa_month');localStorage.removeItem('pa_contract');
-  localStorage.removeItem('pa_login');
-  token='';userId='';userName='';monthDays=[];loginData=null;currentTab='post';
-  prevCharaIdx=-1;
+  localStorage.removeItem('pa_login');localStorage.removeItem('pa_has_pw');localStorage.removeItem('pa_icon');localStorage.removeItem('pa_goal');
+  token='';userId='';userName='';monthDays=[];loginData=null;currentTab='post';userGoal=0;
+  prevCharaIdx=-1;rankingCache=null;
   document.getElementById('inputId').value='';
   document.getElementById('loginPw').value='';
   document.getElementById('regPw1').value='';
@@ -1111,9 +1593,11 @@ function doLogout(){
   document.getElementById('bottomNav').classList.remove('active');
   document.getElementById('tabPost').className='nav-tab active';
   document.getElementById('tabLogin').className='nav-tab';
+  document.getElementById('tabRanking').className='nav-tab';
   show('idScreen');
 }
 function backToId(){doLogout()}
+function goToLogin(){show('loginScreen');document.getElementById('loginPw').focus()}
 function backToLogin(){show('loginScreen')}
 
 // ---- パスワードリセット ----
