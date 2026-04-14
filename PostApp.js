@@ -281,7 +281,7 @@ function postAppSave_(token, value, col) {
   var id = verifyToken_(token);
   if (!id) return { error: 'セッション切れです。再ログインしてください。' };
 
-  var validValues = ['❌', '1本', '2本', '3本'];
+  var validValues = ['❌', '1本', '2本', '3本', '4本', '5本', '6本'];
   if (validValues.indexOf(value) < 0) return { error: '無効な値です: ' + value };
 
   var ss = SpreadsheetApp.openById(POST_APP_SS_ID);
@@ -302,7 +302,9 @@ function postAppSave_(token, value, col) {
   if (rowIdx < 0) return { error: 'IDが見つかりません' };
 
   var row = rowIdx + 2;
-  sheet.getRange(row, targetCol).setValue(value);
+  var cell = sheet.getRange(row, targetCol);
+  cell.clearDataValidations();
+  cell.setValue(value);
   SpreadsheetApp.flush();
   var total = sheet.getRange(row, POST_APP_TOTAL_COL).getValue();
 
@@ -841,7 +843,7 @@ function createTestAccount() {
   // 2行目に挿入
   sheet.insertRowAfter(1);
   // A=ID, B=契約日, C=CW ID, D=名前, E=合計数式, F〜AI=❌
-  var f = '=COUNTIF(F2:AI2,"1本")+COUNTIF(F2:AI2,"2本")*2+COUNTIF(F2:AI2,"3本")*3';
+  var f = '=COUNTIF(F2:AI2,"1本")+COUNTIF(F2:AI2,"2本")*2+COUNTIF(F2:AI2,"3本")*3+COUNTIF(F2:AI2,"4本")*4+COUNTIF(F2:AI2,"5本")*5+COUNTIF(F2:AI2,"6本")*6';
   var newRow = [id, '', '', name, f];
   for (var d = 0; d < 30; d++) newRow.push('❌');
   sheet.getRange(2, 1, 1, newRow.length).setValues([newRow]);
@@ -956,7 +958,7 @@ function fixPostAppTotal() {
   if (lastRow < 2) return;
   var formulas = [];
   for (var r = 2; r <= lastRow; r++) {
-    formulas.push(['=COUNTIF(F' + r + ':AI' + r + ',"1本")+COUNTIF(F' + r + ':AI' + r + ',"2本")*2+COUNTIF(F' + r + ':AI' + r + ',"3本")*3']);
+    formulas.push(['=COUNTIF(F' + r + ':AI' + r + ',"1本")+COUNTIF(F' + r + ':AI' + r + ',"2本")*2+COUNTIF(F' + r + ':AI' + r + ',"3本")*3+COUNTIF(F' + r + ':AI' + r + ',"4本")*4+COUNTIF(F' + r + ':AI' + r + ',"5本")*5+COUNTIF(F' + r + ':AI' + r + ',"6本")*6']);
   }
   sheet.getRange(2, POST_APP_TOTAL_COL, formulas.length, 1).setFormulas(formulas);
   Logger.log('Done: ' + formulas.length + ' rows updated');

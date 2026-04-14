@@ -2,7 +2,7 @@
 // ChatworkPoints.js — 共創ポイント（More moreChatから集計）
 // ============================================
 
-var CW_API_TOKEN = PropertiesService.getScriptProperties().getProperty('CW_API_TOKEN');
+var CW_API_TOKEN = 'c1a87be06bce046831a9de0c73b4b093';
 var CW_ROOM_ID = '419910408';
 
 // Chatwork account_id → v2メンバー名
@@ -218,6 +218,8 @@ var V2_TO_CW_ID = {
  * トリガーまたはAPI経由で呼び出し
  */
 function sendBottleneckNotification() {
+  // 2026-04-12 停止：ボトルネック通知を無効化
+  return { sent: 0, message: 'ボトルネック通知は停止中' };
   var data = getDashboardData();
   var members = data.members || [];
   if (!members.length) return { sent: 0 };

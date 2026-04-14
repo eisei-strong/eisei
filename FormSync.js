@@ -4495,7 +4495,7 @@ function createAprilHopeSheet() {
 
   // プルダウン（日付列: 8列目〜37列目）
   var dropdownRule = SpreadsheetApp.newDataValidation()
-    .requireValueInList(['❌', '1本', '2本', '3本'], true)
+    .requireValueInList(['❌', '1本', '2本', '3本', '4本', '5本', '6本'], true)
     .setAllowInvalid(false)
     .build();
   if (rows.length > 0) {
@@ -4582,7 +4582,7 @@ function createHopeDesign_(lp) {
 
   // プルダウン（日付列: 8〜12列目）
   var dropdownRule = SpreadsheetApp.newDataValidation()
-    .requireValueInList(['❌', '1本', '2本', '3本'], true)
+    .requireValueInList(['❌', '1本', '2本', '3本', '4本', '5本', '6本'], true)
     .setAllowInvalid(false)
     .build();
   sheet.getRange(2, 8, samples.length, 5).setDataValidation(dropdownRule);
@@ -4673,7 +4673,7 @@ function createPushDesign_(lp) {
 
   // プルダウン（日付列: 9〜13列目）
   var dropdownRule = SpreadsheetApp.newDataValidation()
-    .requireValueInList(['❌', '1本', '2本', '3本'], true)
+    .requireValueInList(['❌', '1本', '2本', '3本', '4本', '5本', '6本'], true)
     .setAllowInvalid(false)
     .build();
   sheet.getRange(2, 9, samples.length, 5).setDataValidation(dropdownRule);
@@ -4759,7 +4759,7 @@ function createPostDesign_(lp) {
 
   // プルダウン設定（日付列: 9列目〜13列目）
   var dropdownRule = SpreadsheetApp.newDataValidation()
-    .requireValueInList(['❌', '1本', '2本', '3本'], true)
+    .requireValueInList(['❌', '1本', '2本', '3本', '4本', '5本', '6本'], true)
     .setAllowInvalid(false)
     .build();
   sheet.getRange(2, 9, samples.length, 5).setDataValidation(dropdownRule);

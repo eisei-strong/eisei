@@ -250,7 +250,6 @@ a{color:#475569}
 <!-- パスワード登録 -->
 <div id="registerScreen" class="screen">
   <h1>パスワード設定</h1>
-  <div class="fn" id="regName"></div>
   <p class="sub">初回のみ。次からは自動ログイン</p>
   <input id="regPw1" class="fi" type="password" placeholder="パスワード（4文字以上）" autocomplete="new-password">
   <input id="regPw2" class="fi" type="password" placeholder="もう一度入力" autocomplete="new-password">
@@ -729,7 +728,6 @@ function checkId(){
       document.getElementById('loginName').textContent=d.name;
       show('loginScreen');document.getElementById('loginPw').focus();
     }else{
-      document.getElementById('regName').textContent=d.name;
       show('registerScreen');document.getElementById('regPw1').focus();
     }
   }).catch(function(){btn.disabled=false;btn.textContent='次へ';document.getElementById('idError').textContent='通信エラー'});
@@ -1116,7 +1114,6 @@ function doReset(){
     if(d.error){document.getElementById('resetError').textContent=d.error;return}
     // リセット成功 → 登録画面へ
     toast('パスワードをリセットしました');
-    document.getElementById('regName').textContent=userName||userId;
     show('registerScreen');
     document.getElementById('regPw1').focus();
   }).catch(function(){btn.disabled=false;btn.textContent='リセットする';document.getElementById('resetError').textContent='通信エラー'});
@@ -1124,7 +1121,6 @@ function doReset(){
 
 // ---- 強制新規登録（認証データ削除して再登録） ----
 function forceRegister(){
-  document.getElementById('regName').textContent=userName||userId;
   document.getElementById('regPw1').value='';
   document.getElementById('regPw2').value='';
   document.getElementById('regError').textContent='';

@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>チーム生産性ダッシュボード</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #F5F0EB;
+    color: #3D2B1F;
+    min-height: 100vh;
+  }
+  .container { max-width: 960px; margin: 0 auto; padding: 20px 16px; }
+
+  /* タブ切り替え */
+  .team-tabs {
+    display: flex;
+    gap: 0;
+    margin-bottom: 0;
+    border-radius: 12px 12px 0 0;
+    overflow: hidden;
+  }
+  .team-tab {
+    flex: 1;
+    padding: 14px 20px;
+    text-align: center;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s;
+    position: relative;
+  }
+  .team-tab.guardian-tab {
+    background: #E0D0C0;
+    color: #8B7355;
+  }
+  .team-tab.guardian-tab.active {
+    background: linear-gradient(135deg, #5C3A1E 0%, #8B5E3C 100%);
+    color: #FFFFFF;
+  }
+  .team-tab.instructor-tab {
+    background: #D0D8E8;
+    color: #5A6A8A;
+  }
+  .team-tab.instructor-tab.active {
+    background: linear-gradient(135deg, #1E3A5C 0%, #3C6E8B 100%);
+    color: #FFFFFF;
+  }
+
+  /* ヘッダー */
+  .header {
+    text-align: center;
+    margin-bottom: 24px;
+    padding: 20px;
+    border-radius: 0 0 16px 16px;
+    border: 1px solid;
+    border-top: none;
+  }
+  .header.guardian-theme {
+    background: linear-gradient(135deg, #5C3A1E 0%, #8B5E3C 100%);
+    border-color: #8B5E3C;
+  }
+  .header.instructor-theme {
+    background: linear-gradient(135deg, #1E3A5C 0%, #3C6E8B 100%);
+    border-color: #3C6E8B;
+  }
+  .header h1 { font-size: 22px; color: #FFFFFF; margin-bottom: 8px; }
+  .header .last-update { font-size: 12px; color: #D4B896; margin-top: 8px; }
+  .instructor-theme .last-update { color: #A0C4E0; }
+
+  /* サマリーカード */
+  .summary-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .summary-card {
+    background: #FFFFFF;
+    border-radius: 12px;
+    padding: 16px;
+    text-align: center;
+    border: 1px solid #E0D0C0;
+    box-shadow: 0 1px 3px rgba(92,58,30,0.08);
+  }
+  .summary-card .num { font-size: 32px; font-weight: 700; }
+  .summary-card .label { font-size: 12px; color: #8B7355; margin-top: 4px; }
+  .num-active { color: #16A34A; }
+  .num-inactive { color: #DC2626; }
+  .num-off { color: #F59E0B; }
+  .num-total { color: #8B5E3C; }
+  .instructor-active .num-total { color: #3C6E8B; }
+
+  /* 日付ナビ */
+  .date-nav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  .date-nav button {
+    color: #FFFFFF;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 16px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background 0.2s;
+  }
+  .date-nav.guardian-nav button { background: #8B5E3C; }
+  .date-nav.guardian-nav button:hover { background: #6B4226; }
+  .date-nav.instructor-nav button { background: #3C6E8B; }
+  .date-nav.instructor-nav button:hover { background: #1E3A5C; }
+  .date-nav .date-label { font-size: 18px; font-weight: 600; color: #3D2B1F; }
+
+  /* メンバーカード */
+  .member-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px;
+    margin-bottom: 32px;
+  }
+  .member-card {
+    background: #FFFFFF;
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    border: 1px solid #E0D0C0;
+    box-shadow: 0 1px 3px rgba(92,58,30,0.08);
+    transition: transform 0.15s, border-color 0.2s, box-shadow 0.2s;
+  }
+  .member-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(92,58,30,0.12); }
+  .member-card.active { border-color: #16A34A; }
+  .member-card.inactive { border-color: #DC2626; }
+  .member-card.off-duty { border-color: #F59E0B; opacity: 0.7; }
+
+  .avatar-wrap {
+    position: relative;
+    flex-shrink: 0;
+  }
+  .avatar-img {
+    width: 48px; height: 48px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #D4B896;
+  }
+  .active .avatar-img { border-color: #16A34A; }
+  .inactive .avatar-img { border-color: #DC2626; opacity: 0.6; }
+  .off-duty .avatar-img { border-color: #F59E0B; opacity: 0.5; }
+  .status-dot {
+    position: absolute;
+    bottom: 0; right: 0;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    border: 2px solid #FFFFFF;
+    font-size: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .active .status-dot { background: #16A34A; }
+  .inactive .status-dot { background: #DC2626; }
+  .off-duty .status-dot { background: #F59E0B; }
+
+  .member-info { flex: 1; }
+  .member-name { font-size: 16px; font-weight: 600; color: #3D2B1F; }
+  .member-detail { font-size: 12px; color: #8B7355; margin-top: 4px; }
+
+  .badge {
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-weight: 600;
+  }
+  .badge-active { background: #DCFCE7; color: #16A34A; }
+  .badge-inactive { background: #FEE2E2; color: #DC2626; }
+  .badge-off { background: #FEF3C7; color: #B45309; }
+  .leader-badge {
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: #FEF3C7;
+    color: #B45309;
+    font-weight: 600;
+    margin-left: 6px;
+  }
+  .sub-leader-badge {
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: #E0F2FE;
+    color: #0369A1;
+    font-weight: 600;
+    margin-left: 6px;
+  }
+  .member-card.is-leader {
+    background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%);
+    border: 2px solid #F59E0B;
+    box-shadow: 0 2px 8px rgba(245,158,11,0.2);
+  }
+  .member-card.is-sub-leader {
+    background: linear-gradient(135deg, #F0F9FF 0%, #E0F2FE 100%);
+    border: 2px solid #0EA5E9;
+    box-shadow: 0 2px 8px rgba(14,165,233,0.15);
+  }
+
+  /* 週間ヒートマップ */
+  .section-title {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    padding-left: 4px;
+    color: #3D2B1F;
+  }
+  .heatmap-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #FFFFFF;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid #E0D0C0;
+    box-shadow: 0 1px 3px rgba(92,58,30,0.08);
+  }
+  .heatmap-table th, .heatmap-table td {
+    padding: 10px 8px;
+    text-align: center;
+    font-size: 13px;
+  }
+  .heatmap-table th {
+    background: #F5EDE4;
+    color: #8B7355;
+    font-weight: 500;
+    font-size: 11px;
+  }
+  .heatmap-table td.name-cell {
+    text-align: left;
+    font-weight: 600;
+    padding-left: 14px;
+    color: #3D2B1F;
+    min-width: 80px;
+  }
+  .heatmap-table tr:not(:last-child) td { border-bottom: 1px solid #F0E6DA; }
+  .cell-active { color: #16A34A; font-size: 16px; }
+  .cell-inactive { color: #D4B896; font-size: 16px; }
+  .cell-today { background: #FEF9F0; }
+
+  /* 業務内容 */
+  .tasks-section { margin-top: 32px; }
+  .task-card {
+    background: #FFFFFF;
+    border-radius: 12px;
+    padding: 14px 18px;
+    margin-bottom: 8px;
+    border: 1px solid #E0D0C0;
+    box-shadow: 0 1px 3px rgba(92,58,30,0.08);
+  }
+  .task-card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .task-card-avatar { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; border: 2px solid #D4B896; }
+  .task-card .task-name { font-weight: 600; color: #8B5E3C; }
+  .task-ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .task-ul li {
+    font-size: 13px;
+    color: #5C4033;
+    line-height: 1.8;
+    padding-left: 16px;
+    position: relative;
+  }
+  .task-ul li::before {
+    content: '\30FB';
+    position: absolute;
+    left: 0;
+    color: #8B5E3C;
+  }
+
+  /* 業務時間詳細 */
+  .work-person {
+    background: #FFFFFF;
+    border-radius: 12px;
+    padding: 16px 18px;
+    margin-bottom: 12px;
+    border: 1px solid #E0D0C0;
+    box-shadow: 0 1px 3px rgba(92,58,30,0.08);
+  }
+  .work-person-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .work-person-avatar {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #D4B896;
+  }
+  .work-person-name { font-weight: 700; font-size: 15px; color: #3D2B1F; flex: 1; }
+  .work-person-total {
+    font-size: 13px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 20px;
+    background: #FEF3C7;
+    color: #B45309;
+  }
+  .work-entry {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 5px 0;
+    font-size: 13px;
+    border-bottom: 1px solid #F5EDE4;
+  }
+  .work-entry:last-child { border-bottom: none; }
+  .work-time {
+    color: #8B7355;
+    font-family: monospace;
+    font-size: 12px;
+    min-width: 100px;
+  }
+  .work-task-name { color: #3D2B1F; flex: 1; }
+  .work-duration {
+    color: #8B5E3C;
+    font-weight: 600;
+    font-size: 12px;
+    min-width: 50px;
+    text-align: right;
+  }
+  .work-bar-bg {
+    height: 6px;
+    background: #F0E6DA;
+    border-radius: 3px;
+    margin-top: 10px;
+    overflow: hidden;
+  }
+  .work-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.5s;
+  }
+  .guardian-bar .work-bar-fill { background: linear-gradient(90deg, #8B5E3C, #D4A06A); }
+  .instructor-bar .work-bar-fill { background: linear-gradient(90deg, #3C6E8B, #6ABED4); }
+  .work-no-data { color: #8B7355; font-size: 13px; text-align: center; padding: 20px; }
+
+  /* 添削回数 */
+  .correction-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .correction-card {
+    background: #FFFFFF;
+    border-radius: 12px;
+    padding: 14px 12px;
+    text-align: center;
+    border: 1px solid #E0D0C0;
+    box-shadow: 0 1px 3px rgba(92,58,30,0.08);
+    transition: transform 0.15s;
+  }
+  .correction-card:hover { transform: translateY(-2px); }
+  .correction-card .cc-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid #D4B896; margin: 0 auto 6px; }
+  .correction-card .cc-name { font-size: 13px; font-weight: 600; color: #3D2B1F; margin-bottom: 6px; }
+  .correction-card .cc-count { font-size: 32px; font-weight: 800; color: #3C6E8B; }
+  .correction-card .cc-count.cc-zero { color: #DC2626; }
+  .correction-card .cc-label { font-size: 11px; color: #8B7355; margin-top: 2px; }
+  .correction-summary {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+  .correction-stat {
+    background: #FFFFFF;
+    border-radius: 12px;
+    padding: 12px 20px;
+    text-align: center;
+    border: 1px solid #E0D0C0;
+    box-shadow: 0 1px 3px rgba(92,58,30,0.08);
+    min-width: 120px;
+  }
+  .cs-value { font-size: 28px; font-weight: 800; }
+  .cs-value.cs-blue { color: #3C6E8B; }
+  .cs-value.cs-red { color: #DC2626; }
+  .cs-value.cs-green { color: #16A34A; }
+  .cs-label { font-size: 11px; color: #8B7355; margin-top: 4px; }
+
+  /* 月間合計 */
+  .monthly-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 10px;
+  }
+  .monthly-card {
+    background: #FFFFFF;
+    border-radius: 12px;
+    padding: 14px 16px;
+    border: 1px solid #E0D0C0;
+    box-shadow: 0 1px 3px rgba(92,58,30,0.08);
+    text-align: center;
+  }
+  .mc-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid #D4B896; margin: 0 auto 6px; }
+  .monthly-card .mc-name { font-weight: 600; font-size: 14px; color: #3D2B1F; margin-bottom: 8px; }
+  .mc-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; }
+  .mc-row-label { font-size: 11px; color: #8B7355; }
+  .mc-row-value { font-weight: 700; color: #8B5E3C; font-size: 14px; }
+  .mc-row-value.mc-today { color: #16A34A; }
+  .mc-row-value.mc-zero { color: #DC2626; }
+  .mc-total-row { border-top: 1px solid #E0D0C0; margin-top: 6px; padding-top: 8px; }
+  .mc-total-value { font-size: 22px; font-weight: 700; color: #8B5E3C; }
+  .mc-sub { font-size: 11px; color: #8B7355; margin-top: 4px; }
+
+  /* 業務別集計 */
+  .task-summary-person {
+    background: #FFFFFF;
+    border-radius: 12px;
+    padding: 16px 18px;
+    margin-bottom: 12px;
+    border: 1px solid #E0D0C0;
+    box-shadow: 0 1px 3px rgba(92,58,30,0.08);
+  }
+  .task-summary-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .task-summary-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; border: 2px solid #D4B896; }
+  .task-summary-name { font-weight: 700; font-size: 15px; color: #3D2B1F; }
+  .task-summary-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+    font-size: 13px;
+    border-bottom: 1px solid #F5EDE4;
+  }
+  .task-summary-row:last-child { border-bottom: none; }
+  .task-summary-task { color: #5C4033; }
+  .task-summary-time { color: #8B5E3C; font-weight: 600; }
+
+  /* ローディング */
+  .loading {
+    text-align: center;
+    padding: 60px 20px;
+    color: #8B7355;
+  }
+  .spinner {
+    width: 36px; height: 36px;
+    border: 3px solid #E0D0C0;
+    border-top-color: #8B5E3C;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 16px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .error { text-align: center; padding: 40px; color: #DC2626; }
+
+  /* タブコンテンツ */
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  @media (max-width: 600px) {
+    .summary-row { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .summary-card .num { font-size: 24px; }
+    .member-grid { grid-template-columns: 1fr; }
+    .heatmap-table th, .heatmap-table td { padding: 8px 4px; font-size: 11px; }
+    .team-tab { font-size: 13px; padding: 12px 10px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <!-- チーム切り替えタブ -->
+  <div class="team-tabs">
+    <button class="team-tab guardian-tab active" onclick="switchTeam('guardian')">
+      🛡️ ガーディアンズ
+    </button>
+    <button class="team-tab instructor-tab" onclick="switchTeam('instructor')">
+      🎓 講師チーム
+    </button>
+  </div>
+
+  <!-- ===== ガーディアンズ ===== -->
+  <div class="tab-panel active" id="guardianPanel">
+    <div class="header guardian-theme">
+      <h1>全ての人を輝かせる<br>🛡️ ガーディアンズ生産性アップ！🛡️</h1>
+      <div class="last-update" id="gLastUpdate"></div>
+    </div>
+    <div class="summary-row" id="gSummaryRow" style="display:none;">
+      <div class="summary-card"><div class="num num-active" id="gActiveCount">0</div><div class="label">稼働中</div></div>
+      <div class="summary-card"><div class="num num-inactive" id="gInactiveCount">0</div><div class="label">未報告</div></div>
+      <div class="summary-card"><div class="num num-off" id="gOffCount">0</div><div class="label">休み</div></div>
+      <div class="summary-card"><div class="num num-total" id="gTotalCount">9</div><div class="label">合計</div></div>
+    </div>
+    <div class="date-nav guardian-nav">
+      <button onclick="changeDate('guardian', -1)">◀</button>
+      <div class="date-label" id="gDateLabel"></div>
+      <button id="gNextBtn" onclick="changeDate('guardian', 1)">▶</button>
+    </div>
+    <div id="gMemberArea"><div class="loading"><div class="spinner"></div>データを取得中...</div></div>
+    <div style="margin-top:32px;"><div class="section-title">⏱️ 業務時間詳細</div><div id="gWorkDetailArea"><div class="loading"><div class="spinner"></div>業務時間を取得中...</div></div></div>
+    <div style="margin-top:32px;"><div class="section-title">📊 今月の合計稼働時間</div><div id="gMonthlyArea"><div class="loading"><div class="spinner"></div>月間データを取得中...</div></div></div>
+    <div style="margin-top:32px;"><div class="section-title">🗂️ 今月の業務別時間</div><div id="gMonthlyTaskArea"><div class="loading"><div class="spinner"></div>業務別データを取得中...</div></div></div>
+    <div style="margin-top:32px;"><div class="section-title">📅 稼働記録</div><div id="gHeatmapArea"><div class="loading"><div class="spinner"></div>読み込み中...</div></div></div>
+    <div class="tasks-section"><div class="section-title">📋 担当業務一覧</div><div id="gTasksArea"></div></div>
+  </div>
+
+  <!-- ===== 講師チーム ===== -->
+  <div class="tab-panel" id="instructorPanel">
+    <div class="header instructor-theme">
+      <h1>全ての人を輝かせる<br>🎓 講師チーム生産性アップ！🎓</h1>
+      <div class="last-update" id="iLastUpdate"></div>
+    </div>
+    <div class="summary-row" id="iSummaryRow" style="display:none;">
+      <div class="summary-card"><div class="num num-active" id="iActiveCount">0</div><div class="label">稼働中</div></div>
+      <div class="summary-card"><div class="num num-inactive" id="iInactiveCount">0</div><div class="label">未報告</div></div>
+      <div class="summary-card"><div class="num num-off" id="iOffCount">0</div><div class="label">休み</div></div>
+      <div class="summary-card instructor-active"><div class="num num-total" id="iTotalCount">7</div><div class="label">合計</div></div>
+    </div>
+    <div class="date-nav instructor-nav">
+      <button onclick="changeDate('instructor', -1)">◀</button>
+      <div class="date-label" id="iDateLabel"></div>
+      <button id="iNextBtn" onclick="changeDate('instructor', 1)">▶</button>
+    </div>
+    <div id="iMemberArea"><div class="loading"><div class="spinner"></div>データを取得中...</div></div>
+    <div style="margin-top:32px;"><div class="section-title">📝 本日の添削回数（1:1返信数）</div><div id="iCorrectionArea"><div class="loading"><div class="spinner"></div>添削データを取得中...</div></div></div>
+    <div style="margin-top:32px;"><div class="section-title">⏱️ 業務時間詳細</div><div id="iWorkDetailArea"><div class="loading"><div class="spinner"></div>業務時間を取得中...</div></div></div>
+    <div style="margin-top:32px;"><div class="section-title">📊 今月の合計稼働時間</div><div id="iMonthlyArea"><div class="loading"><div class="spinner"></div>月間データを取得中...</div></div></div>
+    <div style="margin-top:32px;"><div class="section-title">🗂️ 今月の業務別時間</div><div id="iMonthlyTaskArea"><div class="loading"><div class="spinner"></div>業務別データを取得中...</div></div></div>
+    <div style="margin-top:32px;"><div class="section-title">📅 稼働記録</div><div id="iHeatmapArea"><div class="loading"><div class="spinner"></div>読み込み中...</div></div></div>
+  </div>
+</div>
+
+<script>
+// === 設定 ===
+var API_BASE = 'https://script.google.com/macros/s/AKfycby6qaaiUoadCBnxHlUNKd-RkHxarE0WBGiitkdV0IbzL6ninM-df0FFx4SYRYVfdwcxqg/exec';
+
+var GUARDIAN_TASKS = {
+  '星野': 'SDzoom受講生お知らせ・登録 / 炭治郎部屋進捗管理 / 1:1チャット作成・案内 / ID付与・リンク発行 / 数値報告 / 万バズ依頼対応 / アマギフ送付・郵送確認',
+  'ふうか': '平日日中プッシュ割り振り / 流入経路数値記入 / 優先順位スプレ修正・改善',
+  'まりん': '添削確認 / 成長シェア確認報告',
+  'スズカ': '数値報告 / プッシュ報告入力 / 契約書アドレス確認 / 流入経路確認 / 台本・万バズリサーチ',
+  'ゆいな': '添削時間確認報告 / 平日夜土日祝プッシュ割り振り（シフト）',
+  'ココ': '台本・万バズリサーチ / シルバー・ゴールド外注部屋管理 / ID付与・リンク発行 / シルバー初投稿お祝いチャット',
+  'あき': '承諾書・契約書郵送 / 代理店契約書業務 / 土日祝: 数値報告・プッシュ入力',
+  'レイ': '信販・決済会社対応 / CO・中途解約対応 / ログイン認証 / 入金確認 / 報酬計算 / 契約書作成・修正 / 入電対応',
+  'あやの': 'シルバー初投稿お祝いチャット（引継ぎ中）/ 万バズリサーチ（ふうか連携中）'
+};
+
+// === チーム別状態 ===
+var teams = {
+  guardian: {
+    action: 'guardian',
+    currentDate: new Date(),
+    todayStr: '',
+    avatarCache: {},
+    todayWorkCache: {},
+    prefix: 'g',
+    barClass: 'guardian-bar',
+    loaded: false
+  },
+  instructor: {
+    action: 'instructor',
+    currentDate: new Date(),
+    todayStr: '',
+    avatarCache: {},
+    todayWorkCache: {},
+    prefix: 'i',
+    barClass: 'instructor-bar',
+    loaded: false
+  }
+};
+
+var currentTeam = 'guardian';
+
+// === 初期化 ===
+document.addEventListener('DOMContentLoaded', function() {
+  var now = new Date();
+  teams.guardian.todayStr = formatDate(now);
+  teams.instructor.todayStr = formatDate(now);
+
+  // ガーディアンズを最初に読み込み
+  loadTeamData('guardian');
+});
+
+// === タブ切り替え ===
+function switchTeam(team) {
+  currentTeam = team;
+
+  // タブアクティブ切り替え
+  var tabs = document.querySelectorAll('.team-tab');
+  for (var i = 0; i < tabs.length; i++) tabs[i].classList.remove('active');
+  document.querySelector('.' + team + '-tab').classList.add('active');
+
+  // パネル切り替え
+  document.getElementById('guardianPanel').classList.remove('active');
+  document.getElementById('instructorPanel').classList.remove('active');
+  document.getElementById(team + 'Panel').classList.add('active');
+
+  // 初回のみデータ読み込み
+  if (!teams[team].loaded) {
+    loadTeamData(team);
+  }
+}
+
+// === チームデータ読み込み ===
+function loadTeamData(team) {
+  var t = teams[team];
+  t.loaded = true;
+  updateDateLabel(team);
+  fetchDayData(team, t.todayStr);
+  fetchWorkDetail(team, t.todayStr);
+  fetchMonthlyTasks(team);
+  fetchWeeklyData(team);
+  if (team === 'guardian') renderGuardianTasks();
+  if (team === 'instructor') fetchCorrectionStats();
+}
+
+// === 日付操作 ===
+function formatDate(d) {
+  var y = d.getFullYear();
+  var m = ('0' + (d.getMonth() + 1)).slice(-2);
+  var day = ('0' + d.getDate()).slice(-2);
+  return y + '-' + m + '-' + day;
+}
+
+function formatDateLabel(d) {
+  var days = ['日','月','火','水','木','金','土'];
+  return (d.getMonth()+1) + '月' + d.getDate() + '日（' + days[d.getDay()] + '）';
+}
+
+function changeDate(team, offset) {
+  var t = teams[team];
+  t.currentDate.setDate(t.currentDate.getDate() + offset);
+  var sel = formatDate(t.currentDate);
+  if (sel > t.todayStr) {
+    t.currentDate.setDate(t.currentDate.getDate() - offset);
+    return;
+  }
+  updateDateLabel(team);
+  fetchDayData(team, sel);
+  fetchWorkDetail(team, sel);
+}
+
+function updateDateLabel(team) {
+  var t = teams[team];
+  var p = t.prefix;
+  var label = formatDateLabel(t.currentDate);
+  if (formatDate(t.currentDate) === t.todayStr) label += ' — 今日';
+  document.getElementById(p + 'DateLabel').textContent = label;
+  document.getElementById(p + 'NextBtn').style.opacity = formatDate(t.currentDate) === t.todayStr ? '0.3' : '1';
+}
+
+// === API呼び出し ===
+function fetchDayData(team, dateStr) {
+  var t = teams[team];
+  var p = t.prefix;
+  var area = document.getElementById(p + 'MemberArea');
+  area.innerHTML = '<div class="loading"><div class="spinner"></div>データを取得中...</div>';
+
+  var url = API_BASE + '?action=' + t.action + '&type=date&date=' + dateStr;
+  fetch(url)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.error) throw new Error(data.error);
+      renderMembers(team, data.members || []);
+      if (team === 'guardian') renderGuardianTasks();
+      document.getElementById(p + 'LastUpdate').textContent = '最終更新: ' + new Date().toLocaleTimeString('ja-JP');
+    })
+    .catch(function(err) {
+      area.innerHTML = '<div class="error">取得エラー: ' + err.message + '</div>';
+    });
+}
+
+function fetchWeeklyData(team) {
+  var t = teams[team];
+  var url = API_BASE + '?action=' + t.action + '&type=weekly';
+  fetch(url)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.error) throw new Error(data.error);
+      renderHeatmap(team, data);
+    })
+    .catch(function(err) {
+      document.getElementById(t.prefix + 'HeatmapArea').innerHTML = '<div class="error">週間データ取得エラー</div>';
+    });
+}
+
+function fetchWorkDetail(team, dateStr) {
+  var t = teams[team];
+  var p = t.prefix;
+  var area = document.getElementById(p + 'WorkDetailArea');
+  area.innerHTML = '<div class="loading"><div class="spinner"></div>業務時間を取得中...</div>';
+
+  var url = API_BASE + '?action=' + t.action + '&type=workdetail&date=' + dateStr;
+  fetch(url)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.error) throw new Error(data.error);
+      renderWorkDetail(team, data.work || {});
+      if (dateStr === t.todayStr) fetchMonthlyData(team);
+    })
+    .catch(function(err) {
+      area.innerHTML = '<div class="error">業務時間取得エラー: ' + err.message + '</div>';
+    });
+}
+
+function formatMinutes(min) {
+  var h = Math.floor(min / 60);
+  var m = min % 60;
+  if (h > 0 && m > 0) return h + '時間' + m + '分';
+  if (h > 0) return h + '時間';
+  return m + '分';
+}
+
+function renderWorkDetail(team, work) {
+  var t = teams[team];
+  var names = Object.keys(work);
+
+  for (var wi = 0; wi < names.length; wi++) {
+    t.todayWorkCache[names[wi]] = work[names[wi]].totalMinutes || 0;
+  }
+
+  if (names.length === 0) {
+    document.getElementById(t.prefix + 'WorkDetailArea').innerHTML = '<div class="work-no-data">データなし</div>';
+    return;
+  }
+
+  names.sort(function(a, b) { return work[b].totalMinutes - work[a].totalMinutes; });
+
+  var maxMinutes = 0;
+  for (var n = 0; n < names.length; n++) {
+    if (work[names[n]].totalMinutes > maxMinutes) maxMinutes = work[names[n]].totalMinutes;
+  }
+
+  var html = '';
+  for (var i = 0; i < names.length; i++) {
+    var name = names[i];
+    var data = work[name];
+    if (data.entries.length === 0) continue;
+
+    var barWidth = maxMinutes > 0 ? Math.round(data.totalMinutes / maxMinutes * 100) : 0;
+    var avatarUrl = data.avatar || '';
+    var avatarTag = avatarUrl
+      ? '<img class="work-person-avatar" src="' + avatarUrl + '" alt="' + name + '">'
+      : '';
+
+    html += '<div class="work-person ' + t.barClass + '">';
+    html += '<div class="work-person-header">';
+    html += avatarTag;
+    html += '<div class="work-person-name">' + name + '</div>';
+    html += '<div class="work-person-total">合計 ' + formatMinutes(data.totalMinutes) + '</div>';
+    html += '</div>';
+
+    for (var j = 0; j < data.entries.length; j++) {
+      var e = data.entries[j];
+      html += '<div class="work-entry">';
+      html += '<div class="work-time">' + e.start + ' ~ ' + e.end + '</div>';
+      html += '<div class="work-task-name">' + e.task + '</div>';
+      html += '<div class="work-duration">' + formatMinutes(e.minutes) + '</div>';
+      html += '</div>';
+    }
+
+    html += '<div class="work-bar-bg"><div class="work-bar-fill" style="width:' + barWidth + '%"></div></div>';
+    html += '</div>';
+  }
+
+  if (!html) html = '<div class="work-no-data">本日の業務時間データはまだありません</div>';
+  document.getElementById(t.prefix + 'WorkDetailArea').innerHTML = html;
+}
+
+// === 月間合計取得 ===
+function fetchMonthlyData(team) {
+  var t = teams[team];
+  var url = API_BASE + '?action=' + t.action + '&type=monthly';
+  fetch(url)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.error) throw new Error(data.error);
+      renderMonthly(team, data);
+    })
+    .catch(function(err) {
+      document.getElementById(t.prefix + 'MonthlyArea').innerHTML = '<div class="error">月間データ取得エラー</div>';
+    });
+}
+
+function renderMonthly(team, data) {
+  var t = teams[team];
+  var members = data.members || {};
+  var names = Object.keys(members);
+  names.sort(function(a, b) { return (members[b].totalMinutes || 0) - (members[a].totalMinutes || 0); });
+
+  var html = '<div class="monthly-grid">';
+  for (var i = 0; i < names.length; i++) {
+    var m = members[names[i]];
+    var total = m.totalMinutes || 0;
+    var dayCount = Object.keys(m.days || {}).length;
+    var todayMin = t.todayWorkCache[names[i]] || 0;
+    var mAvatar = m.avatar || '';
+
+    html += '<div class="monthly-card">';
+    if (mAvatar) html += '<img class="mc-avatar" src="' + mAvatar + '" alt="' + names[i] + '">';
+    html += '<div class="mc-name">' + names[i] + '</div>';
+
+    var todayCls = todayMin > 0 ? 'mc-today' : 'mc-zero';
+    html += '<div class="mc-row"><div class="mc-row-label">今日</div><div class="mc-row-value ' + todayCls + '">' + formatMinutes(todayMin) + '</div></div>';
+    html += '<div class="mc-row mc-total-row"><div class="mc-row-label">月間合計</div><div class="mc-total-value">' + formatMinutes(total) + '</div></div>';
+    html += '<div class="mc-sub">' + dayCount + '日稼働</div>';
+    html += '</div>';
+  }
+  html += '</div>';
+  document.getElementById(t.prefix + 'MonthlyArea').innerHTML = html;
+}
+
+// === 業務別月間集計 ===
+function fetchMonthlyTasks(team) {
+  var t = teams[team];
+  var url = API_BASE + '?action=' + t.action + '&type=monthlytasks';
+  fetch(url)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.error) throw new Error(data.error);
+      renderMonthlyTasks(team, data.tasks || {});
+    })
+    .catch(function(err) {
+      document.getElementById(t.prefix + 'MonthlyTaskArea').innerHTML = '<div class="error">業務別データ取得エラー</div>';
+    });
+}
+
+function renderMonthlyTasks(team, tasks) {
+  var t = teams[team];
+  var names = Object.keys(tasks);
+  if (names.length === 0) {
+    document.getElementById(t.prefix + 'MonthlyTaskArea').innerHTML = '<div class="work-no-data">データなし</div>';
+    return;
+  }
+
+  var html = '';
+  for (var i = 0; i < names.length; i++) {
+    var name = names[i];
+    var personData = tasks[name];
+    var taskMap = personData.tasks || personData;
+    var tAvatar = personData.avatar || '';
+    var taskList = [];
+    for (var tk in taskMap) {
+      if (tk === 'avatar') continue;
+      taskList.push({ task: tk, minutes: taskMap[tk] });
+    }
+    if (taskList.length === 0) continue;
+    taskList.sort(function(a, b) { return b.minutes - a.minutes; });
+
+    html += '<div class="task-summary-person">';
+    html += '<div class="task-summary-header">';
+    if (tAvatar) html += '<img class="task-summary-avatar" src="' + tAvatar + '" alt="' + name + '">';
+    html += '<div class="task-summary-name">' + name + '</div>';
+    html += '</div>';
+    for (var j = 0; j < taskList.length; j++) {
+      html += '<div class="task-summary-row"><div class="task-summary-task">' + taskList[j].task + '</div><div class="task-summary-time">' + formatMinutes(taskList[j].minutes) + '</div></div>';
+    }
+    html += '</div>';
+  }
+
+  document.getElementById(t.prefix + 'MonthlyTaskArea').innerHTML = html;
+}
+
+// === メンバーカード描画 ===
+function renderMembers(team, members) {
+  var t = teams[team];
+  var p = t.prefix;
+  var active = 0, inactive = 0, offCount = 0;
+  var html = '<div class="member-grid">';
+
+  for (var ci = 0; ci < members.length; ci++) {
+    if (members[ci].avatar) t.avatarCache[members[ci].name] = members[ci].avatar;
+  }
+
+  for (var i = 0; i < members.length; i++) {
+    var m = members[i];
+    var isOff = m.offDuty || false;
+    var cls, badge, detail;
+
+    if (isOff) {
+      cls = 'off-duty';
+      badge = '<span class="badge badge-off">休み</span>';
+      detail = '本日休み';
+      offCount++;
+    } else if (m.active) {
+      cls = 'active';
+      badge = '<span class="badge badge-active">稼働中</span>';
+      detail = '開始 ' + m.firstPostTime + ' / 最終 ' + m.lastPostTime;
+      active++;
+    } else {
+      cls = 'inactive';
+      badge = '<span class="badge badge-inactive">未報告</span>';
+      detail = '投稿なし';
+      inactive++;
+    }
+
+    if (m.isLeader) cls += ' is-leader';
+    if (m.isSubLeader) cls += ' is-sub-leader';
+
+    var avatarSrc = m.avatar || '';
+    var avatarHtml = avatarSrc
+      ? '<img class="avatar-img" src="' + avatarSrc + '" alt="' + m.name + '">'
+      : '<img class="avatar-img" src="data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'48\' height=\'48\'%3E%3Crect fill=\'%23475569\' width=\'48\' height=\'48\' rx=\'24\'/%3E%3Ctext x=\'50%25\' y=\'54%25\' text-anchor=\'middle\' dominant-baseline=\'middle\' fill=\'%23E2E8F0\' font-size=\'18\'%3E' + m.name.charAt(0) + '%3C/text%3E%3C/svg%3E" alt="' + m.name + '">';
+
+    html += '<div class="member-card ' + cls + '">'
+      + '<div class="avatar-wrap">' + avatarHtml + '<div class="status-dot"></div></div>'
+      + '<div class="member-info">'
+      +   '<div class="member-name">' + m.name
+      +     (m.isLeader ? '<span class="leader-badge">Leader</span>' : '')
+      +     (m.isSubLeader ? '<span class="sub-leader-badge">Sub Leader</span>' : '')
+      +   '</div>'
+      +   '<div class="member-detail">' + detail + '</div>'
+      + '</div>'
+      + badge
+      + '</div>';
+  }
+  html += '</div>';
+
+  document.getElementById(p + 'MemberArea').innerHTML = html;
+  document.getElementById(p + 'SummaryRow').style.display = 'grid';
+  document.getElementById(p + 'ActiveCount').textContent = active;
+  document.getElementById(p + 'InactiveCount').textContent = inactive;
+  document.getElementById(p + 'OffCount').textContent = offCount;
+  document.getElementById(p + 'TotalCount').textContent = members.length;
+}
+
+// === 週間ヒートマップ描画 ===
+function renderHeatmap(team, data) {
+  var t = teams[team];
+  var dates = Object.keys(data).sort();
+  if (dates.length === 0) {
+    document.getElementById(t.prefix + 'HeatmapArea').innerHTML = '<div class="error">データなし</div>';
+    return;
+  }
+
+  var names = [];
+  for (var d = 0; d < dates.length; d++) {
+    var members = data[dates[d]].members || [];
+    for (var m = 0; m < members.length; m++) {
+      if (names.indexOf(members[m].name) < 0) names.push(members[m].name);
+    }
+  }
+
+  var html = '<table class="heatmap-table"><thead><tr><th></th>';
+  for (var di = 0; di < dates.length; di++) {
+    var isTodayCol = dates[di] === t.todayStr ? ' cell-today' : '';
+    html += '<th class="' + isTodayCol + '">' + data[dates[di]].label + '</th>';
+  }
+  html += '</tr></thead><tbody>';
+
+  for (var ni = 0; ni < names.length; ni++) {
+    var hAvatar = t.avatarCache[names[ni]] || '';
+    var hAvatarTag = hAvatar ? '<img src="' + hAvatar + '" style="width:24px;height:24px;border-radius:50%;vertical-align:middle;margin-right:6px;">' : '';
+    html += '<tr><td class="name-cell">' + hAvatarTag + names[ni] + '</td>';
+    for (var dj = 0; dj < dates.length; dj++) {
+      var isTodayCell = dates[dj] === t.todayStr ? ' cell-today' : '';
+      var mems = data[dates[dj]].members || [];
+      var found = false;
+      for (var mk = 0; mk < mems.length; mk++) {
+        if (mems[mk].name === names[ni]) {
+          found = mems[mk].active;
+          break;
+        }
+      }
+      var cellCls = found ? 'cell-active' : 'cell-inactive';
+      var cellIcon = found ? '●' : '○';
+      html += '<td class="' + cellCls + isTodayCell + '">' + cellIcon + '</td>';
+    }
+    html += '</tr>';
+  }
+
+  html += '</tbody></table>';
+  document.getElementById(t.prefix + 'HeatmapArea').innerHTML = html;
+}
+
+// === 添削回数取得・描画 ===
+function fetchCorrectionStats() {
+  var area = document.getElementById('iCorrectionArea');
+  area.innerHTML = '<div class="loading"><div class="spinner"></div>添削データを取得中...</div>';
+
+  var url = API_BASE + '?action=instructor&type=corrections';
+  fetch(url)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.error) throw new Error(data.error);
+      renderCorrectionStats(data);
+    })
+    .catch(function(err) {
+      area.innerHTML = '<div class="error">添削データ取得エラー: ' + err.message + '</div>';
+    });
+}
+
+function renderCorrectionStats(data) {
+  var counts = data.counts || {};
+  var total = data.total || 0;
+  var t = teams.instructor;
+
+  var members = [];
+  for (var name in counts) {
+    members.push({ name: name, count: counts[name] });
+  }
+  members.sort(function(a, b) { return b.count - a.count; });
+
+  var html = '';
+  var updatedAt = data.updatedAt || '';
+
+  // サマリー
+  html += '<div class="correction-summary">';
+  html += '<div class="correction-stat"><div class="cs-value cs-blue">' + total + '</div><div class="cs-label">添削合計</div></div>';
+  html += '</div>';
+  if (updatedAt) html += '<div style="text-align:center;font-size:11px;color:#8B7355;margin-bottom:12px;">集計時刻: ' + updatedAt + '</div>';
+
+  // 個人カード
+  html += '<div class="correction-grid">';
+  for (var i = 0; i < members.length; i++) {
+    var m = members[i];
+    var avatar = t.avatarCache[m.name] || '';
+    var avatarTag = avatar
+      ? '<img class="cc-avatar" src="' + avatar + '" alt="' + m.name + '">'
+      : '';
+    var countCls = m.count > 0 ? '' : 'cc-zero';
+
+    html += '<div class="correction-card">';
+    html += avatarTag;
+    html += '<div class="cc-name">' + m.name + '</div>';
+    html += '<div class="cc-count ' + countCls + '">' + m.count + '</div>';
+    html += '<div class="cc-label">件</div>';
+    html += '</div>';
+  }
+  html += '</div>';
+
+  document.getElementById('iCorrectionArea').innerHTML = html;
+}
+
+// === ガーディアン業務内容描画 ===
+function renderGuardianTasks() {
+  var t = teams.guardian;
+  var html = '';
+  var names = Object.keys(GUARDIAN_TASKS);
+  for (var i = 0; i < names.length; i++) {
+    var items = GUARDIAN_TASKS[names[i]].split(' / ');
+    var listHtml = '<ul class="task-ul">';
+    for (var j = 0; j < items.length; j++) {
+      listHtml += '<li>' + items[j] + '</li>';
+    }
+    listHtml += '</ul>';
+    var tcAvatar = t.avatarCache[names[i]] || '';
+    var tcAvatarTag = tcAvatar ? '<img class="task-card-avatar" src="' + tcAvatar + '" alt="' + names[i] + '">' : '';
+    html += '<div class="task-card">'
+      + '<div class="task-card-header">' + tcAvatarTag + '<div class="task-name">' + names[i] + '</div></div>'
+      + listHtml
+      + '</div>';
+  }
+  document.getElementById('gTasksArea').innerHTML = html;
+}
+</script>
+</body>
+</html>
