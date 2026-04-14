@@ -70,11 +70,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif;bac
 .cal-day:active{transform:scale(.92)}
 .cal-day.empty{pointer-events:none}
 .cal-day.future{background:transparent;color:#334155;pointer-events:none;cursor:default;border-color:transparent}
-/* ヒートマップ: 未投稿=暗い、1本=薄青、2本=青、3本=緑 */
+/* ヒートマップ: 未投稿=暗い、1本=薄青、2本=青、3本=緑、4本=紫、5本=オレンジ、6本=ゴールド */
 .cal-day.miss{background:#1E293B;color:#475569}
 .cal-day.done1{background:#1E3A5F;color:#60A5FA;border-color:#3B82F644}
 .cal-day.done2{background:#1E4D8C;color:#93C5FD;border-color:#3B82F6AA}
 .cal-day.done3{background:#16532D;color:#4ADE80;border-color:#22C55EAA}
+.cal-day.done4{background:#4C1D95;color:#A78BFA;border-color:#8B5CF6AA}
+.cal-day.done5{background:#7C2D12;color:#FB923C;border-color:#F97316AA}
+.cal-day.done6{background:#78350F;color:#FCD34D;border-color:#F59E0BAA}
 .cal-day.today{box-shadow:0 0 0 2px #F59E0B}
 .cal-day .cal-val{font-size:9px;margin-top:1px;opacity:.7}
 
@@ -250,6 +253,7 @@ a{color:#475569}
 <!-- パスワード登録 -->
 <div id="registerScreen" class="screen">
   <h1>パスワード設定</h1>
+  <div class="fn" id="regName"></div>
   <p class="sub">初回のみ。次からは自動ログイン</p>
   <input id="regPw1" class="fi" type="password" placeholder="パスワード（4文字以上）" autocomplete="new-password">
   <input id="regPw2" class="fi" type="password" placeholder="もう一度入力" autocomplete="new-password">
@@ -378,6 +382,9 @@ a{color:#475569}
       <div class="modal-opt" data-v="1本" onclick="pickValue(this)">1本</div>
       <div class="modal-opt" data-v="2本" onclick="pickValue(this)">2本</div>
       <div class="modal-opt" data-v="3本" onclick="pickValue(this)">3本</div>
+      <div class="modal-opt" data-v="4本" onclick="pickValue(this)">4本</div>
+      <div class="modal-opt" data-v="5本" onclick="pickValue(this)">5本</div>
+      <div class="modal-opt" data-v="6本" onclick="pickValue(this)">6本</div>
     </div>
     <button class="modal-cancel" onclick="closeModal()">キャンセル</button>
   </div>
@@ -560,6 +567,14 @@ var MSG_ENCOURAGE=[
     'パーフェクト！言うことなし！',
     '3本出した日は特別な日！',
     'フルパワー！その調子！'
+  ]},
+  // 4本以上投稿した日
+  {cond:function(s,t,td){return td==='4本'||td==='5本'||td==='6本'},msgs:[
+    '異次元の投稿量！モンスター！',
+    'ぶっちぎりの行動量！最強！',
+    '圧倒的！誰も追いつけない！',
+    'この量こなせるのはあなただけ！',
+    '努力の鬼！結果がついてくる！'
   ]}
 ];
 
@@ -728,6 +743,7 @@ function checkId(){
       document.getElementById('loginName').textContent=d.name;
       show('loginScreen');document.getElementById('loginPw').focus();
     }else{
+      document.getElementById('regName').textContent=d.name;
       show('registerScreen');document.getElementById('regPw1').focus();
     }
   }).catch(function(){btn.disabled=false;btn.textContent='次へ';document.getElementById('idError').textContent='通信エラー'});
@@ -917,6 +933,9 @@ function renderMain(){
     if(isFuture){
       cls+=' future';
     }else if(val==='❌'){cls+=' miss'}
+    else if(val==='6本'){cls+=' done6'}
+    else if(val==='5本'){cls+=' done5'}
+    else if(val==='4本'){cls+=' done4'}
     else if(val==='3本'){cls+=' done3'}
     else if(val==='2本'){cls+=' done2'}
     else{cls+=' done1'}
@@ -1057,9 +1076,12 @@ function pickValue(el){
     var cheers=[
       ['🎉 1本！えらい！','💪 その一歩が大事！','✨ 投稿できた！すごい！'],
       ['🔥 2本！絶好調！','⚡ 勢いに乗ってる！','🌟 2本！さすが！'],
-      ['👑 3本！パーフェクト！','🏆 今日のMVP！','💎 3本！最強！']
+      ['👑 3本！パーフェクト！','🏆 今日のMVP！','💎 3本！最強！'],
+      ['🚀 4本！異次元！','💥 止まらない！','⚡ 4本！怒涛の投稿量！'],
+      ['🔥 5本！圧倒的！','🌋 もはや別格！','👑 5本！伝説級！'],
+      ['💎 6本！最強！','🏆 ぶっちぎり！','🔱 6本！モンスター！']
     ];
-    var idx=val==='1本'?0:val==='2本'?1:2;
+    var idx={'1本':0,'2本':1,'3本':2,'4本':3,'5本':4,'6本':5}[val]||0;
     var msgs=cheers[idx];
     toast(msgs[Math.floor(Math.random()*msgs.length)]);
   }else{
@@ -1114,6 +1136,7 @@ function doReset(){
     if(d.error){document.getElementById('resetError').textContent=d.error;return}
     // リセット成功 → 登録画面へ
     toast('パスワードをリセットしました');
+    document.getElementById('regName').textContent=userName||userId;
     show('registerScreen');
     document.getElementById('regPw1').focus();
   }).catch(function(){btn.disabled=false;btn.textContent='リセットする';document.getElementById('resetError').textContent='通信エラー'});
@@ -1121,6 +1144,7 @@ function doReset(){
 
 // ---- 強制新規登録（認証データ削除して再登録） ----
 function forceRegister(){
+  document.getElementById('regName').textContent=userName||userId;
   document.getElementById('regPw1').value='';
   document.getElementById('regPw2').value='';
   document.getElementById('regError').textContent='';
