@@ -720,6 +720,29 @@ function doGet(e) {
       }
       else if (fn === 'testSort') fnResult = testSortOnCopy();
       else if (fn === 'applySort') fnResult = applySortFromTest();
+      else if (fn === 'setupGuardianTasksSheet') fnResult = (function() {
+        var ss = SpreadsheetApp.openById('1k_x3aNRTbojmhJZGMS6JGNiTNJLQR4sD5zyJCBh1YqY');
+        var sheet = ss.getSheetByName('ガーディアン担当業務');
+        if (sheet) return { status: 'already exists' };
+        sheet = ss.insertSheet('ガーディアン担当業務');
+        var rows = [
+          ['名前', '業務内容'],
+          ['星野', 'SDzoom受講生お知らせ・登録 / 炭治郎部屋進捗管理 / 1:1チャット作成・案内 / ID付与・リンク発行 / 数値報告 / 万バズ依頼対応 / アマギフ送付・郵送確認'],
+          ['ふうか', '平日日中プッシュ割り振り / 流入経路数値記入 / 優先順位スプレ修正・改善'],
+          ['まりん', '添削確認 / 成長シェア確認報告'],
+          ['スズカ', '数値報告 / プッシュ報告入力 / 契約書アドレス確認 / 流入経路確認 / 台本・万バズリサーチ'],
+          ['ゆいな', '添削時間確認報告 / 平日夜土日祝プッシュ割り振り（シフト）'],
+          ['ココ', '台本・万バズリサーチ / シルバー・ゴールド外注部屋管理 / ID付与・リンク発行 / シルバー初投稿お祝いチャット'],
+          ['あき', '承諾書・契約書郵送 / 代理店契約書業務 / 土日祝: 数値報告・プッシュ入力'],
+          ['レイ', '信販・決済会社対応 / CO・中途解約対応 / ログイン認証 / 入金確認 / 報酬計算 / 契約書作成・修正 / 入電対応'],
+          ['あやの', 'シルバー初投稿お祝いチャット（引継ぎ中）/ 万バズリサーチ（ふうか連携中）']
+        ];
+        sheet.getRange(1, 1, rows.length, 2).setValues(rows);
+        sheet.setColumnWidth(1, 120);
+        sheet.setColumnWidth(2, 600);
+        sheet.getRange(1, 1, 1, 2).setFontWeight('bold').setBackground('#F5EDE4');
+        return { status: 'created', rows: rows.length - 1 };
+      })();
       else if (fn === 'testGuardianNotify') fnResult = (function() {
         // PropertiesServiceのトークンとハードコードトークン両方試す
         var token = getChatworkToken_();

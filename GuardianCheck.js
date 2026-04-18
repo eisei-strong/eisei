@@ -11,7 +11,8 @@ var GUARDIAN_EXCLUDE = [
   'ハヤ',
   '嬴政', 'AI政',
   'ハウル',
-  'レイ'
+  'レイ',
+  'SMC運営'
 ];
 
 var GUARDIAN_LEADER = '星野';
