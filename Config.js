@@ -4,6 +4,8 @@
 
 // --- Chatwork APIトークン取得 ---
 function getChatworkToken_() {
+  // CW_API_TOKEN（ChatworkPoints.js）を優先使用
+  if (typeof CW_API_TOKEN !== 'undefined' && CW_API_TOKEN) return CW_API_TOKEN;
   return PropertiesService.getScriptProperties().getProperty('CHATWORK_API_TOKEN') || '';
 }
 

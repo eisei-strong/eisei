@@ -868,7 +868,42 @@ function doGet(e) {
       }
       else if (fn === 'testSort') fnResult = testSortOnCopy();
       else if (fn === 'applySort') fnResult = applySortFromTest();
-      else if (fn === 'testGuardianNotify') fnResult = (function() { testGuardianMemberList(); return { status: 'sent' }; })();
+      else if (fn === 'testGuardianNotify') fnResult = (function() {
+        // PropertiesServiceのトークンとハードコードトークン両方試す
+        var token = getChatworkToken_();
+        var fallbackToken = CW_API_TOKEN;
+        var hasToken = !!token;
+        var tokenLen = token ? token.length : 0;
+        var memberNames = getGuardianMemberNames_();
+        var sendResult = null;
+        if (hasToken && memberNames.length > 0) {
+          var body = '[info][title]🔧 ガーディアン動的メンバー確認テスト[/title]'
+            + '現在の対象メンバー（' + memberNames.length + '名）:\n\n';
+          for (var ti = 0; ti < memberNames.length; ti++) {
+            body += '✅ ' + memberNames[ti] + '\n';
+          }
+          body += '\n除外リスト: ' + GUARDIAN_EXCLUDE.join(', ') + '\n';
+          body += '\nこのメッセージはテストです。[/info]';
+          var url = 'https://api.chatwork.com/v2/rooms/' + GUARDIAN_ROOM_ID + '/messages';
+          var res = UrlFetchApp.fetch(url, {
+            method: 'post',
+            headers: { 'X-ChatWorkToken': token },
+            payload: { body: body },
+            muteHttpExceptions: true
+          });
+          sendResult = { code: res.getResponseCode(), body: res.getContentText().substring(0, 200) };
+        }
+        // 両方のトークンでルームメンバーAPI確認
+        var roomUrl = 'https://api.chatwork.com/v2/rooms/' + GUARDIAN_ROOM_ID + '/members';
+        var roomRes1 = UrlFetchApp.fetch(roomUrl, { method: 'get', headers: { 'X-ChatWorkToken': token }, muteHttpExceptions: true });
+        var roomRes2 = UrlFetchApp.fetch(roomUrl, { method: 'get', headers: { 'X-ChatWorkToken': fallbackToken }, muteHttpExceptions: true });
+        return {
+          hasToken: hasToken, tokenLen: tokenLen,
+          propsToken: { code: roomRes1.getResponseCode(), body: roomRes1.getContentText().substring(0, 200) },
+          hardcodeToken: { code: roomRes2.getResponseCode(), body: roomRes2.getContentText().substring(0, 200) },
+          memberCount: memberNames.length, members: memberNames, sendResult: sendResult
+        };
+      })();
       else if (fn === 'pauseFormSync') fnResult = pauseFormSync();
       else if (fn === 'resumeFormSync') fnResult = resumeFormSync();
       else if (fn === 'formSyncStatus') fnResult = getFormSyncStatus();
