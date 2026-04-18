@@ -812,6 +812,22 @@ function sendGuardianNotification_(body) {
 }
 
 // ============================================
+// テスト通知（動的メンバー取得の確認用、1回だけ実行してOK）
+// ============================================
+function testGuardianMemberList() {
+  var memberNames = getGuardianMemberNames_();
+  var body = '[info][title]🔧 ガーディアン動的メンバー確認テスト[/title]'
+    + '現在の対象メンバー（' + memberNames.length + '名）:\n\n';
+  for (var i = 0; i < memberNames.length; i++) {
+    body += '✅ ' + memberNames[i] + '\n';
+  }
+  body += '\n除外リスト: ' + GUARDIAN_EXCLUDE.join(', ') + '\n';
+  body += '\nこのメッセージはテストです。[/info]';
+  sendGuardianNotification_(body);
+  Logger.log('テスト通知送信完了: ' + memberNames.length + '名');
+}
+
+// ============================================
 // トリガー設定（1回だけ実行）
 // ============================================
 function setupGuardianTriggers() {
