@@ -110,9 +110,16 @@
 
 ### GASコード（コード.js等）
 1. ローカルで編集
-2. cd /Users/kodai/営業ダッシュボード && clasp push
+2. cd /Users/kodai/eisei && clasp push
 3. ※ `clasp push` のみでトリガーは即反映（デプロイ不要）
-4. **`clasp deploy` は禁止** — バージョン上限(487版到達済み)のため。Webアプリ exec URL への依存は廃止済み
+4. Webアプリ（exec URL）の更新が必要な場合のみ `clasp deploy -i <デプロイID>` を実行
+
+### ⚠️ clasp deploy 時の権限エラー防止
+- GASのWebアプリは `executeAs: USER_DEPLOYING` で動いている
+- `clasp deploy` すると**デプロイユーザーがclaspログインアカウント（namaka.hoshi@gmail.com）に変わる**
+- このアカウントにスプシの**編集権限**がないと書き込み（setValue等）で「リクエストされたドキュメントにアクセスする権限がありません」エラーが発生する
+- **対策**: namaka.hoshi@gmail.com を全スプシに編集者として追加しておく
+- **代替**: GASエディタ（https://script.google.com/）からスプシオーナーのアカウントで「デプロイを管理」→新しいバージョンでデプロイ
 
 ### GAS関数の手動実行をユーザーに案内する場合
 1. Apps Scriptエディタ（https://script.google.com/）を開く
@@ -255,5 +262,7 @@ ssh xserver "ls /home/kodaidai/giver.work/public_html/sales-dashboard/"  # Xserv
 ### 注意事項
 - `clasp deploy` で新バージョンを作ると**Webアプリの再認可が必要**になる場合がある
 - 再認可が必要な場合: GASエディタ（https://script.google.com/home/projects/1bu0jv_4kJ-ht9xByW43EWH2Acw01GIu8JP5B1t-2XTl0qQAsfX6cCbtg/edit）からデプロイを管理→該当デプロイを編集→新しいバージョン→デプロイ→認可承認
+- **重要**: `clasp deploy` するとデプロイユーザーが `namaka.hoshi@gmail.com` に変わる → このアカウントに全スプシの編集権限がないと書き込みエラーになる（過去に2回発生済み）
+- GASのバージョン上限は200。超えた場合はGASエディタの「プロジェクトの設定」から古いバージョンを削除してから deploy する
 - `appsscript.json` のOAuthスコープを変更すると再認可が**必ず**必要。v582互換のスコープ（documents/calendar.readonly なし）を維持すること
 - SSH鍵（xserver_key）は**絶対にGitHubにプッシュしない**（.gitignoreに含まれていないので注意）

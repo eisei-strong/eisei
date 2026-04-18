@@ -584,6 +584,16 @@ document.addEventListener('DOMContentLoaded',function(){playOpening(function(){i
 var API='https://script.google.com/macros/s/AKfycby6qaaiUoadCBnxHlUNKd-RkHxarE0WBGiitkdV0IbzL6ninM-df0FFx4SYRYVfdwcxqg/exec';
 var token='',userId='',userName='',userContract='',monthDays=[],selectedCol=-1,userGoal=0;
 function escHtml(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML}
+// 日付ラベル正規化: "4/1"形式でもDate.toString()形式でもM/Dに変換
+function normLabel(label,col){
+  if(!label)return '4/'+(col+1);
+  var s=String(label);
+  if(s.indexOf('/')>=0&&s.length<8)return s; // "4/1"等の短いM/D形式はそのまま
+  // Date.toString()形式 or Date型 → パース
+  var d=new Date(s);
+  if(!isNaN(d.getTime()))return(d.getMonth()+1)+'/'+d.getDate();
+  return '4/'+(col+1); // フォールバック: colから計算
+}
 var loginData=null;
 var currentTab='post';
 var prevCharaIdx=-1; // レベルアップ検出用
@@ -618,7 +628,20 @@ var CHARA=[
   {min:270,emoji:'🔱',name:'創造神',color:'#9370DB',tier:'不滅'},
   {min:300,emoji:'🌟',name:'宇宙王',color:'#FFD700',tier:'永遠'},
   {min:330,emoji:'✨',name:'時の支配者',color:'#FFFACD',tier:'永遠'},
-  {min:365,emoji:'🏆',name:'不滅の王',color:'#FFD700',tier:'永遠'}
+  {min:365,emoji:'🏆',name:'不滅の王',color:'#FFD700',tier:'永遠'},
+  {min:400,emoji:'🪐',name:'星喰い',color:'#7B68EE',tier:'次元'},
+  {min:450,emoji:'🌀',name:'虚空の主',color:'#6A5ACD',tier:'次元'},
+  {min:500,emoji:'🕳️',name:'次元王',color:'#483D8B',tier:'次元'},
+  {min:550,emoji:'💀',name:'冥界神',color:'#8B0000',tier:'深淵'},
+  {min:600,emoji:'👁️',name:'全知の眼',color:'#FF1493',tier:'深淵'},
+  {min:650,emoji:'🩸',name:'混沌の王',color:'#DC143C',tier:'深淵'},
+  {min:700,emoji:'⚔️',name:'万軍の神',color:'#B8860B',tier:'究極'},
+  {min:750,emoji:'🐲',name:'天龍',color:'#00CED1',tier:'究極'},
+  {min:800,emoji:'☄️',name:'終焉の星',color:'#FF4500',tier:'究極'},
+  {min:850,emoji:'🔮',name:'運命の織り手',color:'#DA70D6',tier:'真理'},
+  {min:900,emoji:'🧬',name:'万物の父',color:'#00FA9A',tier:'真理'},
+  {min:950,emoji:'♾️',name:'無限',color:'#E0E0FF',tier:'真理'},
+  {min:1000,emoji:'👼',name:'全能神',color:'#FFD700',tier:'全能'}
 ];
 
 // マイルストーン定義
@@ -1174,7 +1197,7 @@ function renderMain(){
   // 今日の値を取得
   var todayVal='❌';
   for(var t=0;t<monthDays.length;t++){
-    if(monthDays[t].label===todayLabel){todayVal=monthDays[t].value||'❌';break}
+    if(normLabel(monthDays[t].label,monthDays[t].col)===todayLabel){todayVal=monthDays[t].value||'❌';break}
   }
   var todayDone=todayVal&&todayVal!=='❌';
 
@@ -1189,7 +1212,8 @@ function renderMain(){
   streak=0;
   for(var j=monthDays.length-1;j>=0;j--){
     var v2=monthDays[j].value;
-    var parts=monthDays[j].label.split('/');
+    var nl=normLabel(monthDays[j].label,monthDays[j].col);
+    var parts=nl.split('/');
     var dayDate=new Date(today.getFullYear(),parseInt(parts[0])-1,parseInt(parts[1]));
     if(dayDate>today)continue;
     if(v2&&v2!=='❌')streak++;
@@ -1268,7 +1292,7 @@ function renderMain(){
 
   document.getElementById('charaName').textContent=ch.name;
   document.getElementById('charaName').style.color=ch.color;
-  document.getElementById('charaLevel').textContent='Lv.'+streak;
+  document.getElementById('charaLevel').textContent='Lv.'+totalPosts;
   var badge=document.getElementById('streakBadge');
   badge.textContent='🔥 '+streak+'日連続';
   badge.className=streak>0?'streak-badge':'streak-badge none';
@@ -1320,7 +1344,8 @@ function renderMain(){
     var dayNum=d+1;
     var val=day.value||'❌';
     // 未来日判定
-    var dp=day.label.split('/');
+    var dnl=normLabel(day.label,day.col);
+    var dp=dnl.split('/');
     var dayDate=new Date(today.getFullYear(),parseInt(dp[0])-1,parseInt(dp[1]));
     var isFuture=dayDate.toDateString()!==today.toDateString()&&dayDate>today;
     var cls='cal-day';
@@ -1333,7 +1358,7 @@ function renderMain(){
     else if(val==='3本'){cls+=' done3'}
     else if(val==='2本'){cls+=' done2'}
     else{cls+=' done1'}
-    if(day.label===todayLabel)cls+=' today';
+    if(dnl===todayLabel)cls+=' today';
 
     html+='<div class="'+cls+'"'+(isFuture?'':' onclick="openModal('+d+')"')+' data-col="'+d+'">'+
       '<span>'+dayNum+'</span>'+
@@ -1368,13 +1393,13 @@ function renderEvoTable(){
     }
     var row=document.createElement('div');
     row.className='evo-row';
-    var achieved=streak>=ch.min;
+    var achieved=totalForEvo>=ch.min;
     var isCurrent=i===currentIdx;
     if(isCurrent)row.classList.add('current');
     if(!achieved)row.classList.add('locked');
     row.innerHTML='<div class="evo-emoji">'+ch.emoji+'</div>'
       +'<div class="evo-info"><div class="evo-name" style="color:'+ch.color+'">'+ch.name+'</div>'
-      +'<div class="evo-cond">'+(ch.min===0?'初期状態':ch.min+'日連続ログインで進化')+'</div></div>'
+      +'<div class="evo-cond">'+(ch.min===0?'初期状態':ch.min+'本投稿で進化')+'</div></div>'
       +'<div class="evo-check">'+(achieved?'✅':isCurrent?'':'🔒')+'</div>';
     container.appendChild(row);
   }
@@ -1503,7 +1528,7 @@ function openModal(col){
   if(col>=now.getDate()) return;
   selectedCol=col;
   var day=monthDays[col];
-  document.getElementById('modalDate').textContent=day.label;
+  document.getElementById('modalDate').textContent=normLabel(day.label,day.col);
   var opts=document.querySelectorAll('.modal-opt');
   for(var i=0;i<opts.length;i++){
     opts[i].classList.remove('sel');
@@ -1547,7 +1572,8 @@ function pickValue(el){
     var streak=0;
     for(var j=monthDays.length-1;j>=0;j--){
       var v2=monthDays[j].value;
-      var parts=monthDays[j].label.split('/');
+      var nl2=normLabel(monthDays[j].label,monthDays[j].col);
+      var parts=nl2.split('/');
       var now2=new Date();
       var dayDate=new Date(now2.getFullYear(),parseInt(parts[0])-1,parseInt(parts[1]));
       if(dayDate>now2)continue;

@@ -253,7 +253,7 @@ function getMonthData_(sheet, row) {
   for (var i = 0; i < headers.length; i++) {
     days.push({
       col: i,
-      label: String(headers[i]),
+      label: (headers[i] instanceof Date) ? (headers[i].getMonth() + 1) + '/' + headers[i].getDate() : String(headers[i]),
       value: String(values[i] || '❌')
     });
   }
