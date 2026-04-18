@@ -9,7 +9,9 @@ var GUARDIAN_EXCLUDE = [
   'ほし', 'ブレスル',
   '押切', '50億',
   'ハヤ',
-  '嬴政'
+  '嬴政', 'AI政',
+  'ハウル',
+  'レイ'
 ];
 
 var GUARDIAN_LEADER = '星野';
