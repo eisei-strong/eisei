@@ -512,6 +512,26 @@ function getGuardianMonthlyTaskTotal_(year, month) {
   return result;
 }
 
+// --- 担当業務一覧をスプレッドシートから取得 ---
+var GUARDIAN_TASKS_SHEET = 'ガーディアン担当業務';
+
+function getGuardianTasks_() {
+  var ss = SpreadsheetApp.openById(GUARDIAN_SS_ID);
+  var sheet = ss.getSheetByName(GUARDIAN_TASKS_SHEET);
+  if (!sheet) return {};
+
+  var data = sheet.getDataRange().getValues();
+  var result = {}; // { name: '業務1 / 業務2 / ...' }
+  for (var i = 1; i < data.length; i++) {
+    var name = String(data[i][0] || '').trim();
+    var tasks = String(data[i][1] || '').trim();
+    if (name && tasks) {
+      result[name] = tasks;
+    }
+  }
+  return result;
+}
+
 // --- トリガー設定に日次保存を追加 ---
 function setupGuardianWorkTriggers() {
   var triggers = ScriptApp.getProjectTriggers();
@@ -578,6 +598,10 @@ function getGuardianData_(params) {
     saveGuardianTodayWork();
     var taskTotals = getGuardianMonthlyTaskTotal_(year, month);
     return { year: year, month: month, tasks: taskTotals };
+  }
+
+  if (type === 'tasks') {
+    return { tasks: getGuardianTasks_() };
   }
 
   if (type === 'workdetail') {
