@@ -3,15 +3,52 @@
 // CW rid404641188 の日報投稿を監視
 // ============================================
 
-// --- ガーディアンメンバー ---
-var GUARDIAN_MEMBERS = [
-  '星野', 'ふうか', 'まりん', 'スズカ', 'ゆいな', 'ココ', 'あき', 'レイ', 'あやの'
+// --- ガーディアン除外メンバー（部分一致でルームメンバーから除外） ---
+var GUARDIAN_EXCLUDE = [
+  'ルルーシュ', '万バズ',
+  'ほし', 'ブレスル',
+  '押切', '50億',
+  'ハヤ',
+  '嬴政'
 ];
 
 var GUARDIAN_LEADER = '星野';
 var GUARDIAN_SUB_LEADER = 'レイ';
 
 var GUARDIAN_ROOM_ID = '404641188';
+
+// --- ルームメンバーから除外リスト以外を動的取得（キャッシュ付き） ---
+var _guardianMembersCache = null;
+
+function isExcludedMember_(name) {
+  for (var j = 0; j < GUARDIAN_EXCLUDE.length; j++) {
+    if (name.indexOf(GUARDIAN_EXCLUDE[j]) >= 0) return true;
+  }
+  return false;
+}
+
+function getGuardianMembersInfo_() {
+  if (_guardianMembersCache) return _guardianMembersCache;
+
+  var roomMembers = getGuardianRoomMembers_();
+  var filtered = [];
+  for (var i = 0; i < roomMembers.length; i++) {
+    if (!isExcludedMember_(roomMembers[i].name)) {
+      filtered.push(roomMembers[i]);
+    }
+  }
+  _guardianMembersCache = filtered;
+  return filtered;
+}
+
+function getGuardianMemberNames_() {
+  var info = getGuardianMembersInfo_();
+  var names = [];
+  for (var i = 0; i < info.length; i++) {
+    names.push(info[i].name);
+  }
+  return names;
+}
 
 // --- CWメッセージ取得 ---
 function getGuardianMessages_(date) {
@@ -62,33 +99,27 @@ function getGuardianRoomMembers_() {
   return JSON.parse(res.getContentText());
 }
 
+// --- ガーディアンのaccount_id→名前・アバターマッピングを構築 ---
+function buildGuardianIdMap_() {
+  var membersInfo = getGuardianMembersInfo_();
+  var idToName = {};
+  var idToAvatar = {};
+  var nameToId = {};
+  for (var i = 0; i < membersInfo.length; i++) {
+    var m = membersInfo[i];
+    var aid = String(m.account_id);
+    idToName[aid] = m.name;
+    idToAvatar[aid] = m.avatar_image_url || '';
+    nameToId[m.name] = aid;
+  }
+  return { idToName: idToName, idToAvatar: idToAvatar, nameToId: nameToId };
+}
+
 // --- 稼働チェック: 指定日に投稿した人/してない人を返す ---
 function checkGuardianActivity_(date) {
   var messages = getGuardianMessages_(date);
-  var members = getGuardianRoomMembers_();
-
-  // account_id → 名前・アバターマッピング構築
-  var idToName = {};
-  var idToAvatar = {};
-  for (var i = 0; i < members.length; i++) {
-    var m = members[i];
-    idToName[m.account_id] = m.name;
-    idToAvatar[m.account_id] = m.avatar_image_url || '';
-  }
-
-  // ガーディアンメンバーのaccount_idを特定（部分一致）
-  var guardianIds = {};
-  var guardianAvatars = {};
-  for (var gi = 0; gi < GUARDIAN_MEMBERS.length; gi++) {
-    var gName = GUARDIAN_MEMBERS[gi];
-    for (var key in idToName) {
-      if (idToName[key].indexOf(gName) >= 0) {
-        guardianIds[key] = gName;
-        guardianAvatars[gName] = idToAvatar[key];
-        break;
-      }
-    }
-  }
+  var map = buildGuardianIdMap_();
+  var memberNames = getGuardianMemberNames_();
 
   // 投稿者を集計
   var posted = {};
@@ -98,8 +129,8 @@ function checkGuardianActivity_(date) {
   for (var j = 0; j < messages.length; j++) {
     var msg = messages[j];
     var aid = String(msg.account.account_id);
-    if (guardianIds[aid]) {
-      var gn = guardianIds[aid];
+    if (map.idToName[aid]) {
+      var gn = map.idToName[aid];
       posted[gn] = true;
       messageCount[gn] = (messageCount[gn] || 0) + 1;
       var t = new Date(msg.send_time * 1000);
@@ -114,8 +145,8 @@ function checkGuardianActivity_(date) {
 
   // 結果構築
   var result = [];
-  for (var k = 0; k < GUARDIAN_MEMBERS.length; k++) {
-    var name = GUARDIAN_MEMBERS[k];
+  for (var k = 0; k < memberNames.length; k++) {
+    var name = memberNames[k];
     var isActive = !!posted[name];
     var count = messageCount[name] || 0;
     var firstTime = firstPostTime[name]
@@ -130,9 +161,9 @@ function checkGuardianActivity_(date) {
       messageCount: count,
       firstPostTime: firstTime,
       lastPostTime: lastTime,
-      avatar: guardianAvatars[name] || '',
-      isLeader: name === GUARDIAN_LEADER,
-      isSubLeader: name === GUARDIAN_SUB_LEADER
+      avatar: map.idToAvatar[map.nameToId[name]] || '',
+      isLeader: name.indexOf(GUARDIAN_LEADER) >= 0,
+      isSubLeader: name.indexOf(GUARDIAN_SUB_LEADER) >= 0
     });
   }
 
@@ -153,27 +184,17 @@ function getAllGuardianMessagesByDate_() {
   if (res.getResponseCode() === 204 || res.getResponseCode() !== 200) return {};
 
   var messages = JSON.parse(res.getContentText());
-
-  // メンバー名解決
-  var roomMembers = getGuardianRoomMembers_();
-  var idToGuardian = {};
-  for (var mi = 0; mi < roomMembers.length; mi++) {
-    for (var gi = 0; gi < GUARDIAN_MEMBERS.length; gi++) {
-      if (roomMembers[mi].name.indexOf(GUARDIAN_MEMBERS[gi]) >= 0) {
-        idToGuardian[String(roomMembers[mi].account_id)] = GUARDIAN_MEMBERS[gi];
-      }
-    }
-  }
+  var map = buildGuardianIdMap_();
 
   // 日別・名前でグループ化
   var result = {}; // { dateStr: { name: true } }
   for (var i = 0; i < messages.length; i++) {
     var msg = messages[i];
     var aid = msg.account ? String(msg.account.account_id) : '';
-    if (!idToGuardian[aid]) continue;
+    if (!map.idToName[aid]) continue;
     var dateStr = Utilities.formatDate(new Date(msg.send_time * 1000), 'Asia/Tokyo', 'yyyy-MM-dd');
     if (!result[dateStr]) result[dateStr] = {};
-    result[dateStr][idToGuardian[aid]] = true;
+    result[dateStr][map.idToName[aid]] = true;
   }
   return result;
 }
@@ -182,6 +203,7 @@ function getAllGuardianMessagesByDate_() {
 function getGuardianWeeklyData_() {
   var ss = SpreadsheetApp.openById(GUARDIAN_SS_ID);
   var sheet = ss.getSheetByName(GUARDIAN_WORK_SHEET);
+  var memberNames = getGuardianMemberNames_();
 
   var today = new Date();
   var year = Utilities.formatDate(today, 'Asia/Tokyo', 'yyyy');
@@ -229,8 +251,8 @@ function getGuardianWeeklyData_() {
     var dayLabel = Utilities.formatDate(date, 'Asia/Tokyo', 'M/d') + '(' + youbi + ')';
 
     var members = [];
-    for (var k = 0; k < GUARDIAN_MEMBERS.length; k++) {
-      var gn = GUARDIAN_MEMBERS[k];
+    for (var k = 0; k < memberNames.length; k++) {
+      var gn = memberNames[k];
       var isActive = !!(activeDays[gn] && activeDays[gn][dateStr]);
       members.push({ name: gn, active: isActive, messageCount: 0, lastPostTime: null });
     }
@@ -309,38 +331,20 @@ function parseWorkEntries_(body) {
 // --- 業務時間集計（指定日） ---
 function getGuardianWorkDetail_(date) {
   var messages = getGuardianMessages_(date);
-  var members = getGuardianRoomMembers_();
-
-  var idToName = {};
-  var idToAvatar = {};
-  for (var i = 0; i < members.length; i++) {
-    idToName[members[i].account_id] = members[i].name;
-    idToAvatar[members[i].account_id] = members[i].avatar_image_url || '';
-  }
-
-  var guardianIds = {};
-  var guardianAvatars = {};
-  for (var gi = 0; gi < GUARDIAN_MEMBERS.length; gi++) {
-    var gName = GUARDIAN_MEMBERS[gi];
-    for (var key in idToName) {
-      if (idToName[key].indexOf(gName) >= 0) {
-        guardianIds[key] = gName;
-        guardianAvatars[gName] = idToAvatar[key];
-        break;
-      }
-    }
-  }
+  var map = buildGuardianIdMap_();
+  var memberNames = getGuardianMemberNames_();
 
   var result = {};
-  for (var k = 0; k < GUARDIAN_MEMBERS.length; k++) {
-    result[GUARDIAN_MEMBERS[k]] = { entries: [], totalMinutes: 0, avatar: guardianAvatars[GUARDIAN_MEMBERS[k]] || '' };
+  for (var k = 0; k < memberNames.length; k++) {
+    var n = memberNames[k];
+    result[n] = { entries: [], totalMinutes: 0, avatar: map.idToAvatar[map.nameToId[n]] || '' };
   }
 
   for (var j = 0; j < messages.length; j++) {
     var msg = messages[j];
     var aid = msg.account ? String(msg.account.account_id) : '';
-    if (!guardianIds[aid]) continue;
-    var gn = guardianIds[aid];
+    if (!map.idToName[aid]) continue;
+    var gn = map.idToName[aid];
     var entries = parseWorkEntries_(msg.body);
     for (var e = 0; e < entries.length; e++) {
       result[gn].entries.push(entries[e]);
@@ -382,8 +386,7 @@ function saveGuardianDailyWork() {
   }
 
   var rows = [];
-  for (var k = 0; k < GUARDIAN_MEMBERS.length; k++) {
-    var name = GUARDIAN_MEMBERS[k];
+  for (var name in detail) {
     var d = detail[name];
     if (d && d.totalMinutes > 0) {
       rows.push([dateStr, name, d.totalMinutes, JSON.stringify(d.entries)]);
@@ -425,8 +428,7 @@ function saveGuardianTodayWork() {
   }
 
   var rows = [];
-  for (var k = 0; k < GUARDIAN_MEMBERS.length; k++) {
-    var name = GUARDIAN_MEMBERS[k];
+  for (var name in detail) {
     var det = detail[name];
     if (det && det.totalMinutes > 0) {
       rows.push([dateStr, name, det.totalMinutes, JSON.stringify(det.entries)]);
@@ -443,16 +445,8 @@ function getGuardianMonthlyTotal_(year, month) {
   var sheet = ss.getSheetByName(GUARDIAN_WORK_SHEET);
   if (!sheet) return {};
 
-  // アバター取得
-  var roomMembers = getGuardianRoomMembers_();
-  var avatarMap = {};
-  for (var ai = 0; ai < roomMembers.length; ai++) {
-    for (var gi = 0; gi < GUARDIAN_MEMBERS.length; gi++) {
-      if (roomMembers[ai].name.indexOf(GUARDIAN_MEMBERS[gi]) >= 0) {
-        avatarMap[GUARDIAN_MEMBERS[gi]] = roomMembers[ai].avatar_image_url || '';
-      }
-    }
-  }
+  var map = buildGuardianIdMap_();
+  var memberNames = getGuardianMemberNames_();
 
   var prefix = year + '-' + ('0' + month).slice(-2);
   var data = sheet.getDataRange().getValues();
@@ -473,12 +467,12 @@ function getGuardianMonthlyTotal_(year, month) {
   }
 
   var result = {};
-  for (var k = 0; k < GUARDIAN_MEMBERS.length; k++) {
-    var n = GUARDIAN_MEMBERS[k];
+  for (var k = 0; k < memberNames.length; k++) {
+    var n = memberNames[k];
     result[n] = {
       totalMinutes: totals[n] || 0,
       days: dailyData[n] || {},
-      avatar: avatarMap[n] || ''
+      avatar: map.idToAvatar[map.nameToId[n]] || ''
     };
   }
   return result;
@@ -490,16 +484,7 @@ function getGuardianMonthlyTaskTotal_(year, month) {
   var sheet = ss.getSheetByName(GUARDIAN_WORK_SHEET);
   if (!sheet) return {};
 
-  // アバター取得
-  var roomMembers = getGuardianRoomMembers_();
-  var avatarMap = {};
-  for (var ai = 0; ai < roomMembers.length; ai++) {
-    for (var gi = 0; gi < GUARDIAN_MEMBERS.length; gi++) {
-      if (roomMembers[ai].name.indexOf(GUARDIAN_MEMBERS[gi]) >= 0) {
-        avatarMap[GUARDIAN_MEMBERS[gi]] = roomMembers[ai].avatar_image_url || '';
-      }
-    }
-  }
+  var map = buildGuardianIdMap_();
 
   var prefix = year + '-' + ('0' + month).slice(-2);
   var data = sheet.getDataRange().getValues();
@@ -516,7 +501,7 @@ function getGuardianMonthlyTaskTotal_(year, month) {
     if (!entriesJson) continue;
     try {
       var entries = JSON.parse(entriesJson);
-      if (!result[name]) result[name] = { tasks: {}, avatar: avatarMap[name] || '' };
+      if (!result[name]) result[name] = { tasks: {}, avatar: map.idToAvatar[map.nameToId[name]] || '' };
       for (var e = 0; e < entries.length; e++) {
         var task = entries[e].task;
         result[name].tasks[task] = (result[name].tasks[task] || 0) + entries[e].minutes;
@@ -619,7 +604,7 @@ function getGuardianData_(params) {
       }
       posters.push({ id: aid, name: matchedName, body: body, time: messages[pi].send_time });
     }
-    return { roomMembers: memberNames, todayMessages: posters, guardianNames: GUARDIAN_MEMBERS };
+    return { roomMembers: memberNames, todayMessages: posters, guardianNames: getGuardianMemberNames_(), excludeList: GUARDIAN_EXCLUDE };
   }
 
   return { error: 'unknown type: ' + type };
@@ -712,12 +697,12 @@ function getOffDutyMembers_() {
     if (!cal) return [];
     var events = cal.getEvents(startOfDay, endOfDay);
     var offMembers = [];
+    var memberNames = getGuardianMemberNames_();
     for (var i = 0; i < events.length; i++) {
       var title = events[i].getTitle();
-      // イベントタイトルにメンバー名＋「休」が含まれていたら休み判定
-      for (var gi = 0; gi < GUARDIAN_MEMBERS.length; gi++) {
-        if (title.indexOf(GUARDIAN_MEMBERS[gi]) >= 0 && (title.indexOf('休') >= 0 || title.indexOf('OFF') >= 0 || title.indexOf('off') >= 0)) {
-          offMembers.push(GUARDIAN_MEMBERS[gi]);
+      for (var gi = 0; gi < memberNames.length; gi++) {
+        if (title.indexOf(memberNames[gi]) >= 0 && (title.indexOf('休') >= 0 || title.indexOf('OFF') >= 0 || title.indexOf('off') >= 0)) {
+          offMembers.push(memberNames[gi]);
         }
       }
     }
@@ -736,19 +721,8 @@ function guardianHourlyNudge() {
   if (hour < 9 || hour > 20) return;
 
   var messages = getGuardianMessages_(now);
-  var members = getGuardianRoomMembers_();
-
-  // account_id → ガーディアン名 & account_id マッピング
-  var idToGuardian = {};
-  var guardianToId = {};
-  for (var mi = 0; mi < members.length; mi++) {
-    for (var gi = 0; gi < GUARDIAN_MEMBERS.length; gi++) {
-      if (members[mi].name.indexOf(GUARDIAN_MEMBERS[gi]) >= 0) {
-        idToGuardian[String(members[mi].account_id)] = GUARDIAN_MEMBERS[gi];
-        guardianToId[GUARDIAN_MEMBERS[gi]] = members[mi].account_id;
-      }
-    }
-  }
+  var map = buildGuardianIdMap_();
+  var memberNames = getGuardianMemberNames_();
 
   // 各メンバーの最終投稿時刻を取得
   var lastPost = {};
@@ -756,8 +730,8 @@ function guardianHourlyNudge() {
   for (var j = 0; j < messages.length; j++) {
     var msg = messages[j];
     var aid = msg.account ? String(msg.account.account_id) : '';
-    if (!idToGuardian[aid]) continue;
-    var gn = idToGuardian[aid];
+    if (!map.idToName[aid]) continue;
+    var gn = map.idToName[aid];
     var t = new Date(msg.send_time * 1000);
     hasPosted[gn] = true;
     if (!lastPost[gn] || t > lastPost[gn]) {
@@ -771,8 +745,8 @@ function guardianHourlyNudge() {
   // 1時間以上経過しているメンバーを検出（投稿実績がある人のみ、休みは除外）
   var nudgeTargets = [];
   var nowMs = now.getTime();
-  for (var k = 0; k < GUARDIAN_MEMBERS.length; k++) {
-    var name = GUARDIAN_MEMBERS[k];
+  for (var k = 0; k < memberNames.length; k++) {
+    var name = memberNames[k];
     if (offDuty.indexOf(name) >= 0) continue; // 休みの人はスキップ
     if (!hasPosted[name]) continue; // 今日まだ投稿してない人はスキップ（朝・夕アラートで対応）
     var elapsed = nowMs - lastPost[name].getTime();
@@ -790,7 +764,7 @@ function guardianHourlyNudge() {
   var body = '';
   for (var n = 0; n < nudgeTargets.length; n++) {
     var tName = nudgeTargets[n];
-    var tId = guardianToId[tName];
+    var tId = map.nameToId[tName];
     var randMsg = NUDGE_MESSAGES[Math.floor(Math.random() * NUDGE_MESSAGES.length)];
     body += '[To:' + tId + '] ' + tName + '\n' + randMsg + '\n\n';
   }
