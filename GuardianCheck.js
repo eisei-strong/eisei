@@ -611,6 +611,11 @@ function getGuardianData_(params) {
     return { date: dateStr, work: detail };
   }
 
+  if (type === 'testnotify') {
+    testGuardianMemberList();
+    return { status: 'ok', message: 'テスト通知を送信しました' };
+  }
+
   if (type === 'debug') {
     var members = getGuardianRoomMembers_();
     var memberNames = [];

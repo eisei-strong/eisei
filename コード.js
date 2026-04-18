@@ -709,6 +709,7 @@ function doGet(e) {
       }
       else if (fn === 'testSort') fnResult = testSortOnCopy();
       else if (fn === 'applySort') fnResult = applySortFromTest();
+      else if (fn === 'testGuardianNotify') fnResult = (function() { testGuardianMemberList(); return { status: 'sent' }; })();
       else if (fn === 'pauseFormSync') fnResult = pauseFormSync();
       else if (fn === 'resumeFormSync') fnResult = resumeFormSync();
       else if (fn === 'formSyncStatus') fnResult = getFormSyncStatus();

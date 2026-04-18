@@ -2,6 +2,11 @@
 // Config.js — 基盤定数とヘルパー (v2)
 // ============================================
 
+// --- Chatwork APIトークン取得 ---
+function getChatworkToken_() {
+  return PropertiesService.getScriptProperties().getProperty('CHATWORK_API_TOKEN') || '';
+}
+
 // --- スプレッドシートID ---
 var SPREADSHEET_ID = '1k_x3aNRTbojmhJZGMS6JGNiTNJLQR4sD5zyJCBh1YqY';
 
