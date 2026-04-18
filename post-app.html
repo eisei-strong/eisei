@@ -242,6 +242,39 @@ a{color:#1CB0F6;font-weight:600}
 .evo-check{font-size:16px;flex-shrink:0}
 .evo-tier{font-size:13px;font-weight:800;color:#777;padding:12px 0 4px;border-bottom:2px solid #E0E0E0;margin-bottom:2px}
 
+/* ===== リスト数（ホープ数） ===== */
+.hope-screen{display:none;padding:12px 12px 80px;max-width:420px;margin:0 auto}
+.hope-screen.active{display:block}
+.hope-hero{background:linear-gradient(135deg,#E3F2FD 0%,#BBDEFB 50%,#90CAF9 100%);border-radius:20px;padding:24px 16px;text-align:center;margin-bottom:16px;border:2px solid #42A5F5;position:relative;overflow:hidden}
+.hope-hero::before{content:'';position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:radial-gradient(circle,rgba(33,150,243,.08) 0%,transparent 70%);pointer-events:none}
+.hope-hero-icon{font-size:48px;line-height:1;margin-bottom:4px}
+.hope-hero-num{font-size:52px;font-weight:900;color:#1565C0;line-height:1.1}
+.hope-hero-label{font-size:14px;color:#5C6BC0;margin-top:4px;font-weight:700}
+.hope-stats{display:flex;gap:8px;margin-bottom:12px}
+.hope-stat{flex:1;background:#fff;border-radius:16px;padding:12px 8px;text-align:center;border:2px solid #E0E0E0}
+.hope-stat-num{font-size:22px;font-weight:900}
+.hope-stat-num.yt{color:#FF0000}
+.hope-stat-num.ig{color:#C13584}
+.hope-stat-num.tt{color:#000}
+.hope-stat-label{font-size:10px;color:#AFAFAF;margin-top:2px;font-weight:700}
+.hope-chart{background:#fff;border-radius:16px;padding:16px;margin-bottom:12px;border:2px solid #E0E0E0}
+.hope-chart-title{font-size:15px;font-weight:800;margin-bottom:12px;color:#3C3C3C}
+.hope-bar-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.hope-bar-day{width:32px;font-size:12px;font-weight:700;color:#777;text-align:right;flex-shrink:0}
+.hope-bar-wrap{flex:1;display:flex;height:18px;border-radius:4px;overflow:hidden;background:#F0F0F0}
+.hope-bar-seg{height:100%;transition:width .3s}
+.hope-bar-seg.yt{background:#FF4444}
+.hope-bar-seg.ig{background:#C13584}
+.hope-bar-seg.tt{background:#333}
+.hope-bar-num{width:28px;font-size:12px;font-weight:800;color:#3C3C3C;text-align:right;flex-shrink:0}
+.hope-legend{display:flex;gap:16px;justify-content:center;margin-bottom:12px}
+.hope-legend-item{display:flex;align-items:center;gap:4px;font-size:12px;font-weight:700;color:#777}
+.hope-legend-dot{width:10px;height:10px;border-radius:3px}
+.hope-legend-dot.yt{background:#FF4444}
+.hope-legend-dot.ig{background:#C13584}
+.hope-legend-dot.tt{background:#333}
+.hope-no-data{text-align:center;padding:40px;color:#AFAFAF;font-weight:700}
+
 /* ===== オープニング演出 ===== */
 .opening-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:radial-gradient(ellipse at center,#1a1a3e 0%,#0f0f23 100%);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;opacity:1;transition:opacity .5s ease}
 .opening-overlay.fade-out{opacity:0;pointer-events:none}
@@ -450,6 +483,37 @@ a{color:#1CB0F6;font-weight:600}
       <span class="nav-tab-icon">📊</span>
       進化表
     </div>
+    <div class="nav-tab" id="tabHope" onclick="switchTab('hope')" style="display:none">
+      <span class="nav-tab-icon">📋</span>
+      リスト数
+    </div>
+  </div>
+</div>
+
+<!-- リスト数画面 -->
+<div id="hopeScreen" class="hope-screen">
+  <div class="hdr">
+    <div><div class="hdr-name"></div><div class="hdr-sub">リスト数</div></div>
+    <button class="logout" onclick="doLogout()">ログアウト</button>
+  </div>
+  <div class="hope-hero">
+    <div class="hope-hero-icon">📋</div>
+    <div class="hope-hero-num" id="hopeTotalNum">0</div>
+    <div class="hope-hero-label">今月の合計リスト数</div>
+  </div>
+  <div class="hope-stats">
+    <div class="hope-stat"><div class="hope-stat-num yt" id="hopeYtTotal">0</div><div class="hope-stat-label">YouTube</div></div>
+    <div class="hope-stat"><div class="hope-stat-num ig" id="hopeIgTotal">0</div><div class="hope-stat-label">Instagram</div></div>
+    <div class="hope-stat"><div class="hope-stat-num tt" id="hopeTtTotal">0</div><div class="hope-stat-label">TikTok</div></div>
+  </div>
+  <div class="hope-legend">
+    <div class="hope-legend-item"><div class="hope-legend-dot yt"></div>YT</div>
+    <div class="hope-legend-item"><div class="hope-legend-dot ig"></div>IG</div>
+    <div class="hope-legend-item"><div class="hope-legend-dot tt"></div>TT</div>
+  </div>
+  <div class="hope-chart" id="hopeChart">
+    <div class="hope-chart-title">日別リスト数</div>
+    <div id="hopeBars"></div>
   </div>
 </div>
 
@@ -595,6 +659,7 @@ function normLabel(label,col){
   return '4/'+(col+1); // フォールバック: colから計算
 }
 var loginData=null;
+var hopeData=null;
 var currentTab='post';
 var prevCharaIdx=-1; // レベルアップ検出用
 var streak=0; // 連続投稿日数（renderEvoTableからも参照）
@@ -735,7 +800,7 @@ function api(p){
 }
 
 function show(id){
-  var els=document.querySelectorAll('.screen,.main,.login-streak');
+  var els=document.querySelectorAll('.screen,.main,.login-streak,.hope-screen');
   // resetScreenもscreenクラスなので自動的に含まれる
   for(var i=0;i<els.length;i++) els[i].classList.remove('active');
   document.getElementById(id).classList.add('active');
@@ -872,14 +937,19 @@ function switchTab(tab){
   document.getElementById('tabPost').className=tab==='post'?'nav-tab active':'nav-tab';
   document.getElementById('tabRanking').className=tab==='ranking'?'nav-tab active':'nav-tab';
   document.getElementById('tabLogin').className=tab==='login'?'nav-tab active':'nav-tab';
+  document.getElementById('tabHope').className=tab==='hope'?'nav-tab active':'nav-tab';
   document.getElementById('mainScreen').classList.remove('active');
   document.getElementById('rankingScreen').classList.remove('active');
   document.getElementById('loginStreakScreen').classList.remove('active');
+  document.getElementById('hopeScreen').classList.remove('active');
   if(tab==='post'){
     document.getElementById('mainScreen').classList.add('active');
   }else if(tab==='ranking'){
     document.getElementById('rankingScreen').classList.add('active');
     loadRanking();
+  }else if(tab==='hope'){
+    document.getElementById('hopeScreen').classList.add('active');
+    renderHope();
   }else{
     document.getElementById('loginStreakScreen').classList.add('active');
     renderEvoTable();
@@ -1091,6 +1161,7 @@ function initApp(){
         localStorage.setItem('pa_login',JSON.stringify(loginData));
         renderLoginStreak();
       }
+      loadHope();
     }).catch(function(){if(!monthDays.length)handleSessionExpired()});
   } else if(userId){
     // IDが保存されている → パスワード画面へ直行
@@ -1178,6 +1249,7 @@ function doLoginWith(pw){
       renderLoginStreak();
       showLoginStreakCelebration(loginData.streak);
     }
+    loadHope();
   }).catch(function(){
     document.getElementById('loginBtn').disabled=false;document.getElementById('loginBtn').textContent='ログイン';
     document.getElementById('loginError').textContent='通信エラー';
@@ -1611,8 +1683,9 @@ function doLogout(){
   localStorage.removeItem('pa_t');localStorage.removeItem('pa_id');
   localStorage.removeItem('pa_name');localStorage.removeItem('pa_month');localStorage.removeItem('pa_contract');
   localStorage.removeItem('pa_login');localStorage.removeItem('pa_has_pw');localStorage.removeItem('pa_icon');localStorage.removeItem('pa_goal');
+  localStorage.removeItem('pa_hope');
   token='';userId='';userName='';monthDays=[];loginData=null;currentTab='post';userGoal=0;
-  prevCharaIdx=-1;rankingCache=null;
+  prevCharaIdx=-1;rankingCache=null;hopeData=null;
   document.getElementById('inputId').value='';
   document.getElementById('loginPw').value='';
   document.getElementById('regPw1').value='';
@@ -1621,6 +1694,9 @@ function doLogout(){
   document.getElementById('tabPost').className='nav-tab active';
   document.getElementById('tabLogin').className='nav-tab';
   document.getElementById('tabRanking').className='nav-tab';
+  document.getElementById('tabHope').className='nav-tab';
+  document.getElementById('tabHope').style.display='none';
+  document.getElementById('hopeScreen').classList.remove('active');
   show('idScreen');
 }
 function backToId(){doLogout()}
@@ -1666,6 +1742,61 @@ function forceRegister(){
 function toast(msg){
   var t=document.getElementById('toast');t.textContent=msg;
   t.classList.add('show');setTimeout(function(){t.classList.remove('show')},1800);
+}
+
+// ---- リスト数（ホープ数）読み込み ----
+function loadHope(){
+  if(!token)return;
+  var cachedHope=localStorage.getItem('pa_hope');
+  if(cachedHope){try{hopeData=JSON.parse(cachedHope);document.getElementById('tabHope').style.display=''}catch(e){}}
+  api('action=postGetHope&token='+encodeURIComponent(token)).then(function(d){
+    if(d.error||!d.allowed){hopeData=null;document.getElementById('tabHope').style.display='none';return}
+    if(d.noData){hopeData={total:0,days:[]};document.getElementById('tabHope').style.display='';return}
+    hopeData=d;
+    localStorage.setItem('pa_hope',JSON.stringify(hopeData));
+    document.getElementById('tabHope').style.display='';
+    if(currentTab==='hope')renderHope();
+  }).catch(function(){});
+}
+
+function renderHope(){
+  if(!hopeData||!hopeData.days||!hopeData.days.length){
+    document.getElementById('hopeBars').innerHTML='<div class="hope-no-data">データがありません</div>';
+    return;
+  }
+  var days=hopeData.days;
+  var total=hopeData.total||0;
+  var ytSum=0,igSum=0,ttSum=0,maxDay=0;
+  for(var i=0;i<days.length;i++){
+    ytSum+=days[i].yt;igSum+=days[i].ig;ttSum+=days[i].tt;
+    if(days[i].sum>maxDay)maxDay=days[i].sum;
+  }
+  document.getElementById('hopeTotalNum').textContent=total;
+  document.getElementById('hopeYtTotal').textContent=ytSum;
+  document.getElementById('hopeIgTotal').textContent=igSum;
+  document.getElementById('hopeTtTotal').textContent=ttSum;
+  var html='';
+  var today=new Date();
+  var todayDay=today.getDate();
+  for(var d=0;d<days.length;d++){
+    if(days[d].day>todayDay)break;
+    if(days[d].sum===0)continue;
+    var day=days[d];
+    var ytPct=maxDay>0?(day.yt/maxDay*100):0;
+    var igPct=maxDay>0?(day.ig/maxDay*100):0;
+    var ttPct=maxDay>0?(day.tt/maxDay*100):0;
+    html+='<div class="hope-bar-row">';
+    html+='<div class="hope-bar-day">4/'+day.day+'</div>';
+    html+='<div class="hope-bar-wrap">';
+    if(day.yt>0)html+='<div class="hope-bar-seg yt" style="width:'+ytPct+'%" title="YT:'+day.yt+'"></div>';
+    if(day.ig>0)html+='<div class="hope-bar-seg ig" style="width:'+igPct+'%" title="IG:'+day.ig+'"></div>';
+    if(day.tt>0)html+='<div class="hope-bar-seg tt" style="width:'+ttPct+'%" title="TT:'+day.tt+'"></div>';
+    html+='</div>';
+    html+='<div class="hope-bar-num">'+day.sum+'</div>';
+    html+='</div>';
+  }
+  if(!html)html='<div class="hope-no-data">まだリスト数の記録がありません</div>';
+  document.getElementById('hopeBars').innerHTML=html;
 }
 </script>
 </body>

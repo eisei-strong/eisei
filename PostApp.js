@@ -903,6 +903,42 @@ function postAppRanking_() {
   return { ranking: members };
 }
 
+// ---- ホープ数（リスト数）取得API ----
+function postAppGetHope_(token) {
+  var id = verifyToken_(token);
+  if (!id) return { error: 'セッション切れです。再ログインしてください。' };
+
+  var ss = SpreadsheetApp.openById(POST_APP_SS_ID);
+  var sheet = ss.getSheetByName('【4月】ホープ数');
+  if (!sheet) return { allowed: false };
+
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 3) return { allowed: false };
+
+  // IDでユーザーの行を検索（A列、3行目から）
+  var ids = sheet.getRange(3, 1, lastRow - 2, 1).getValues();
+  var rowIdx = -1;
+  for (var i = 0; i < ids.length; i++) {
+    if (String(ids[i][0]).trim() === String(id).trim()) { rowIdx = i; break; }
+  }
+  if (rowIdx < 0) return { allowed: false };
+
+  var row = rowIdx + 3;
+  var totalCols = 3 + 30 * 3; // META(3) + 30日 * 3(YT,IG,TT)
+  var values = sheet.getRange(row, 4, 1, 30 * 3).getValues()[0]; // D列から
+  var total = sheet.getRange(row, 3).getValue(); // C列: 合計
+
+  var days = [];
+  for (var d = 0; d < 30; d++) {
+    var yt = parseInt(values[d * 3] || 0) || 0;
+    var ig = parseInt(values[d * 3 + 1] || 0) || 0;
+    var tt = parseInt(values[d * 3 + 2] || 0) || 0;
+    days.push({ day: d + 1, yt: yt, ig: ig, tt: tt, sum: yt + ig + tt });
+  }
+
+  return { allowed: true, total: total || 0, days: days };
+}
+
 // ---- D列の名前をLPスプシから復元 ----
 function restoreNames() {
   var ss = SpreadsheetApp.openById(POST_APP_SS_ID);

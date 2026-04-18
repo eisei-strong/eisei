@@ -112,14 +112,38 @@
 1. ローカルで編集
 2. cd /Users/kodai/eisei && clasp push
 3. ※ `clasp push` のみでトリガーは即反映（デプロイ不要）
-4. Webアプリ（exec URL）の更新が必要な場合のみ `clasp deploy -i <デプロイID>` を実行
+4. Webアプリ（exec URL）の更新が必要な場合は **kuta310k@gmail.com でGASエディタからデプロイ**
 
-### ⚠️ clasp deploy 禁止 → GASエディタからデプロイすること
-- GASのWebアプリは `executeAs: USER_DEPLOYING`（デプロイした人の権限で実行）
-- `clasp deploy` すると**デプロイユーザーが namaka.hoshi@gmail.com に変わり、スプシの書き込み権限がないため保存エラーになる**
-- **必ず `kuta310k@gmail.com` でGASエディタからデプロイすること**
-- 手順: ① `clasp push` でHEADを更新 → ② GASエディタ（kuta310k@gmail.com）で「デプロイを管理」→ 鉛筆アイコン → 「新しいバージョン」→ デプロイ
-- ※ `clasp push` はOK（HEADコード更新のみ、デプロイユーザーに影響なし）
+### post-app デプロイ運用ルール
+
+#### 絶対ルール
+1. **本番 deploy は `kuta310k@gmail.com`（本番権限アカウント）でしかやらない** — `clasp deploy` を namaka.hoshi@gmail.com で実行すると保存エラーになる
+2. **`clasp push` と `clasp deploy` は別物** — push=HEAD更新、deploy=本番公開。pushだけでは本番反映されない
+3. **サーバーHTML上書き前に必ず本番との差分確認** — ローカル版にない本番専用機能が消える事故が実際に発生した
+
+#### GASデプロイ手順
+1. ローカル修正 → `clasp push`
+2. GASエディタ（kuta310k@gmail.com）で「デプロイを管理」→ 鉛筆 → 「新しいバージョン」→ デプロイ
+3. API直接テスト: `curl` で postLogin → postSave（6本含む）を確認
+4. ブラウザでログアウト→再ログイン→保存確認
+
+#### サーバーHTML反映手順
+1. 本番HTMLバックアップ: `ssh xserver "cp /home/kodaidai/giver.work/public_html/post-app/index.html /home/kodaidai/giver.work/public_html/post-app/index.html.bak"`
+2. ローカル版と本番版を `diff` 比較
+3. 既存機能確認（grep: `tabHope`, `hopeScreen`, `loadHope`, `renderHope`, `postGetHope`）
+4. `scp` で反映
+5. ブラウザ確認（スーパーリロード→ログアウト→再ログイン→保存→リスト数タブ）
+
+#### 完了条件（全てOKで完了）
+- ログインできる / カレンダー表示正常 / 保存できる（6本含む）
+- リスト数タブが出る（該当者のみ）/ 本番URLで動く
+- ログアウト→再ログイン後も保存できる
+
+#### 禁止事項
+- 権限確認なしで `clasp deploy`
+- 差分確認なしで本番HTML丸ごと上書き
+- APIテストなしで「直った」と判断
+- ローカルで動いただけで本番OK判定
 
 ### GAS関数の手動実行をユーザーに案内する場合
 1. Apps Scriptエディタ（https://script.google.com/）を開く
@@ -262,7 +286,7 @@ ssh xserver "ls /home/kodaidai/giver.work/public_html/sales-dashboard/"  # Xserv
 ### 注意事項
 - `clasp deploy` で新バージョンを作ると**Webアプリの再認可が必要**になる場合がある
 - 再認可が必要な場合: GASエディタ（https://script.google.com/home/projects/1bu0jv_4kJ-ht9xByW43EWH2Acw01GIu8JP5B1t-2XTl0qQAsfX6cCbtg/edit）からデプロイを管理→該当デプロイを編集→新しいバージョン→デプロイ→認可承認
-- **重要: `clasp deploy` 禁止** — デプロイユーザーが namaka.hoshi@gmail.com に変わり書き込みエラーになる（過去に複数回発生）。必ず kuta310k@gmail.com でGASエディタからデプロイすること
-- GASのバージョン上限は200。超えた場合はGASエディタの「プロジェクトの設定」から古いバージョンを削除してからデプロイ
+- **重要: `clasp deploy` 禁止** — 必ず kuta310k@gmail.com でGASエディタからデプロイ（上記「post-app デプロイ運用ルール」参照）
+- GASのバージョン上限は200。超えた場合はGASエディタから古いバージョンを削除してからデプロイ
 - `appsscript.json` のOAuthスコープを変更すると再認可が**必ず**必要。v582互換のスコープ（documents/calendar.readonly なし）を維持すること
 - SSH鍵（xserver_key）は**絶対にGitHubにプッシュしない**（.gitignoreに含まれていないので注意）
