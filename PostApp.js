@@ -900,7 +900,7 @@ function postAppRanking_() {
   // 投稿本数で降順ソート
   members.sort(function(a, b) { return b.total - a.total || b.streak - a.streak; });
 
-  return { ranking: members.slice(0, 50) };
+  return { ranking: members };
 }
 
 // ---- D列の名前をLPスプシから復元 ----
