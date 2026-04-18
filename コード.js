@@ -178,9 +178,9 @@ function doPost(e) {
         .setMimeType(ContentService.MimeType.JSON);
     }
 
-    if (action === '30dayLogin') {
-      var result = thirtyDayLogin_(payload.name, payload.password);
-      return ContentService.createTextOutput(JSON.stringify(result))
+    if (action === 'postSetGoal') {
+      var psgResult = postAppSetGoal_(payload.token, payload.goal);
+      return ContentService.createTextOutput(JSON.stringify(psgResult))
         .setMimeType(ContentService.MimeType.JSON);
     }
 
@@ -190,140 +190,6 @@ function doPost(e) {
     return ContentService.createTextOutput(JSON.stringify({ error: err.message }))
       .setMimeType(ContentService.MimeType.JSON);
   }
-}
-
-/**
- * 30day_usersシート初期作成（手動実行用）
- */
-function create30dayUsersSheet() {
-  var ss = getSpreadsheet_();
-  var sheet = ss.getSheetByName('30day_users');
-  if (sheet) { Logger.log('既に存在します'); return; }
-  sheet = ss.insertSheet('30day_users');
-  sheet.getRange(1, 1, 1, 2).setValues([['名前', 'パスワード']]);
-  sheet.setColumnWidth(1, 200);
-  sheet.setColumnWidth(2, 200);
-  sheet.getRange(1, 1, 1, 2).setFontWeight('bold');
-  Logger.log('30day_usersシートを作成しました');
-}
-
-/**
- * Chatworkグルチャのメンバーを30day_usersに自動追加
- * 定期トリガーで実行
- */
-var THIRTY_DAY_CW_ROOM = '413674955';
-
-function get30dayUsersSheet_() {
-  var ss = getSpreadsheet_();
-  var sheets = ss.getSheets();
-  for (var i = 0; i < sheets.length; i++) {
-    if (sheets[i].getSheetId() === 1933797940) return sheets[i];
-  }
-  return ss.getSheetByName('30day_users');
-}
-
-function sync30dayUsersFromChatwork() {
-  var token = getChatworkToken_();
-  if (!token) { Logger.log('Chatwork token not found'); return { error: 'no token' }; }
-
-  // Chatworkグルチャのメンバー一覧を取得
-  var url = 'https://api.chatwork.com/v2/rooms/' + THIRTY_DAY_CW_ROOM + '/members';
-  var resp = UrlFetchApp.fetch(url, {
-    headers: { 'X-ChatWorkToken': token },
-    muteHttpExceptions: true
-  });
-
-  if (resp.getResponseCode() !== 200) {
-    Logger.log('CW API error: ' + resp.getContentText());
-    return { error: 'CW API error', code: resp.getResponseCode() };
-  }
-
-  var members = JSON.parse(resp.getContentText());
-
-  // スプシの既存ユーザーを取得
-  var sheet = get30dayUsersSheet_();
-  if (!sheet) { Logger.log('30day_users sheet not found'); return { error: 'no sheet' }; }
-
-  var lastRow = sheet.getLastRow();
-  var existingNames = {};
-  if (lastRow >= 2) {
-    var data = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
-    for (var i = 0; i < data.length; i++) {
-      var n = String(data[i][0]).trim();
-      if (n) existingNames[n] = true;
-    }
-  }
-
-  // 新メンバーを追加
-  var added = [];
-  for (var j = 0; j < members.length; j++) {
-    var name = String(members[j].name || '').trim();
-    // 名前から括弧以降を削除（例: "夜神月（4/30までに着金800万）" → "夜神月"）
-    name = name.replace(/[（(].*/g, '').trim();
-    if (!name) continue;
-    if (existingNames[name]) continue;
-
-    // パスワード自動生成（ランダム6文字の英数字）
-    var pw = generatePassword_();
-    sheet.appendRow([name, pw]);
-    added.push({ name: name, password: pw });
-    existingNames[name] = true;
-  }
-
-  Logger.log('30day_users sync: ' + added.length + ' added, ' + Object.keys(existingNames).length + ' total');
-  return { ok: true, added: added, total: Object.keys(existingNames).length };
-}
-
-function generatePassword_() {
-  var chars = 'abcdefghijkmnpqrstuvwxyz23456789';
-  var pw = '';
-  for (var i = 0; i < 6; i++) {
-    pw += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return pw;
-}
-
-/**
- * 30day_users Chatwork同期トリガー設定（1時間おき）
- */
-function install30dayUsersSyncTrigger() {
-  var triggers = ScriptApp.getProjectTriggers();
-  for (var i = 0; i < triggers.length; i++) {
-    if (triggers[i].getHandlerFunction() === 'sync30dayUsersFromChatwork') {
-      ScriptApp.deleteTrigger(triggers[i]);
-    }
-  }
-  ScriptApp.newTrigger('sync30dayUsersFromChatwork')
-    .timeBased()
-    .everyHours(1)
-    .create();
-  Logger.log('30day users sync trigger installed (every 1 hour)');
-  return { ok: true };
-}
-
-/**
- * 30day講座ログイン認証
- * スプシの「30day_users」シートで名前・パスワードを照合
- */
-function thirtyDayLogin_(name, password) {
-  if (!name) return { error: '名前を入力してください' };
-  if (!password) return { error: 'パスワードを入力してください' };
-
-  var sheet = get30dayUsersSheet_();
-  if (!sheet) return { error: 'ユーザーシートが見つかりません' };
-
-  var lastRow = sheet.getLastRow();
-  if (lastRow < 2) return { error: '登録ユーザーがいません' };
-
-  var data = sheet.getRange(2, 1, lastRow - 1, 2).getValues();
-  for (var i = 0; i < data.length; i++) {
-    var uName = String(data[i][0]).trim();
-    var uPass = String(data[i][1]).trim();
-    if (uName === name.trim() && uPass === password) {
-      return { ok: true, name: uName };
-    }
-  }
-  return { error: '名前またはパスワードが正しくありません' };
 }
 
 function doGet(e) {
@@ -670,6 +536,17 @@ function doGet(e) {
     }
   }
 
+  if (params.action === 'postSetGoal') {
+    try {
+      var psgResult = postAppSetGoal_(params.token, params.goal);
+      return ContentService.createTextOutput(JSON.stringify(psgResult))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService.createTextOutput(JSON.stringify({ error: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
   if (params.action === 'postGetHope') {
     try {
       var pghResult = postAppGetHope_(params.token);
@@ -686,28 +563,6 @@ function doGet(e) {
     try {
       var mbResult = manbazuGetData_();
       return ContentService.createTextOutput(JSON.stringify(mbResult))
-        .setMimeType(ContentService.MimeType.JSON);
-    } catch (err) {
-      return ContentService.createTextOutput(JSON.stringify({ error: err.message }))
-        .setMimeType(ContentService.MimeType.JSON);
-    }
-  }
-
-  if (params.action === 'guardian') {
-    try {
-      var gdResult = getGuardianData_(params);
-      return ContentService.createTextOutput(JSON.stringify(gdResult))
-        .setMimeType(ContentService.MimeType.JSON);
-    } catch (err) {
-      return ContentService.createTextOutput(JSON.stringify({ error: err.message }))
-        .setMimeType(ContentService.MimeType.JSON);
-    }
-  }
-
-  if (params.action === 'instructor') {
-    try {
-      var instResult = getInstructorData_(params);
-      return ContentService.createTextOutput(JSON.stringify(instResult))
         .setMimeType(ContentService.MimeType.JSON);
     } catch (err) {
       return ContentService.createTextOutput(JSON.stringify({ error: err.message }))
@@ -754,9 +609,6 @@ function doGet(e) {
       else if (fn === 'insertMemberImages') fnResult = insertMemberImages();
       else if (fn === 'setNameLinks') fnResult = setNameLinks();
       else if (fn === 'debugSheetByGid') fnResult = debugSheetByGid(params.gid, params.rows, params.formulas === '1');
-      else if (fn === 'create30dayUsersSheet') fnResult = create30dayUsersSheet();
-      else if (fn === 'sync30dayUsers') fnResult = sync30dayUsersFromChatwork();
-      else if (fn === 'install30daySync') fnResult = install30dayUsersSyncTrigger();
       else if (fn === 'rebuildSummarySheet') {
         var ss2 = getSpreadsheet_();
         createSummarySheet_(ss2);
@@ -920,42 +772,6 @@ function doGet(e) {
         for (var ci = 0; ci < allCals.length; ci++) calList.push({ name: allCals[ci].getName(), id: allCals[ci].getId() });
         fnResult = { calFound: calFound, count: evts.length, titles: titles, calendars: calList };
       }
-      else if (fn === 'removeMember') {
-        var target = (params.name || '').trim();
-        if (!target) { fnResult = { error: 'name required' }; }
-        else {
-          var ss4 = getSpreadsheet_();
-          var stSheet4 = getSettingsSheet_(ss4);
-          var lr4 = stSheet4.getLastRow();
-          var removed = false;
-          for (var ri = lr4; ri >= 2; ri--) {
-            var v = String(stSheet4.getRange(ri, 1).getValue() || '').trim();
-            if (v === target) { stSheet4.deleteRow(ri); removed = true; break; }
-          }
-          fnResult = { status: removed ? 'removed' : 'not_found', name: target };
-        }
-      }
-      else if (fn === 'setMonth') {
-        var newMonth = parseInt(params.month);
-        var newYear = parseInt(params.year);
-        if (!newMonth || !newYear) { fnResult = { error: 'month and year required' }; }
-        else {
-          var ss3 = getSpreadsheet_();
-          var stSheet = getSettingsSheet_(ss3);
-          var lr = stSheet.getLastRow();
-          if (lr >= SETTINGS_ROW_GLOBAL_START) {
-            var gc = stSheet.getRange(SETTINGS_ROW_GLOBAL_START, 1, lr - SETTINGS_ROW_GLOBAL_START + 1, 2).getValues();
-            for (var gi = 0; gi < gc.length; gi++) {
-              var lb = String(gc[gi][0] || '').trim();
-              var rw = SETTINGS_ROW_GLOBAL_START + gi;
-              if (lb === '対象年度' || lb === '対象年') stSheet.getRange(rw, 2).setValue(newYear);
-              if (lb === '対象月') stSheet.getRange(rw, 2).setValue(newMonth);
-            }
-          }
-          fnResult = { status: 'updated', month: newMonth, year: newYear };
-        }
-      }
-      else if (fn === 'setupInstructorTriggers') fnResult = setupInstructorTriggers();
       else fnResult = { error: 'unknown fn: ' + fn };
       return ContentService.createTextOutput(JSON.stringify({ ok: true, result: fnResult }))
         .setMimeType(ContentService.MimeType.JSON);
@@ -990,7 +806,7 @@ function getDashboardData(targetMonth, targetYear, skipCache) {
   var cache = CacheService.getScriptCache();
 
   // キャッシュキー構築
-  var cacheKey = 'dash3_' + (targetYear || 'cur') + '_' + (targetMonth || 'cur');
+  var cacheKey = 'dash_' + (targetYear || 'cur') + '_' + (targetMonth || 'cur');
 
   // キャッシュ確認（skipCache=trueの場合スキップ）
   if (!skipCache) {
@@ -1043,7 +859,6 @@ function getDashboardData(targetMonth, targetYear, skipCache) {
             var md = masterMap[m.name];
             if (md) {
               m.revenue = md.revenue;
-              m.revenueAdj = md.revenueAdj;
               m.sales = md.sales;
               m.deals = md.deals;
               m.closed = md.closed;
@@ -1209,10 +1024,7 @@ function getDashboardDataFromArchive_(ss, year, month) {
     m.diffClosed = m.closed - prev.closed;
     m.prevCloseRate = prev.closeRate;
     m.diffCloseRate = round1_(m.closeRate - prev.closeRate);
-    // データゼロのメンバーは除外（その月に在籍していなかった可能性）
-    if (m.revenue > 0 || m.deals > 0 || m.closed > 0 || m.sales > 0) {
-      members.push(m);
-    }
+    members.push(m);
   }
 
   // 着金額で降順ソート
@@ -1275,8 +1087,6 @@ var NICK_TO_MASTER_D_ = {
   'スマイル': '佐々木',
   'ゴン': '大久保',
   'トニー': '矢吹',
-  '週1休みくん': '矢吹',
-  '1日1more': '矢吹',
   'ガロウ': '大内',
   'リヴァイ': '川合',
   '嬴政': '嬴政'
@@ -1332,7 +1142,6 @@ function getDashboardData_new_(ss) {
       deals: mm.deals,
       closed: mm.closed,
       revenue: mm.revenue,
-      revenueAdj: mm.revenueAdj || mm.revenue,
       closeRate: closeRate,
       fundedDeals: mm.deals,
       sales: ms.sales,
@@ -1608,7 +1417,7 @@ function getPaymentNews_new_(ss, activeMembers) {
   for (var i = 0; i < data.length; i++) {
     var row = data[i];
     var l = String(row[11] || '').trim();
-    if (l !== '成約' && l !== '成約➔CO' && l !== '継続2→成約' && l !== '継続3→成約') continue;
+    if (l !== '成約' && l !== '成約➔CO') continue;
 
     var d = String(row[3] || '').trim();
     if (!d || d === 'テスト') continue;

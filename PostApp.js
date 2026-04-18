@@ -915,7 +915,6 @@ function postAppGetHope_(token) {
   var lastRow = sheet.getLastRow();
   if (lastRow < 3) return { allowed: false };
 
-  // IDでユーザーの行を検索（A列、3行目から）
   var ids = sheet.getRange(3, 1, lastRow - 2, 1).getValues();
   var rowIdx = -1;
   for (var i = 0; i < ids.length; i++) {
@@ -924,9 +923,8 @@ function postAppGetHope_(token) {
   if (rowIdx < 0) return { allowed: false };
 
   var row = rowIdx + 3;
-  var totalCols = 3 + 30 * 3; // META(3) + 30日 * 3(YT,IG,TT)
-  var values = sheet.getRange(row, 4, 1, 30 * 3).getValues()[0]; // D列から
-  var total = sheet.getRange(row, 3).getValue(); // C列: 合計
+  var values = sheet.getRange(row, 4, 1, 30 * 3).getValues()[0];
+  var total = sheet.getRange(row, 3).getValue();
 
   var days = [];
   for (var d = 0; d < 30; d++) {
