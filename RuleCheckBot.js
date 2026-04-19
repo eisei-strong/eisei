@@ -4,11 +4,11 @@
 
 // --- 監視対象ルーム ---
 var RULE_CHECK_ROOMS = [
-  { roomId: '349937583', name: 'ルーム1' },
-  { roomId: '400352653', name: 'ルーム2' },
-  { roomId: '402148031', name: 'ルーム3' },
-  { roomId: '415414086', name: 'ルーム4' },
-  { roomId: '412572337', name: 'ルーム5' }
+  { roomId: '349937583', name: 'ウォーリアーズ' },
+  { roomId: '400352653', name: '受講生勝たせるチャット' },
+  { roomId: '402148031', name: 'ガーディアンズ' },
+  { roomId: '415414086', name: '緊急｜営業', urgent: true },
+  { roomId: '412572337', name: '緊急｜講師', urgent: true }
 ];
 
 var SHEET_RULE_PROCESSED = 'ルールチェック済み';
@@ -18,6 +18,7 @@ var RULE_CHECK_MIN_LENGTH = 5;  // これ以下のメッセージはスキップ
 var RULE_LOG_ROOM_ID      = '434014865';  // 指摘記録を残すルーム
 var SHEET_RULE_PENDING    = 'ルール修正待ち';
 var RULE_REMIND_INTERVAL_HOURS = 1;  // リマインド間隔（時間）
+var RULE_BOT_TOKEN = '561f22f75377bfa3c9a5c1ba18d38342';  // AI政のChatworkトークン
 
 // ============================================
 // メインポーリング
@@ -27,7 +28,7 @@ var RULE_REMIND_INTERVAL_HOURS = 1;  // リマインド間隔（時間）
  * ルールチェックポーリング（1分トリガーで呼ばれる）
  */
 function pollAndCheckRules() {
-  var token = getChatworkToken_();
+  var token = RULE_BOT_TOKEN;
   if (!token) {
     logRuleCheck_('ERROR', 'CHATWORK_API_TOKEN未設定');
     return;
@@ -96,9 +97,10 @@ function getRuleMessages_(roomId, token) {
  */
 function filterRuleTargets_(messages, processedIds) {
   return messages.filter(function(msg) {
-    // BOT自身・嬴政のメッセージスキップ
+    // BOT自身・AI政・嬴政ver3.0のメッセージスキップ
     if (String(msg.account.account_id) === BOT_ACCOUNT_ID) return false;
-    if (msg.account.name === '嬴政') return false;
+    if (msg.account.name === 'AI政') return false;
+    if (msg.account.name === '嬴政ver3.0') return false;
 
     // 処理済みスキップ
     if (processedIds[String(msg.message_id)]) return false;
@@ -107,7 +109,7 @@ function filterRuleTargets_(messages, processedIds) {
 
     // BOTラベル付きスキップ
     if (body.indexOf(BOT_LABEL) === 0) return false;
-    if (body.indexOf(RULE_BOT_LABEL) === 0) return false;
+    if (body.indexOf('⚠️文章ルール違反') !== -1) return false;
 
     // 短すぎるメッセージスキップ
     var cleanBody = body.replace(/\[To:\d+\]\s*[^\n]*/g, '').replace(/\[引用[^\]]*\][\s\S]*?\[\/引用\]/g, '').trim();
@@ -143,10 +145,24 @@ function checkAndPost_(msg, roomId, token, ss) {
     return;
   }
 
-  // 違反あり → Toで指摘
-  var reply = '[To:' + msg.account.account_id + '] ' + msg.account.name + 'さん\n';
-  reply += '⚠️文章ルール違反\n\n';
-  reply += result.replace(/^⚠️ ルール違反があるよ！\n*/m, '');
+  // 違反あり → 違反文章を引用して指摘
+  var isUrgent = false;
+  for (var ui = 0; ui < RULE_CHECK_ROOMS.length; ui++) {
+    if (RULE_CHECK_ROOMS[ui].roomId === roomId && RULE_CHECK_ROOMS[ui].urgent) {
+      isUrgent = true;
+      break;
+    }
+  }
+  var cleanBody = (msg.body || '').substring(0, 2000);
+  var reply;
+  if (isUrgent) {
+    reply = '⚠️文章ルール違反\n\n';
+  } else {
+    reply = '[To:' + msg.account.account_id + '] ' + msg.account.name + 'さん\n';
+    reply += '⚠️文章ルール違反\n\n';
+  }
+  reply += '[qt][qtmeta aid=' + msg.account.account_id + ' time=' + (msg.send_time || '') + ']' + cleanBody + '[/qt]\n\n';
+  reply += result.replace(/^⚠️\s*ルール違反があるよ！\s*\n*/m, '');
 
   postChatworkMessage_(roomId, reply, token);
 
@@ -159,7 +175,7 @@ function checkAndPost_(msg, roomId, token, ss) {
   logMsg += '対象者: ' + msg.account.name + '\n';
   logMsg += 'ルーム: ' + roomName + '(' + roomId + ')\n';
   logMsg += '日時: ' + Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/MM/dd HH:mm') + '\n\n';
-  logMsg += '【元のメッセージ】\n' + (msg.body || '').substring(0, 500) + '\n\n';
+  logMsg += '【元のメッセージ】\n' + (msg.body || '').substring(0, 2000) + '\n\n';
   logMsg += '【指摘内容】\n' + result.replace(/^⚠️ ルール違反があるよ！\n*/m, '');
   logMsg += '[/info]';
   postChatworkMessage_(RULE_LOG_ROOM_ID, logMsg, token);
@@ -242,51 +258,61 @@ function buildRuleCheckSystemPrompt_() {
     '   - 良い: 「〜する」「〜だよ」「〜するね」',
     '',
     '5. 【句点で改行すんな】。で2行改行しろ',
-    '   - 文の終わりには必ず「。」を付けて、その後に2行分の改行を入れる',
-    '   - ダメ: 「〜したから」で文を終わらせて次の文に続ける（句点なし・改行なし）',
-    '   - ダメ: 「〜した。次に〜」（句点はあるが改行がない）',
+    '   - 「。」を使った場合、その後に必ず2行分の改行を入れる',
+    '   - 読点「、」で文を繋ぎ続けて改行するのはNG',
+    '   - ダメ: 「〜した。次に〜」（句点の後に改行がない）',
+    '   - ダメ: 「〜したから、\\n〜して、\\n〜した」（読点で改行して文を繋ぎ続ける）',
     '   - 良い: 「〜した。」の後に空行を1つ入れてから次の文',
-    '   - 読点「、」で文を繋ぎ続けるのもNG。文が終わったら「。」で区切る',
+    '   - 「。」を使わない短文（「修正済み」等）は問題ない',
+    '   - 「！」「？」で終わる文は句点「。」不要。「！」「？」も文の終わりとして扱う',
+    '   - 「！」「？」の後も2行改行が必要',
     '   - 指摘時は「【句点で改行すんな】。で2行改行しろ」と書くこと',
     '',
-    '6. 【具体的な言葉】抽象的な表現を避け、具体的に書く',
-    '   - ダメ: 「アプローチする」「フォローする」「対応する」',
-    '   - 良い: 「顧客にメールを送信する」「電話で進捗確認する」',
     '',
-    '7. 【冒頭ラベル】メッセージの冒頭に以下のいずれかを付ける',
+    '7. 【冒頭ラベル】メッセージの1行目に以下のいずれかを単独で付ける（ラベルの後に内容を続けない）',
     '   - ⭕️確認',
     '   - ⭕️質問',
     '   - ⭕️依頼',
     '   - ⭕️回答',
+    '   - ⭕️報告',
+    '   - ⭕️指示',
+    '   - ⭕️信託',
+    '   - ダメ: 「⭕️報告該当者修正済み」（ラベルと内容がくっついてる）',
+    '   - 良い: 1行目「⭕️報告」、改行して2行目以降に内容を書く',
+    '   - 1つのメッセージにつき、メインの内容（依頼・質問等）は1つに絞れ。2つあるなら2回に分けろ',
     '',
     '8. 【指示語禁止】「それ」「あの」「これ」「あれ」などの指示語を使わない',
     '   - ダメ: 「それについて確認した」',
     '   - 良い: 「〇〇の件について確認した」',
     '',
-    '9. 【引用返信】返事をする場合は必ず引用（[引用]）を使って、何に対する返事か明確にする',
+    '9. 【引用返信】返事をする場合は必ず引用（[qt]）を使って、何に対する返事か明確にする',
     '',
-    '10. 【理由を書け】結論のすぐ下に「理由：」を記載する',
+    '10. 【URL説明】URLを貼る場合、その上に何のURLか説明を書け',
+    '   - ダメ: いきなりURLだけ貼る',
+    '   - 良い: 「入力スプシ」「マニュアル」「解説動画」等の説明を書いてからURLを貼る',
+    '',
+    '11. 【理由の書き方】理由を書く場合は結論のすぐ下に「理由：」を記載する',
+    '   - 「理由：」は結論のすぐ下の行に書く。結論と理由の間に空行を絶対に入れるな',
     '   - 理由が1つの場合: 「理由：○○だから。」',
     '   - 理由が2つ以上の場合: 「◎理由」でもOK',
-    '   - ダメ: 結論だけ書いて理由がない',
-    '   - 良い例（1つ）:',
-    '     ⭕️確認',
-    '     結論：○○を△△にする。',
-    '     理由：□□だから。',
-    '   - 良い例（2つ以上）:',
-    '     ⭕️確認',
-    '     結論：○○を△△にする。',
-    '     ◎理由',
-    '     ・□□だから。',
-    '     ・△△だから。',
+    '   - ⭕️指示 の場合は理由を必ず書くこと（なぜその指示を出すのか）',
+    '   - ⭕️指示 以外では理由がないこと自体は違反ではない',
     '',
     '## 判定ルール',
     '',
-    '- Chatworkの[To:][引用][info]等のタグ部分はルールチェックの対象外',
+    '- Chatworkの[To:][qt][qtmeta][info]等のタグ部分はルールチェックの対象外',
+    '- [To:]タグの後の改行はルール違反ではない。Toの羅列で改行するのは正常',
     '- スタンプ、リアクション、ファイルアップロード通知等はチェック対象外',
-    '- [引用]ブロック内のテキストはチェック対象外（他人の発言の引用なので）',
-    '- 「了解」「OK」「ありがとう」等の短い返事は冒頭ラベル不要、チェック対象外',
-    '- 明らかに会話の流れの中での短い返答（1-2行）は冒頭ラベルのチェックを緩めてOK',
+    '- [qt]ブロック内のテキストはチェック対象外（他人の発言の引用なので）',
+    '- URL自体の内容はチェック対象外だが、URLの前に何のリンクか説明がない場合は指摘する',
+    '- 「了解」「OK」「ありがとう」等の一言だけの返事はチェック対象外',
+    '- 2行以上のメッセージは必ず冒頭ラベルが必要',
+    '- 理由を書いている場合は必ず「理由：」のフォーマットを使うこと',
+    '',
+    '## 絶対に守れ',
+    '- 元のメッセージに存在しない言葉・表現を指摘するな（ハルシネーション厳禁）',
+    '- 指摘する場合は必ず元のメッセージから該当箇所を正確に引用しろ',
+    '- 存在しないラベルや言葉を捏造して指摘するな',
     '',
     '## 出力フォーマット',
     '',
@@ -309,13 +335,38 @@ function buildRuleCheckSystemPrompt_() {
     '',
     '## 重要ルール',
     '- 必ず「OK」か違反指摘のどちらかで始めること',
+    '- 違反がある場合、前置き（「⚠️ ルール違反があるよ！」等）は不要。いきなり指摘項目（1. 2. 3.）から始めること',
     '- 違反がある場合、指摘の最後に必ず以下を追加すること:',
     '',
-    '🔸アクションプラン',
-    '上の指摘を踏まえて、元のメッセージを正しく書き直してこのチャットに再投稿して。',
-    '完了したら [To:' + BOT_ACCOUNT_ID + '] 嬴政 に「完了！」とToで伝えて。',
+    '## 正解例',
+    '指摘の後に「✅正しい文章例」として、元のメッセージをルール通りに修正した完成形を[info]タグで囲んで書くこと。',
+    'メンバーがそのままコピペして再投稿できるレベルで書け。',
+    'フォーマット:',
+    '✅正しい文章例',
+    '[info](修正した文章全文)[/info]',
     '',
-    '※ 元のメッセージ全文をルール通りに修正した版を書くこと'
+    '正解例のルール:',
+    '- 元のメッセージの内容は一切削らない。全文を残す',
+    '- 余計な文を足さない',
+    '- 理由がある場合は「理由：」を付ける',
+    '- 冒頭ラベル（⭕️報告 等）は1行目に単独で書く',
+    '- 句点「。」の後は2行改行',
+    '',
+    '例:',
+    '元: 「上記なしで！10時希望で返信があったため。俺が9時プッシュ入れる！」',
+    '✅正しい文章例',
+    '[info]⭕️報告',
+    '上記なしで！',
+    '理由：10時希望で返信があったため。',
+    '',
+    '俺が9時プッシュ入れる！[/info]',
+    '',
+    '## アクションプラン',
+    '正解例の後に以下を必ず追加:',
+    '',
+    '🔸アクションプラン',
+    '1. 上の指摘を踏まえて、元のメッセージを正しく書き直してこのチャットに再投稿しろ',
+    '2. 完了したら「完了！」と伝えろ'
   ].join('\n');
 }
 
@@ -420,8 +471,8 @@ function logRuleProcessed_(ss, msg, roomId, result) {
     roomId,
     String(msg.account.account_id),
     msg.account.name,
-    (msg.body || '').substring(0, 500),
-    (result || 'null').substring(0, 500)
+    (msg.body || '').substring(0, 2000),
+    (result || 'null').substring(0, 2000)
   ]);
 }
 
@@ -486,7 +537,7 @@ function checkRuleCompletions_(messages, roomId, ss) {
     var msg = messages[i];
     var body = msg.body || '';
 
-    // 嬴政へのToで「完了」を含むメッセージを検知
+    // AI政へのToで「完了」を含むメッセージを検知
     if (body.indexOf('[To:' + BOT_ACCOUNT_ID + ']') === -1) continue;
     if (!/完了/.test(body)) continue;
 
@@ -507,7 +558,7 @@ function checkRuleCompletions_(messages, roomId, ss) {
  * 未完了の指摘に対してリマインド送信
  */
 function remindRulePending() {
-  var token = getChatworkToken_();
+  var token = RULE_BOT_TOKEN;
   if (!token) return;
 
   var ss = getSpreadsheet_();
@@ -532,8 +583,8 @@ function remindRulePending() {
 
     var reminder = '[To:' + accountId + '] ' + senderName + 'さん\n';
     reminder += '⏰ 文章ルール修正がまだ完了してないよ！\n\n';
-    reminder += '指摘された文章を正しく書き直して再投稿して。\n';
-    reminder += '完了したら [To:' + BOT_ACCOUNT_ID + '] 嬴政 に「完了！」とToで伝えて。';
+    reminder += '1. 指摘された文章を正しく書き直して再投稿しろ\n';
+    reminder += '2. 完了したら「完了！」と伝えろ';
 
     postChatworkMessage_(roomId, reminder, token);
 
