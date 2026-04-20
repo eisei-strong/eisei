@@ -273,7 +273,7 @@ function postAppSave_(token, value, col) {
   var id = verifyToken_(token);
   if (!id) return { error: 'セッション切れです。再ログインしてください。' };
 
-  var validValues = ['❌', '1本', '2本', '3本', '4本', '5本', '6本'];
+  var validValues = ['❌', '1本', '2本', '3本', '4本', '5本', '6本', '7本', '8本', '9本', '10本'];
   if (validValues.indexOf(value) < 0) return { error: '無効な値です: ' + value };
 
   var ss = SpreadsheetApp.openById(POST_APP_SS_ID);

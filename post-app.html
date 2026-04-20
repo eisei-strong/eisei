@@ -103,6 +103,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif;bac
 .cal-day.done4{background:#C8E6C9;color:#2E7D32;border-color:#58CC02}
 .cal-day.done5{background:#FFF3E0;color:#FF9600;border-color:#FF9600AA}
 .cal-day.done6{background:#FFE0B2;color:#E65100;border-color:#FF9600}
+.cal-day.done7{background:#FCE4EC;color:#C62828;border-color:#E5737388}
+.cal-day.done8{background:#F8BBD0;color:#AD1457;border-color:#E91E63AA}
+.cal-day.done9{background:#E1BEE7;color:#7B1FA2;border-color:#9C27B0AA}
+.cal-day.done10{background:#D1C4E9;color:#4A148C;border-color:#7C4DFF}
 .cal-day.today{box-shadow:0 0 0 3px #FFC800}
 .cal-day .cal-val{font-size:9px;margin-top:1px;opacity:.7}
 
@@ -529,6 +533,10 @@ a{color:#1CB0F6;font-weight:600}
       <div class="modal-opt" data-v="4本" onclick="pickValue(this)">4本</div>
       <div class="modal-opt" data-v="5本" onclick="pickValue(this)">5本</div>
       <div class="modal-opt" data-v="6本" onclick="pickValue(this)">6本</div>
+      <div class="modal-opt" data-v="7本" onclick="pickValue(this)">7本</div>
+      <div class="modal-opt" data-v="8本" onclick="pickValue(this)">8本</div>
+      <div class="modal-opt" data-v="9本" onclick="pickValue(this)">9本</div>
+      <div class="modal-opt" data-v="10本" onclick="pickValue(this)">10本</div>
     </div>
     <button class="modal-cancel" onclick="closeModal()">キャンセル</button>
   </div>
@@ -1424,6 +1432,10 @@ function renderMain(){
     if(isFuture){
       cls+=' future';
     }else if(val==='❌'){cls+=' miss'}
+    else if(val==='10本'){cls+=' done10'}
+    else if(val==='9本'){cls+=' done9'}
+    else if(val==='8本'){cls+=' done8'}
+    else if(val==='7本'){cls+=' done7'}
     else if(val==='6本'){cls+=' done6'}
     else if(val==='5本'){cls+=' done5'}
     else if(val==='4本'){cls+=' done4'}
@@ -1635,9 +1647,13 @@ function pickValue(el){
       ['👑 3本！パーフェクト！','🏆 今日のMVP！','💎 3本！最強！'],
       ['🚀 4本！超ハイペース！','⚡ 4本！止まらない！','🌈 4本！天才！'],
       ['💥 5本！異次元！','🔥 5本！プロ級！','🏅 5本！圧巻！'],
-      ['👑 6本！神！！','🌟 6本！伝説！','💎 6本！最強すぎる！']
+      ['👑 6本！神！！','🌟 6本！伝説！','💎 6本！最強すぎる！'],
+      ['🌋 7本！怪物級！','💥 7本！規格外！','🔱 7本！異次元！'],
+      ['☄️ 8本！圧倒的！','🏆 8本！王者！','⚡ 8本！限界突破！'],
+      ['🐉 9本！もはや伝説！','👑 9本！神の領域！','💫 9本！宇宙級！'],
+      ['🌟 10本！完全体！！','💎 10本！歴史に残る！','🔥 10本！無双状態！']
     ];
-    var idx=Math.min((parseInt(val)||1)-1,5);
+    var idx=Math.min((parseInt(val)||1)-1,9);
     var msgs=cheers[idx];
     toast(msgs[Math.floor(Math.random()*msgs.length)]);
     // 連続投稿・初投稿マイルストーン判定
