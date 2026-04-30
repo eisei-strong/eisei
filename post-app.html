@@ -278,6 +278,7 @@ a{color:#1CB0F6;font-weight:600}
 .hope-legend-dot.ig{background:#C13584}
 .hope-legend-dot.tt{background:#333}
 .hope-no-data{text-align:center;padding:40px;color:#AFAFAF;font-weight:700}
+.hope-loading{text-align:center;padding:40px;color:#AFAFAF;font-weight:700}
 
 /* ===== オープニング演出 ===== */
 .opening-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:radial-gradient(ellipse at center,#1a1a3e 0%,#0f0f23 100%);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;opacity:1;transition:opacity .5s ease}
@@ -472,28 +473,6 @@ a{color:#1CB0F6;font-weight:600}
   </div>
 </div>
 
-<!-- ボトムナビ -->
-<div id="bottomNav" class="bottom-nav">
-  <div class="bottom-nav-inner">
-    <div class="nav-tab active" id="tabPost" onclick="switchTab('post')">
-      <span class="nav-tab-icon">📝</span>
-      投稿記録
-    </div>
-    <div class="nav-tab" id="tabRanking" onclick="switchTab('ranking')">
-      <span class="nav-tab-icon">🏆</span>
-      ランキング
-    </div>
-    <div class="nav-tab" id="tabLogin" onclick="switchTab('login')">
-      <span class="nav-tab-icon">📊</span>
-      進化表
-    </div>
-    <div class="nav-tab" id="tabHope" onclick="switchTab('hope')" style="display:none">
-      <span class="nav-tab-icon">📋</span>
-      リスト数
-    </div>
-  </div>
-</div>
-
 <!-- リスト数画面 -->
 <div id="hopeScreen" class="hope-screen">
   <div class="hdr">
@@ -518,6 +497,28 @@ a{color:#1CB0F6;font-weight:600}
   <div class="hope-chart" id="hopeChart">
     <div class="hope-chart-title">日別リスト数</div>
     <div id="hopeBars"></div>
+  </div>
+</div>
+
+<!-- ボトムナビ -->
+<div id="bottomNav" class="bottom-nav">
+  <div class="bottom-nav-inner">
+    <div class="nav-tab active" id="tabPost" onclick="switchTab('post')">
+      <span class="nav-tab-icon">📝</span>
+      投稿記録
+    </div>
+    <div class="nav-tab" id="tabHope" onclick="switchTab('hope')" style="display:none">
+      <span class="nav-tab-icon">📋</span>
+      リスト数
+    </div>
+    <div class="nav-tab" id="tabRanking" onclick="switchTab('ranking')">
+      <span class="nav-tab-icon">🏆</span>
+      ランキング
+    </div>
+    <div class="nav-tab" id="tabLogin" onclick="switchTab('login')">
+      <span class="nav-tab-icon">📊</span>
+      進化表
+    </div>
   </div>
 </div>
 
@@ -667,10 +668,10 @@ function normLabel(label,col){
   return '4/'+(col+1); // フォールバック: colから計算
 }
 var loginData=null;
-var hopeData=null;
 var currentTab='post';
 var prevCharaIdx=-1; // レベルアップ検出用
 var streak=0; // 連続投稿日数（renderEvoTableからも参照）
+var hopeData=null; // リスト数データ（権限ある人のみ）
 
 // キャラクター進化テーブル
 var CHARA=[
@@ -943,21 +944,21 @@ function getLoginMsg(streak){
 function switchTab(tab){
   currentTab=tab;
   document.getElementById('tabPost').className=tab==='post'?'nav-tab active':'nav-tab';
+  document.getElementById('tabHope').className=tab==='hope'?'nav-tab active':'nav-tab';
   document.getElementById('tabRanking').className=tab==='ranking'?'nav-tab active':'nav-tab';
   document.getElementById('tabLogin').className=tab==='login'?'nav-tab active':'nav-tab';
-  document.getElementById('tabHope').className=tab==='hope'?'nav-tab active':'nav-tab';
   document.getElementById('mainScreen').classList.remove('active');
+  document.getElementById('hopeScreen').classList.remove('active');
   document.getElementById('rankingScreen').classList.remove('active');
   document.getElementById('loginStreakScreen').classList.remove('active');
-  document.getElementById('hopeScreen').classList.remove('active');
   if(tab==='post'){
     document.getElementById('mainScreen').classList.add('active');
-  }else if(tab==='ranking'){
-    document.getElementById('rankingScreen').classList.add('active');
-    loadRanking();
   }else if(tab==='hope'){
     document.getElementById('hopeScreen').classList.add('active');
     renderHope();
+  }else if(tab==='ranking'){
+    document.getElementById('rankingScreen').classList.add('active');
+    loadRanking();
   }else{
     document.getElementById('loginStreakScreen').classList.add('active');
     renderEvoTable();
@@ -1109,11 +1110,13 @@ function handleSessionExpired(){
   localStorage.removeItem('pa_t');
   localStorage.removeItem('pa_month');
   localStorage.removeItem('pa_login');
-  token='';monthDays=[];loginData=null;currentTab='post';prevCharaIdx=-1;
+  token='';monthDays=[];loginData=null;currentTab='post';prevCharaIdx=-1;hopeData=null;
   document.getElementById('bottomNav').classList.remove('active');
   document.getElementById('mainScreen').classList.remove('active');
   document.getElementById('loginStreakScreen').classList.remove('active');
   document.getElementById('rankingScreen').classList.remove('active');
+  document.getElementById('hopeScreen').classList.remove('active');
+  document.getElementById('tabHope').style.display='none';
   if(userId){
     autoRelogin();
   }else{
@@ -1149,6 +1152,10 @@ function initApp(){
   userContract=localStorage.getItem('pa_contract')||'';
   userGoal=parseInt(localStorage.getItem('pa_goal'))||0;
   if(cachedLogin){try{loginData=JSON.parse(cachedLogin)}catch(e){}}
+  // ホープキャッシュ復元
+  var cachedHope=localStorage.getItem('pa_hope');
+  if(cachedHope){try{hopeData=JSON.parse(cachedHope);document.getElementById('tabHope').style.display=''}catch(e){}}
+
   if(token){
     // キャッシュがあれば即表示、なければローディング画面
     if(cachedMonth){try{monthDays=JSON.parse(cachedMonth)}catch(e){monthDays=[]}}
@@ -1253,11 +1260,11 @@ function doLoginWith(pw){
     // アイコン引き継ぎ（他端末でも復元）
     loadIconFromServer(userId);
     renderMain();
+    loadHope();
     if(loginData){
       renderLoginStreak();
       showLoginStreakCelebration(loginData.streak);
     }
-    loadHope();
   }).catch(function(){
     document.getElementById('loginBtn').disabled=false;document.getElementById('loginBtn').textContent='ログイン';
     document.getElementById('loginError').textContent='通信エラー';
@@ -1630,7 +1637,9 @@ var _saving=false;
 function pickValue(el){
   if(_saving)return;
   _saving=true;setTimeout(function(){_saving=false},1000);
-  var val=el.getAttribute('data-v');
+  // 値の正規化: data-v属性の前後空白・改行を除去（保存失敗の予防）
+  var val=String(el.getAttribute('data-v')||'').trim();
+  if(!val){toast('値が空です');return;}
   var oldVal=monthDays[selectedCol].value;
   monthDays[selectedCol].value=val;
   localStorage.setItem('pa_month',JSON.stringify(monthDays));
@@ -1708,11 +1717,10 @@ function doLogout(){
   document.getElementById('regPw2').value='';
   document.getElementById('bottomNav').classList.remove('active');
   document.getElementById('tabPost').className='nav-tab active';
-  document.getElementById('tabLogin').className='nav-tab';
-  document.getElementById('tabRanking').className='nav-tab';
   document.getElementById('tabHope').className='nav-tab';
   document.getElementById('tabHope').style.display='none';
-  document.getElementById('hopeScreen').classList.remove('active');
+  document.getElementById('tabLogin').className='nav-tab';
+  document.getElementById('tabRanking').className='nav-tab';
   show('idScreen');
 }
 function backToId(){doLogout()}
@@ -1755,16 +1763,9 @@ function forceRegister(){
   document.getElementById('regPw1').focus();
 }
 
-function toast(msg){
-  var t=document.getElementById('toast');t.textContent=msg;
-  t.classList.add('show');setTimeout(function(){t.classList.remove('show')},1800);
-}
-
 // ---- リスト数（ホープ数）読み込み ----
 function loadHope(){
   if(!token)return;
-  var cachedHope=localStorage.getItem('pa_hope');
-  if(cachedHope){try{hopeData=JSON.parse(cachedHope);document.getElementById('tabHope').style.display=''}catch(e){}}
   api('action=postGetHope&token='+encodeURIComponent(token)).then(function(d){
     if(d.error||!d.allowed){hopeData=null;document.getElementById('tabHope').style.display='none';return}
     if(d.noData){hopeData={total:0,days:[]};document.getElementById('tabHope').style.display='';return}
@@ -1791,12 +1792,14 @@ function renderHope(){
   document.getElementById('hopeYtTotal').textContent=ytSum;
   document.getElementById('hopeIgTotal').textContent=igSum;
   document.getElementById('hopeTtTotal').textContent=ttSum;
+
+  // 日別バーチャート（データがある日のみ表示）
   var html='';
   var today=new Date();
   var todayDay=today.getDate();
   for(var d=0;d<days.length;d++){
-    if(days[d].day>todayDay)break;
-    if(days[d].sum===0)continue;
+    if(days[d].day>todayDay)break; // 未来日はスキップ
+    if(days[d].sum===0)continue; // 0の日はスキップ
     var day=days[d];
     var ytPct=maxDay>0?(day.yt/maxDay*100):0;
     var igPct=maxDay>0?(day.ig/maxDay*100):0;
@@ -1813,6 +1816,11 @@ function renderHope(){
   }
   if(!html)html='<div class="hope-no-data">まだリスト数の記録がありません</div>';
   document.getElementById('hopeBars').innerHTML=html;
+}
+
+function toast(msg){
+  var t=document.getElementById('toast');t.textContent=msg;
+  t.classList.add('show');setTimeout(function(){t.classList.remove('show')},1800);
 }
 </script>
 </body>
