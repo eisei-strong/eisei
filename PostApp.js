@@ -6,17 +6,79 @@
 var POST_APP_SS_ID = '1rQSoM2zu38aPXJHHD6ILEgyM0SEDOXHXZXz0qK_nQuk';
 
 // シート構造定数
-var POST_APP_SHEET_NAME = '【' + (new Date().getMonth() + 1) + '月】投稿数';
-var POST_APP_HOPE_SHEET_NAME = '【' + (new Date().getMonth() + 1) + '月】ホープ数';
+// ===== 統合シート方式（2026-05-02 移行） =====
+// 1シートで全月分の列を保持。月初トリガーで右側に列追加していく。
+var POST_APP_SHEET_NAME = '投稿数';
+var POST_APP_HOPE_SHEET_NAME = 'ホープ数';
+var POST_APP_PUSH_SHEET_NAME = 'プッシュ数';
 var POST_APP_AUTH_SHEET = '認証';
 var POST_APP_ID_COL = 1;      // A列: ID
-var POST_APP_NAME_COL = 4;    // D列: 名前
-var POST_APP_TOTAL_COL = 5;   // E列: 合計
-var POST_APP_DATE_START_COL = 6;  // F列: 4/1 開始
+var POST_APP_NAME_COL = 4;    // D列: 名前 (背景色=リスト数権限判定)
+var POST_APP_TOTAL_COL = 5;   // E列: 当月合計
+var POST_APP_DATE_START_COL = 6;  // F列: 運用開始月の1日
+
+// 運用開始年月（この月の1日からF列に記録開始）
+var POST_APP_RUN_START_YEAR = 2026;
+var POST_APP_RUN_START_MONTH = 4;
+
+// 当月日数（後方互換）
 var POST_APP_MONTH_DAYS = (function(){
   var now = new Date();
-  return new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate(); // 当月の末日（28-31）
+  return new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
 })();
+
+/**
+ * 投稿数シートの当月列範囲を返す
+ * @return {{startCol: number, monthDays: number, endCol: number}}
+ */
+function getCurrentMonthColRange_() {
+  var now = new Date();
+  var year = now.getFullYear();
+  var month = now.getMonth() + 1;
+  var startCol = POST_APP_DATE_START_COL;
+  var startYm = POST_APP_RUN_START_YEAR * 12 + (POST_APP_RUN_START_MONTH - 1);
+  var nowYm = year * 12 + (month - 1);
+  for (var i = startYm; i < nowYm; i++) {
+    var y = Math.floor(i / 12);
+    var m = (i % 12) + 1;
+    startCol += new Date(y, m, 0).getDate();
+  }
+  var monthDays = new Date(year, month, 0).getDate();
+  return { startCol: startCol, monthDays: monthDays, endCol: startCol + monthDays - 1 };
+}
+
+/**
+ * ホープ数/プッシュ数シートの当月列範囲を返す（1日3列 = YT/IG/TT）
+ */
+function getCurrentMonthHopeColRange_() {
+  var HOPE_DATA_START_COL = 4; // D列
+  var COLS_PER_DAY = 3;
+  var now = new Date();
+  var year = now.getFullYear();
+  var month = now.getMonth() + 1;
+  var startCol = HOPE_DATA_START_COL;
+  var startYm = POST_APP_RUN_START_YEAR * 12 + (POST_APP_RUN_START_MONTH - 1);
+  var nowYm = year * 12 + (month - 1);
+  for (var i = startYm; i < nowYm; i++) {
+    var y = Math.floor(i / 12);
+    var m = (i % 12) + 1;
+    startCol += new Date(y, m, 0).getDate() * COLS_PER_DAY;
+  }
+  var monthDays = new Date(year, month, 0).getDate();
+  var totalCols = monthDays * COLS_PER_DAY;
+  return { startCol: startCol, monthDays: monthDays, totalCols: totalCols, endCol: startCol + totalCols - 1, colsPerDay: COLS_PER_DAY };
+}
+
+/** 列番号 → 列文字（A,B,...AA,AB...） */
+function postAppColToLetter_(col) {
+  var s = '';
+  while (col > 0) {
+    var m = (col - 1) % 26;
+    s = String.fromCharCode(65 + m) + s;
+    col = Math.floor((col - m) / 26);
+  }
+  return s;
+}
 
 // LP投稿本数シート（受講生マスター）
 var LP_SS_ID = '1LP_eye2PMswK1OuGfCpzALJkiRE7gsAvrdFjrj5zoik';
@@ -249,8 +311,9 @@ function postAppGet_(token) {
 // ---- 月データ一括取得ヘルパー ----
 
 function getMonthData_(sheet, row) {
-  var headers = sheet.getRange(1, POST_APP_DATE_START_COL, 1, POST_APP_MONTH_DAYS).getValues()[0];
-  var values = sheet.getRange(row, POST_APP_DATE_START_COL, 1, POST_APP_MONTH_DAYS).getValues()[0];
+  var range = getCurrentMonthColRange_();
+  var headers = sheet.getRange(1, range.startCol, 1, range.monthDays).getValues()[0];
+  var values = sheet.getRange(row, range.startCol, 1, range.monthDays).getValues()[0];
   var total = sheet.getRange(row, POST_APP_TOTAL_COL).getValue();
 
   var days = [];
@@ -284,10 +347,11 @@ function postAppSave_(token, value, col) {
   var sheet = ss.getSheetByName(POST_APP_SHEET_NAME);
   if (!sheet) return { error: 'シートが見つかりません' };
 
-  // col = 0〜29（日付列のインデックス）
+  // col = 当月日数内の0始まりインデックス
   var colNum = parseInt(col);
-  if (isNaN(colNum) || colNum < 0 || colNum >= POST_APP_MONTH_DAYS) return { error: '日付が無効です' };
-  var targetCol = POST_APP_DATE_START_COL + colNum;
+  var range = getCurrentMonthColRange_();
+  if (isNaN(colNum) || colNum < 0 || colNum >= range.monthDays) return { error: '日付が無効です' };
+  var targetCol = range.startCol + colNum;
 
   var lastRow = sheet.getLastRow();
   var ids = sheet.getRange(2, POST_APP_ID_COL, lastRow - 1, 1).getValues();
@@ -860,38 +924,41 @@ function createTestAccount() {
   Logger.log('Password set for ' + name + ' (ID: ' + id + ')');
 }
 
-// ---- ランキング取得 ----
+// ---- ランキング取得（当月のみ） ----
 function postAppRanking_() {
   var ss = SpreadsheetApp.openById(POST_APP_SS_ID);
   var sheet = ss.getSheetByName(POST_APP_SHEET_NAME) || ss.getSheets()[0];
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return { ranking: [] };
 
-  var data = sheet.getRange(2, 1, lastRow - 1, POST_APP_DATE_START_COL + POST_APP_MONTH_DAYS - 1).getValues();
+  var range = getCurrentMonthColRange_();
+  // メタ列(A〜E) + 当月の日別列だけ取得
+  var metaData = sheet.getRange(2, 1, lastRow - 1, POST_APP_NAME_COL).getValues();
+  var monthData = sheet.getRange(2, range.startCol, lastRow - 1, range.monthDays).getValues();
   var now = new Date();
   var todayDay = parseInt(Utilities.formatDate(now, 'Asia/Tokyo', 'dd'));
 
   var members = [];
-  for (var i = 0; i < data.length; i++) {
-    var id = String(data[i][POST_APP_ID_COL - 1] || '').trim();
-    var name = String(data[i][POST_APP_NAME_COL - 1] || '').trim();
+  for (var i = 0; i < metaData.length; i++) {
+    var id = String(metaData[i][POST_APP_ID_COL - 1] || '').trim();
+    var name = String(metaData[i][POST_APP_NAME_COL - 1] || '').trim();
     if (!id || !name) continue;
 
-    // 投稿本数合計
+    // 投稿本数合計（当月分）
     var total = 0;
     var streak = 0;
     var postDays = 0;
-    for (var d = 0; d < POST_APP_MONTH_DAYS; d++) {
-      var v = String(data[i][POST_APP_DATE_START_COL - 1 + d] || '').trim();
+    for (var d = 0; d < range.monthDays; d++) {
+      var v = String(monthData[i][d] || '').trim();
       if (v && v !== '❌') {
         var num = parseInt(v) || 0;
         total += num;
         postDays++;
       }
     }
-    // 連続日数（末尾から）
+    // 連続日数（今日の前日から遡る）
     for (var j = todayDay - 1; j >= 0; j--) {
-      var v2 = String(data[i][POST_APP_DATE_START_COL - 1 + j] || '').trim();
+      var v2 = String(monthData[i][j] || '').trim();
       if (v2 && v2 !== '❌') streak++;
       else break;
     }
@@ -901,37 +968,63 @@ function postAppRanking_() {
     }
   }
 
-  // 投稿本数で降順ソート
   members.sort(function(a, b) { return b.total - a.total || b.streak - a.streak; });
-
   return { ranking: members };
 }
 
 // ---- ホープ数（リスト数）取得API ----
+// 権限判定: 「投稿数」シートD列背景色 ≠ 白 → allowed:true
+// データ取得: 「ホープ数」シートから当月の列範囲を読む
 function postAppGetHope_(token) {
   var id = verifyToken_(token);
   if (!id) return { error: 'セッション切れです。再ログインしてください。' };
 
   var ss = SpreadsheetApp.openById(POST_APP_SS_ID);
-  var sheet = ss.getSheetByName(POST_APP_HOPE_SHEET_NAME);
-  if (!sheet) return { allowed: false };
 
-  var lastRow = sheet.getLastRow();
-  if (lastRow < 3) return { allowed: false };
+  // ① 投稿数シートD列背景色で権限判定
+  var postSheet = ss.getSheetByName(POST_APP_SHEET_NAME);
+  if (!postSheet) return { allowed: false };
+  var postLastRow = postSheet.getLastRow();
+  if (postLastRow < 2) return { allowed: false };
 
-  var ids = sheet.getRange(3, 1, lastRow - 2, 1).getValues();
-  var rowIdx = -1;
-  for (var i = 0; i < ids.length; i++) {
-    if (String(ids[i][0]).trim() === String(id).trim()) { rowIdx = i; break; }
+  var postIds = postSheet.getRange(2, POST_APP_ID_COL, postLastRow - 1, 1).getValues();
+  var postNameBgs = postSheet.getRange(2, POST_APP_NAME_COL, postLastRow - 1, 1).getBackgrounds();
+  var myIdx = -1;
+  for (var i = 0; i < postIds.length; i++) {
+    if (String(postIds[i][0]).trim() === String(id).trim()) { myIdx = i; break; }
   }
-  if (rowIdx < 0) return { allowed: false };
+  if (myIdx < 0) return { allowed: false };
 
-  var row = rowIdx + 3;
-  var values = sheet.getRange(row, 4, 1, POST_APP_MONTH_DAYS * 3).getValues()[0];
-  var total = sheet.getRange(row, 3).getValue();
+  var bg = String(postNameBgs[myIdx][0] || '').toLowerCase();
+  if (!bg || bg === '#ffffff' || bg === 'white') return { allowed: false };
+
+  // ② ホープ数シートから当月データ取得
+  var hopeSheet = ss.getSheetByName(POST_APP_HOPE_SHEET_NAME);
+  if (!hopeSheet) {
+    return { allowed: true, total: 0, days: [] };
+  }
+  var hopeLastRow = hopeSheet.getLastRow();
+  if (hopeLastRow < 3) {
+    return { allowed: true, total: 0, days: [] };
+  }
+
+  var hopeIds = hopeSheet.getRange(3, 1, hopeLastRow - 2, 1).getValues();
+  var hopeRowIdx = -1;
+  for (var j = 0; j < hopeIds.length; j++) {
+    if (String(hopeIds[j][0]).trim() === String(id).trim()) { hopeRowIdx = j; break; }
+  }
+  if (hopeRowIdx < 0) {
+    // 権限はあるが、ホープ数シートに自分の行がまだ無い → タブは出すがデータゼロ
+    return { allowed: true, total: 0, days: [] };
+  }
+
+  var row = hopeRowIdx + 3;
+  var hRange = getCurrentMonthHopeColRange_();
+  var values = hopeSheet.getRange(row, hRange.startCol, 1, hRange.totalCols).getValues()[0];
+  var total = hopeSheet.getRange(row, 3).getValue(); // C列: 当月合計
 
   var days = [];
-  for (var d = 0; d < POST_APP_MONTH_DAYS; d++) {
+  for (var d = 0; d < hRange.monthDays; d++) {
     var yt = parseInt(values[d * 3] || 0) || 0;
     var ig = parseInt(values[d * 3 + 1] || 0) || 0;
     var tt = parseInt(values[d * 3 + 2] || 0) || 0;
@@ -1003,19 +1096,198 @@ function fixPostAppTotal() {
  */
 function checkCurrentMonthSheets_() {
   var ss = SpreadsheetApp.openById(POST_APP_SS_ID);
-  var month = new Date().getMonth() + 1;
-  var targets = [
-    '【' + month + '月】投稿数',
-    '【' + month + '月】ホープ数',
-    '【' + month + '月】プッシュ数'
-  ];
+  var targets = [POST_APP_SHEET_NAME, POST_APP_HOPE_SHEET_NAME, POST_APP_PUSH_SHEET_NAME];
   for (var i = 0; i < targets.length; i++) {
     var sheet = ss.getSheetByName(targets[i]);
     if (sheet) {
       Logger.log(targets[i] + ': ✅ 存在 (lastRow=' + sheet.getLastRow() + ', lastCol=' + sheet.getLastColumn() + ')');
     } else {
-      Logger.log(targets[i] + ': ❌ 無し（事前に作成が必要）');
+      Logger.log(targets[i] + ': ❌ 無し');
     }
   }
-  Logger.log('POST_APP_MONTH_DAYS: ' + POST_APP_MONTH_DAYS);
+  var range = getCurrentMonthColRange_();
+  var hRange = getCurrentMonthHopeColRange_();
+  Logger.log('当月: ' + (new Date().getMonth() + 1) + '月 / 投稿数列範囲 ' + postAppColToLetter_(range.startCol) + ':' + postAppColToLetter_(range.endCol) + ' (' + range.monthDays + '日)');
+  Logger.log('当月ホープ列範囲 ' + postAppColToLetter_(hRange.startCol) + ':' + postAppColToLetter_(hRange.endCol) + ' (' + hRange.totalCols + '列)');
+}
+
+// ===========================================
+// 統合シート方式 - 移行・月初列追加・トリガー
+// ===========================================
+
+/**
+ * 既存の月別シート方式から統合シート方式へ移行する
+ * 一回限り、GASエディタから手動実行
+ *
+ * 前提: スプシ全体のバックアップを「ファイル→コピーを作成」で取得済み
+ */
+function migrateToUnifiedSheet() {
+  var ss = SpreadsheetApp.openById(POST_APP_SS_ID);
+  var ts = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyyMMdd_HHmm');
+  Logger.log('=== 統合シート移行開始: ' + ts + ' ===');
+
+  // Step 1: 「【4月】投稿数」 → 「投稿数」
+  var aprPost = ss.getSheetByName('【4月】投稿数');
+  if (!aprPost) throw new Error('【4月】投稿数シートが見つかりません');
+  var existPost = ss.getSheetByName('投稿数');
+  if (existPost) {
+    existPost.setName('アーカイブ_投稿数_' + ts);
+    Logger.log('既存「投稿数」 → アーカイブ_投稿数_' + ts);
+  }
+  aprPost.setName('投稿数');
+  Logger.log('「【4月】投稿数」 → 「投稿数」');
+
+  // Step 2: 「【新】📲 SMC投稿&リスト進捗」 → アーカイブ
+  var smcSheet = ss.getSheetByName('【新】📲 SMC投稿&リスト進捗');
+  if (smcSheet) {
+    smcSheet.setName('アーカイブ_SMC旧_' + ts);
+    Logger.log('「【新】📲 SMC投稿&リスト進捗」 → アーカイブ_SMC旧_' + ts);
+  }
+
+  // Step 3: 「【4月】ホープ数」 → 「ホープ数」
+  var aprHope = ss.getSheetByName('【4月】ホープ数');
+  if (aprHope) {
+    var existHope = ss.getSheetByName('ホープ数');
+    if (existHope) existHope.setName('アーカイブ_ホープ数_' + ts);
+    aprHope.setName('ホープ数');
+    Logger.log('「【4月】ホープ数」 → 「ホープ数」');
+  } else {
+    Logger.log('注意: 【4月】ホープ数 シートが無い → リスト数機能はホープ数シート作成後に有効');
+  }
+
+  // Step 4: 「【4月】プッシュ数」 → 「プッシュ数」
+  var aprPush = ss.getSheetByName('【4月】プッシュ数');
+  if (aprPush) {
+    var existPush = ss.getSheetByName('プッシュ数');
+    if (existPush) existPush.setName('アーカイブ_プッシュ数_' + ts);
+    aprPush.setName('プッシュ数');
+    Logger.log('「【4月】プッシュ数」 → 「プッシュ数」');
+  } else {
+    Logger.log('注意: 【4月】プッシュ数 シートが無い');
+  }
+
+  // Step 5: 当月の列を追加 + 数式更新
+  ensureCurrentMonthColumns_(ss);
+
+  Logger.log('=== 移行完了 ===');
+  Logger.log('アーカイブシートは消さずに残しています。スプシで目視確認してください。');
+}
+
+/**
+ * 投稿数・ホープ数・プッシュ数の当月の列が無ければ追加する
+ * トリガーから自動実行 + 移行関数からも呼ばれる
+ */
+function ensureCurrentMonthColumns_(ss) {
+  ss = ss || SpreadsheetApp.openById(POST_APP_SS_ID);
+  var month = new Date().getMonth() + 1;
+
+  // 投稿数シート
+  var postSheet = ss.getSheetByName(POST_APP_SHEET_NAME);
+  if (postSheet) {
+    var range = getCurrentMonthColRange_();
+    var lastCol = postSheet.getLastColumn();
+    if (lastCol < range.endCol) {
+      var addCols = range.endCol - lastCol;
+      postSheet.insertColumnsAfter(lastCol, addCols);
+      var dates = [];
+      for (var d = 1; d <= range.monthDays; d++) dates.push(month + '/' + d);
+      postSheet.getRange(1, range.startCol, 1, range.monthDays).setValues([dates]);
+      var lastRow = postSheet.getLastRow();
+      if (lastRow >= 2) {
+        var blank = [];
+        for (var r = 0; r < lastRow - 1; r++) {
+          var row = [];
+          for (var d2 = 0; d2 < range.monthDays; d2++) row.push('❌');
+          blank.push(row);
+        }
+        postSheet.getRange(2, range.startCol, lastRow - 1, range.monthDays).setValues(blank);
+      }
+      Logger.log('投稿数: ' + addCols + '列追加 (' + month + '月分)');
+    }
+    updatePostSheetTotalFormula_(postSheet);
+  }
+
+  // ホープ数・プッシュ数（1日3列）
+  [POST_APP_HOPE_SHEET_NAME, POST_APP_PUSH_SHEET_NAME].forEach(function(name) {
+    var sheet = ss.getSheetByName(name);
+    if (!sheet) {
+      Logger.log('警告: ' + name + ' シートが存在しません');
+      return;
+    }
+    var hRange = getCurrentMonthHopeColRange_();
+    var lastCol = sheet.getLastColumn();
+    if (lastCol < hRange.endCol) {
+      var addCols = hRange.endCol - lastCol;
+      sheet.insertColumnsAfter(lastCol, addCols);
+      var headers = [];
+      for (var d = 1; d <= hRange.monthDays; d++) {
+        headers.push(month + '/' + d + ' YT', month + '/' + d + ' IG', month + '/' + d + ' TT');
+      }
+      sheet.getRange(1, hRange.startCol, 1, hRange.totalCols).setValues([headers]);
+      var lastRow = sheet.getLastRow();
+      if (lastRow >= 3) {
+        var zeros = [];
+        for (var r = 0; r < lastRow - 2; r++) {
+          var row = [];
+          for (var c = 0; c < hRange.totalCols; c++) row.push(0);
+          zeros.push(row);
+        }
+        sheet.getRange(3, hRange.startCol, lastRow - 2, hRange.totalCols).setValues(zeros);
+      }
+      Logger.log(name + ': ' + addCols + '列追加 (' + month + '月分)');
+    }
+  });
+}
+
+/**
+ * 投稿数シートE列の合計数式を当月の列範囲ベースで更新
+ */
+function updatePostSheetTotalFormula_(sheet) {
+  var range = getCurrentMonthColRange_();
+  var startLetter = postAppColToLetter_(range.startCol);
+  var endLetter = postAppColToLetter_(range.endCol);
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return;
+  var formulas = [];
+  for (var r = 2; r <= lastRow; r++) {
+    var f = '=COUNTIF(' + startLetter + r + ':' + endLetter + r + ',"1本")' +
+            '+COUNTIF(' + startLetter + r + ':' + endLetter + r + ',"2本")*2' +
+            '+COUNTIF(' + startLetter + r + ':' + endLetter + r + ',"3本")*3' +
+            '+COUNTIF(' + startLetter + r + ':' + endLetter + r + ',"4本")*4' +
+            '+COUNTIF(' + startLetter + r + ':' + endLetter + r + ',"5本")*5' +
+            '+COUNTIF(' + startLetter + r + ':' + endLetter + r + ',"6本")*6' +
+            '+COUNTIF(' + startLetter + r + ':' + endLetter + r + ',"7本")*7' +
+            '+COUNTIF(' + startLetter + r + ':' + endLetter + r + ',"8本")*8' +
+            '+COUNTIF(' + startLetter + r + ':' + endLetter + r + ',"9本")*9' +
+            '+COUNTIF(' + startLetter + r + ':' + endLetter + r + ',"10本")*10';
+    formulas.push([f]);
+  }
+  sheet.getRange(2, POST_APP_TOTAL_COL, formulas.length, 1).setFormulas(formulas);
+  Logger.log('投稿数 E列の合計数式を更新: ' + formulas.length + '行 (' + startLetter + ':' + endLetter + ')');
+}
+
+/**
+ * 月初列追加トリガーをインストール（毎日0時起動）
+ * GASエディタから1度だけ手動実行
+ */
+function installMonthlyAutoTrigger() {
+  var triggers = ScriptApp.getProjectTriggers();
+  var deleted = 0;
+  for (var i = 0; i < triggers.length; i++) {
+    if (triggers[i].getHandlerFunction() === 'ensureCurrentMonthColumnsTrigger') {
+      ScriptApp.deleteTrigger(triggers[i]);
+      deleted++;
+    }
+  }
+  ScriptApp.newTrigger('ensureCurrentMonthColumnsTrigger')
+    .timeBased()
+    .everyDays(1)
+    .atHour(0)
+    .create();
+  Logger.log('月初列追加トリガーをインストール (毎日0:00, 旧トリガー' + deleted + '個削除)');
+}
+
+/** トリガーから呼ばれる本体 */
+function ensureCurrentMonthColumnsTrigger() {
+  ensureCurrentMonthColumns_();
 }
