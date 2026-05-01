@@ -562,56 +562,6 @@ function fetchFromMasterCSV($month, $year) {
                 }
             }
 
-            // 支払スロットが空の成約 → P列(支払①金額)+V列(支払②金額)をフォールバック
-            if ($dealRevenue == 0 && strpos($status, '成約') !== false) {
-                $payP = parseAmount($row[15] ?? '');  // P列: 支払①金額
-                $payV = parseAmount($row[21] ?? '');  // V列: 支払②金額
-                $fallbackAmount = $payP + $payV;
-
-                // P+Vも0なら契約金額（未着金=0かつ支払方法②なしの場合のみ）
-                if ($fallbackAmount == 0) {
-                    $unpaid = parseAmount($row[22] ?? '');
-                    $pm2check = isset($row[20]) ? trim($row[20]) : '';
-                    if ($unpaid == 0 && $pm2check === '') {
-                        $fallbackAmount = $contractAmount;
-                    }
-                }
-
-                if ($fallbackAmount > 0) {
-                    $dealRevenue = $fallbackAmount;
-                    $memberData[$v2Name]['revenue'] += $fallbackAmount;
-                    // 支払方法で分類: P→支払方法①(T列)、V→支払方法②(U列)
-                    $pm1 = isset($row[19]) ? trim($row[19]) : '';
-                    $pm2 = isset($row[20]) ? trim($row[20]) : '';
-                    if ($payP > 0) {
-                        if (mb_strpos($pm1, 'ライフ') !== false || mb_strpos($pm1, 'CBS') !== false) {
-                            $memberData[$v2Name]['shinpan'] += $payP;
-                        } else {
-                            $memberData[$v2Name]['creditCard'] += $payP;
-                        }
-                    }
-                    if ($payV > 0) {
-                        if (mb_strpos($pm2, 'ライフ') !== false || mb_strpos($pm2, 'CBS') !== false) {
-                            $memberData[$v2Name]['shinpan'] += $payV;
-                        } else {
-                            $memberData[$v2Name]['creditCard'] += $payV;
-                        }
-                    }
-                    // 着金速報: アポ日(C列)を使用
-                    $parsedDate = parsePayDate($ts, $year);
-                    if ($parsedDate && $fallbackAmount > 0) {
-                        $pd = explode('-', $parsedDate);
-                        $paymentNews[] = [
-                            'date' => $parsedDate,
-                            'dateShort' => intval($pd[1]) . '/' . intval($pd[2]),
-                            'name' => $v2Name,
-                            'icon' => $ICON_MAP[$v2Name] ?? '',
-                            'amount' => round($fallbackAmount, 1),
-                        ];
-                    }
-                }
-            }
-
             if ($dealRevenue > 0) {
                 $memberData[$v2Name]['fundedDeals']++;
             }
