@@ -1207,7 +1207,7 @@ function ensureCurrentMonthColumns_(ss) {
     updatePostSheetTotalFormula_(postSheet);
   }
 
-  // ホープ数・プッシュ数（1日3列）
+  // ホープ数・プッシュ数（2行構造ヘッダー: 日付マージ + YT/IG/TT装飾）
   [POST_APP_HOPE_SHEET_NAME, POST_APP_PUSH_SHEET_NAME].forEach(function(name) {
     var sheet = ss.getSheetByName(name);
     if (!sheet) {
@@ -1219,11 +1219,9 @@ function ensureCurrentMonthColumns_(ss) {
     if (lastCol < hRange.endCol) {
       var addCols = hRange.endCol - lastCol;
       sheet.insertColumnsAfter(lastCol, addCols);
-      var headers = [];
-      for (var d = 1; d <= hRange.monthDays; d++) {
-        headers.push(month + '/' + d + ' YT', month + '/' + d + ' IG', month + '/' + d + ' TT');
-      }
-      sheet.getRange(1, hRange.startCol, 1, hRange.totalCols).setValues([headers]);
+      // 2行構造のヘッダー
+      writeHope2RowHeader_(sheet, hRange, month);
+      // データ行は3行目以降を0で初期化
       var lastRow = sheet.getLastRow();
       if (lastRow >= 3) {
         var zeros = [];
@@ -1236,6 +1234,73 @@ function ensureCurrentMonthColumns_(ss) {
       }
       Logger.log(name + ': ' + addCols + '列追加 (' + month + '月分)');
     }
+  });
+}
+
+/**
+ * ホープ数・プッシュ数シートの当月ヘッダーを2行構造で書く
+ * 1行目: 日付（3列マージ）"5/1" "5/2" ...
+ * 2行目: YT(赤) / IG(紫) / TT(水色) を3列ずつ繰り返し
+ */
+function writeHope2RowHeader_(sheet, hRange, month) {
+  // マージ解除（既にあれば）
+  try {
+    sheet.getRange(1, hRange.startCol, 1, hRange.totalCols).breakApart();
+  } catch (e) {}
+
+  // 1行目: 日付（薄い緑背景・太字・中央揃え。既存4月分と統一）
+  var dateRow = [];
+  for (var d = 1; d <= hRange.monthDays; d++) {
+    dateRow.push(month + '/' + d, '', '');
+  }
+  sheet.getRange(1, hRange.startCol, 1, hRange.totalCols)
+    .setValues([dateRow])
+    .setHorizontalAlignment('center')
+    .setFontWeight('bold')
+    .setBackground('#F1F8E9');
+  // 3列ずつマージ
+  for (var d2 = 0; d2 < hRange.monthDays; d2++) {
+    var col = hRange.startCol + d2 * hRange.colsPerDay;
+    sheet.getRange(1, col, 1, hRange.colsPerDay).merge();
+  }
+
+  // 2行目: YT/IG/TT
+  var categoryRow = [];
+  for (var d3 = 1; d3 <= hRange.monthDays; d3++) {
+    categoryRow.push('YT', 'IG', 'TT');
+  }
+  sheet.getRange(2, hRange.startCol, 1, hRange.totalCols)
+    .setValues([categoryRow])
+    .setHorizontalAlignment('center')
+    .setFontWeight('bold')
+    .setFontColor('#FFFFFF');
+
+  // 背景色: YT=赤 / IG=紫 / TT=水色
+  for (var d4 = 0; d4 < hRange.monthDays; d4++) {
+    var baseCol = hRange.startCol + d4 * hRange.colsPerDay;
+    sheet.getRange(2, baseCol).setBackground('#E53935');     // YT 赤
+    sheet.getRange(2, baseCol + 1).setBackground('#9C27B0'); // IG 紫
+    sheet.getRange(2, baseCol + 2).setBackground('#26C6DA'); // TT 水色
+  }
+}
+
+/**
+ * 既に作成済みの当月ホープ数・プッシュ数ヘッダーを2行構造に書き直す
+ * GASエディタから手動実行（一回だけの修正用）
+ */
+function fixUnifiedSheetHeaders() {
+  var ss = SpreadsheetApp.openById(POST_APP_SS_ID);
+  var hRange = getCurrentMonthHopeColRange_();
+  var month = new Date().getMonth() + 1;
+
+  [POST_APP_HOPE_SHEET_NAME, POST_APP_PUSH_SHEET_NAME].forEach(function(name) {
+    var sheet = ss.getSheetByName(name);
+    if (!sheet) {
+      Logger.log(name + ' シートが見つかりません');
+      return;
+    }
+    writeHope2RowHeader_(sheet, hRange, month);
+    Logger.log(name + ': 当月ヘッダーを2行構造に修正 (' + month + '月)');
   });
 }
 
