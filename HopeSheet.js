@@ -1,11 +1,14 @@
 // ===== ホープ数・プッシュ数シート作成・管理 =====
 
-var HOPE_SHEET_NAME = '【4月】ホープ数';
-var PUSH_SHEET_NAME = '【4月】プッシュ数';
+var HOPE_SHEET_NAME = '【' + (new Date().getMonth() + 1) + '月】ホープ数';
+var PUSH_SHEET_NAME = '【' + (new Date().getMonth() + 1) + '月】プッシュ数';
 var HOPE_META_COLS = 3;       // A:ID, B:名前, C:合計
 var HOPE_DATE_START_COL = 4;  // D列から日別開始
 var HOPE_COLS_PER_DAY = 3;    // YT, IG, TT
-var HOPE_MONTH_DAYS = 30;     // 4月
+var HOPE_MONTH_DAYS = (function(){
+  var now = new Date();
+  return new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate(); // 当月の末日（28-31）
+})();
 
 /**
  * 投稿数シートを部分一致で検索
