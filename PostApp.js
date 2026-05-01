@@ -6,13 +6,17 @@
 var POST_APP_SS_ID = '1rQSoM2zu38aPXJHHD6ILEgyM0SEDOXHXZXz0qK_nQuk';
 
 // シート構造定数
-var POST_APP_SHEET_NAME = '【4月】投稿数';
+var POST_APP_SHEET_NAME = '【' + (new Date().getMonth() + 1) + '月】投稿数';
+var POST_APP_HOPE_SHEET_NAME = '【' + (new Date().getMonth() + 1) + '月】ホープ数';
 var POST_APP_AUTH_SHEET = '認証';
 var POST_APP_ID_COL = 1;      // A列: ID
 var POST_APP_NAME_COL = 4;    // D列: 名前
 var POST_APP_TOTAL_COL = 5;   // E列: 合計
 var POST_APP_DATE_START_COL = 6;  // F列: 4/1 開始
-var POST_APP_MONTH_DAYS = 30;     // 4月は30日
+var POST_APP_MONTH_DAYS = (function(){
+  var now = new Date();
+  return new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate(); // 当月の末日（28-31）
+})();
 
 // LP投稿本数シート（受講生マスター）
 var LP_SS_ID = '1LP_eye2PMswK1OuGfCpzALJkiRE7gsAvrdFjrj5zoik';
@@ -791,10 +795,10 @@ function resetTestUsers() {
     var sid = String(allIds[i][0]).trim();
     if (ids.indexOf(sid) !== -1) {
       var row = i + 2;
-      // F列(6)〜AI列(35) = 30日分を❌でリセット
+      // F列(6)〜AI列(35) = 30日分を❌でリセット（5月以降は31日対応）
       var blank = [];
-      for (var d = 0; d < 30; d++) blank.push('❌');
-      sheet.getRange(row, POST_APP_DATE_START_COL, 1, 30).setValues([blank]);
+      for (var d = 0; d < POST_APP_MONTH_DAYS; d++) blank.push('❌');
+      sheet.getRange(row, POST_APP_DATE_START_COL, 1, POST_APP_MONTH_DAYS).setValues([blank]);
       Logger.log('Reset row ' + row + ' (ID: ' + sid + ')');
     }
   }
@@ -839,7 +843,7 @@ function createTestAccount() {
   // A=ID, B=契約日, C=CW ID, D=名前, E=合計数式, F〜AI=❌
   var f = '=COUNTIF(F2:AI2,"1本")+COUNTIF(F2:AI2,"2本")*2+COUNTIF(F2:AI2,"3本")*3+COUNTIF(F2:AI2,"4本")*4+COUNTIF(F2:AI2,"5本")*5+COUNTIF(F2:AI2,"6本")*6';
   var newRow = [id, '', '', name, f];
-  for (var d = 0; d < 30; d++) newRow.push('❌');
+  for (var d = 0; d < POST_APP_MONTH_DAYS; d++) newRow.push('❌');
   sheet.getRange(2, 1, 1, newRow.length).setValues([newRow]);
   Logger.log('Inserted ' + name + ' at row 2');
 
@@ -909,7 +913,7 @@ function postAppGetHope_(token) {
   if (!id) return { error: 'セッション切れです。再ログインしてください。' };
 
   var ss = SpreadsheetApp.openById(POST_APP_SS_ID);
-  var sheet = ss.getSheetByName('【4月】ホープ数');
+  var sheet = ss.getSheetByName(POST_APP_HOPE_SHEET_NAME);
   if (!sheet) return { allowed: false };
 
   var lastRow = sheet.getLastRow();
@@ -923,11 +927,11 @@ function postAppGetHope_(token) {
   if (rowIdx < 0) return { allowed: false };
 
   var row = rowIdx + 3;
-  var values = sheet.getRange(row, 4, 1, 30 * 3).getValues()[0];
+  var values = sheet.getRange(row, 4, 1, POST_APP_MONTH_DAYS * 3).getValues()[0];
   var total = sheet.getRange(row, 3).getValue();
 
   var days = [];
-  for (var d = 0; d < 30; d++) {
+  for (var d = 0; d < POST_APP_MONTH_DAYS; d++) {
     var yt = parseInt(values[d * 3] || 0) || 0;
     var ig = parseInt(values[d * 3 + 1] || 0) || 0;
     var tt = parseInt(values[d * 3 + 2] || 0) || 0;
@@ -990,4 +994,28 @@ function fixPostAppTotal() {
   }
   sheet.getRange(2, POST_APP_TOTAL_COL, formulas.length, 1).setFormulas(formulas);
   Logger.log('Done: ' + formulas.length + ' rows updated');
+}
+
+/**
+ * 当月シートの存在確認（GASエディタから手動実行用）
+ * 月跨ぎデプロイ後に「【○月】投稿数」「【○月】ホープ数」「【○月】プッシュ数」が
+ * スプシに作られているか検証する。
+ */
+function checkCurrentMonthSheets_() {
+  var ss = SpreadsheetApp.openById(POST_APP_SS_ID);
+  var month = new Date().getMonth() + 1;
+  var targets = [
+    '【' + month + '月】投稿数',
+    '【' + month + '月】ホープ数',
+    '【' + month + '月】プッシュ数'
+  ];
+  for (var i = 0; i < targets.length; i++) {
+    var sheet = ss.getSheetByName(targets[i]);
+    if (sheet) {
+      Logger.log(targets[i] + ': ✅ 存在 (lastRow=' + sheet.getLastRow() + ', lastCol=' + sheet.getLastColumn() + ')');
+    } else {
+      Logger.log(targets[i] + ': ❌ 無し（事前に作成が必要）');
+    }
+  }
+  Logger.log('POST_APP_MONTH_DAYS: ' + POST_APP_MONTH_DAYS);
 }
