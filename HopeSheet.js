@@ -1,7 +1,8 @@
 // ===== ホープ数・プッシュ数シート作成・管理 =====
 
-var HOPE_SHEET_NAME = '【' + (new Date().getMonth() + 1) + '月】ホープ数';
-var PUSH_SHEET_NAME = '【' + (new Date().getMonth() + 1) + '月】プッシュ数';
+// 統合シート方式（2026-05-02 移行）: 1シートで全月分の列を保持
+var HOPE_SHEET_NAME = 'ホープ数';
+var PUSH_SHEET_NAME = 'プッシュ数';
 var HOPE_META_COLS = 3;       // A:ID, B:名前, C:合計
 var HOPE_DATE_START_COL = 4;  // D列から日別開始
 var HOPE_COLS_PER_DAY = 3;    // YT, IG, TT
