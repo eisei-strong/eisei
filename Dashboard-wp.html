@@ -1624,11 +1624,11 @@
     }
     .mentor-row-label {
       font-size: 10px;
-      color: #FED7AA;
+      color: #FCD34D;
       font-weight: 700;
       margin-bottom: 4px;
       white-space: nowrap;
-      text-shadow: 0 1px 2px rgba(0,0,0,0.55);
+      text-shadow: 0 1px 2px rgba(0,0,0,0.6), 0 0 4px rgba(252,211,77,0.35);
       letter-spacing: 0.3px;
     }
     .mentor-row-badge {
@@ -1636,19 +1636,14 @@
       font-size: 7px;
       font-weight: 700;
       letter-spacing: 1px;
-      color: #FB923C;
-      background: rgba(249,115,22,0.12);
-      border: 1px solid rgba(249,115,22,0.45);
+      color: #FCD34D;
+      background: rgba(252,211,77,0.1);
+      border: 1px solid rgba(252,211,77,0.5);
       padding: 0 5px;
       border-radius: 3px;
       margin-bottom: 3px;
       text-transform: uppercase;
-    }
-    .mentor-row-badge.is-chief {
-      color: #1E293B;
-      background: linear-gradient(135deg, #FCD34D, #F59E0B);
-      border-color: #F59E0B;
-      box-shadow: 0 1px 3px rgba(245,158,11,0.45);
+      text-shadow: 0 0 3px rgba(252,211,77,0.35);
     }
     @keyframes mentorEnter {
       from { opacity: 0; transform: translateY(-10px); }
@@ -2563,8 +2558,6 @@
         return ai - bi;
       });
       var html = '';
-      // 押切は最上位の総司令官、それ以外は MENTOR
-      var BADGE_BY_NAME = { '押切': 'CHIEF' };
       mentors.forEach(function(name, idx) {
         var url = (iconMap && iconMap[name]) || '';
         if (!url) {
@@ -2576,14 +2569,12 @@
           }
         }
         if (!url) return;
-        var badge = BADGE_BY_NAME[name] || 'MENTOR';
-        var badgeClass = (badge === 'CHIEF') ? 'mentor-row-badge is-chief' : 'mentor-row-badge';
         // 順番に登場（stagger）
         var delay = (idx * 0.06).toFixed(2);
         html += '<div class="mentor-row-item" data-mentor-name="' + escapeHtml(name) + '" style="animation-delay:' + delay + 's;">' +
           '<img src="' + url + '" alt="' + escapeHtml(name) + '" onerror="this.style.display=\'none\'">' +
           '<span class="mentor-row-label">' + escapeHtml(name) + '</span>' +
-          '<span class="' + badgeClass + '">' + badge + '</span>' +
+          '<span class="mentor-row-badge">MENTOR</span>' +
         '</div>';
       });
       row.innerHTML = html;
