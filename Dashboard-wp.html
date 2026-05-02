@@ -2847,9 +2847,15 @@
     }
     function getMentorIcon(memberName, iconMap) {
       if (!isMay2026OrLaterView()) return '';
-      var mentor = MENTOR_MAP[memberName];
-      if (!mentor) return '';
-      return iconMap[mentor] || '';
+      // PULLING_PAIRS から直接探して、pullerIconUrl があればそれ優先
+      // （メンバー一覧に出ない人=押切等のメンターも表示できるようにするため）
+      for (var i = 0; i < PULLING_PAIRS.length; i++) {
+        var p = PULLING_PAIRS[i];
+        if (p.pulled === memberName) {
+          return p.pullerIconUrl || (iconMap && iconMap[p.puller]) || '';
+        }
+      }
+      return '';
     }
     var _lastPullingData = null;
 
