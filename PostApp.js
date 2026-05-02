@@ -1006,8 +1006,9 @@ function postAppRanking_() {
 
 // ---- ホープ数（リスト数）取得API ----
 // 権限判定: 「投稿数」シートD列背景色 ≠ 白 → allowed:true
-// データ取得: 「ホープ数」シートから当月の列範囲を読む
-function postAppGetHope_(token) {
+// データ取得: 「ホープ数」シートから指定月の列範囲を読む
+// 合計: days[] の sum を合算（C列の数式に依存しない、月跨ぎでもズレない）
+function postAppGetHope_(token, year, month) {
   var id = verifyToken_(token);
   if (!id) return { error: 'セッション切れです。再ログインしてください。' };
 
@@ -1030,14 +1031,19 @@ function postAppGetHope_(token) {
   var bg = String(postNameBgs[myIdx][0] || '').toLowerCase();
   if (!bg || bg === '#ffffff' || bg === 'white') return { allowed: false };
 
-  // ② ホープ数シートから当月データ取得
+  // 指定月のホープ列範囲を計算
+  var hRange = getCurrentMonthHopeColRange_(POST_APP_HOPE_SHEET_NAME,
+    year ? parseInt(year) : null,
+    month ? parseInt(month) : null);
+
+  // ② ホープ数シートから指定月データ取得
   var hopeSheet = ss.getSheetByName(POST_APP_HOPE_SHEET_NAME);
   if (!hopeSheet) {
-    return { allowed: true, total: 0, days: [] };
+    return { allowed: true, year: hRange.year, month: hRange.month, total: 0, days: [] };
   }
   var hopeLastRow = hopeSheet.getLastRow();
   if (hopeLastRow < 3) {
-    return { allowed: true, total: 0, days: [] };
+    return { allowed: true, year: hRange.year, month: hRange.month, total: 0, days: [] };
   }
 
   var hopeIds = hopeSheet.getRange(3, 1, hopeLastRow - 2, 1).getValues();
@@ -1046,24 +1052,24 @@ function postAppGetHope_(token) {
     if (String(hopeIds[j][0]).trim() === String(id).trim()) { hopeRowIdx = j; break; }
   }
   if (hopeRowIdx < 0) {
-    // 権限はあるが、ホープ数シートに自分の行がまだ無い → タブは出すがデータゼロ
-    return { allowed: true, total: 0, days: [] };
+    return { allowed: true, year: hRange.year, month: hRange.month, total: 0, days: [] };
   }
 
   var row = hopeRowIdx + 3;
-  var hRange = getCurrentMonthHopeColRange_();
   var values = hopeSheet.getRange(row, hRange.startCol, 1, hRange.totalCols).getValues()[0];
-  var total = hopeSheet.getRange(row, 3).getValue(); // C列: 当月合計
 
   var days = [];
+  var total = 0;
   for (var d = 0; d < hRange.monthDays; d++) {
     var yt = parseInt(values[d * 3] || 0) || 0;
     var ig = parseInt(values[d * 3 + 1] || 0) || 0;
     var tt = parseInt(values[d * 3 + 2] || 0) || 0;
-    days.push({ day: d + 1, yt: yt, ig: ig, tt: tt, sum: yt + ig + tt });
+    var sum = yt + ig + tt;
+    days.push({ day: d + 1, yt: yt, ig: ig, tt: tt, sum: sum });
+    total += sum;
   }
 
-  return { allowed: true, total: total || 0, days: days };
+  return { allowed: true, year: hRange.year, month: hRange.month, total: total, days: days };
 }
 
 // ---- D列の名前をLPスプシから復元 ----
