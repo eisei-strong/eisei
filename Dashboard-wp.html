@@ -1684,6 +1684,37 @@
       to { stroke-dasharray: 9999 0; }
     }
 
+    /* ===== スマホ最適化（メンター司令塔ステージ）===== */
+    @media (max-width: 768px) {
+      .mentors-row {
+        height: 96px;
+        padding: 10px 4px 12px;
+        margin-bottom: 24px;
+        border-radius: 10px;
+      }
+      .mentors-row::before { top: 3px; }
+      .mentors-row::after  { bottom: 4px; }
+      .mentor-row-item {
+        width: 56px;
+        top: 10px;
+      }
+      .mentor-row-item img {
+        width: 44px; height: 44px;
+        border-width: 2px;
+      }
+      .mentor-row-label {
+        font-size: 9px;
+        margin-bottom: 3px;
+        letter-spacing: 0;
+      }
+      .mentor-row-badge {
+        font-size: 7px;
+        padding: 1px 4px;
+        letter-spacing: 1px;
+        margin-bottom: 2px;
+      }
+    }
+
     /* ===== 5月以降: 引っ張り綱（戦士たちセクション内）===== */
     .members-list-wrap {
       position: relative;
@@ -2543,8 +2574,7 @@
         if (bi === -1) bi = 999;
         return ai - bi;
       });
-      // ステージタグ（COMMAND）
-      var html = '<div class="mentors-row-tag">COMMAND</div>';
+      var html = '';
       // 押切は最上位の総司令官、それ以外は MENTOR
       var BADGE_BY_NAME = { '押切': 'CHIEF' };
       mentors.forEach(function(name, idx) {
