@@ -3034,9 +3034,21 @@
         baselineY = nMentors > 0 ? (baselineY / nMentors) + 18 : 90;
 
         // SVG path生成
+        // 綱の先端を「掴む手」にする（自前ベクター・絵文字は使わない）
         var defs = '<defs>' +
-          '<marker id="ropeArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">' +
-          '<path d="M 0 0 L 10 5 L 0 10 z" fill="#F97316" />' +
+          '<marker id="ropeHand" viewBox="0 0 24 24" refX="6" refY="14"' +
+            ' markerWidth="22" markerHeight="22" orient="auto-start-reverse" markerUnits="userSpaceOnUse">' +
+            '<g fill="#FCD34D" stroke="#78350F" stroke-width="0.9"' +
+              ' stroke-linejoin="round" stroke-linecap="round"' +
+              ' style="filter: drop-shadow(0 1px 1.5px rgba(0,0,0,0.55));">' +
+              // 親指
+              '<path d="M 8 16 Q 4 17 4 14 Q 4 12 7 12 L 8 14 Z"/>' +
+              // 手のひら＋折りたたみ指
+              '<path d="M 7 11 Q 7 7 10 7 L 18 7 Q 21 7 21 10 L 21 16 Q 21 19 18 19 L 10 19 Q 7 19 7 16 Z"/>' +
+              // 指関節（折り目）
+              '<path d="M 11 7 L 11 11 M 14 7 L 14 11 M 17 7 L 17 11"' +
+                ' stroke-width="0.6" fill="none"/>' +
+            '</g>' +
           '</marker>' +
           '</defs>';
         var paths = '';
@@ -3076,7 +3088,7 @@
           var d = 'M ' + sx + ' ' + sy +
                   ' L ' + sx + ' ' + stalkY +
                   ' C ' + c1x + ' ' + c1y + ', ' + c2x + ' ' + c2y + ', ' + ex + ' ' + ey;
-          paths += '<path class="pulling-rope" d="' + d + '" style="animation-delay:' + (i * 0.06) + 's"></path>';
+          paths += '<path class="pulling-rope" d="' + d + '" style="animation-delay:' + (i * 0.06) + 's" marker-end="url(#ropeHand)"></path>';
         });
 
         svg.innerHTML = defs + paths;
