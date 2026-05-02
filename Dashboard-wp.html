@@ -2333,13 +2333,12 @@
         if (idx === 0 && !offType) cls += ' is-top';
         if (offType === 'full') cls += ' is-off';
         if (offType === 'half') cls += ' is-half';
-        var bubble = makeBubble(m, idx, offType);
+        // 一言コメント（吹き出し）は廃止
         var mentorIcon = getMentorIcon(m.name, iconMap);
         var mentorHtml = mentorIcon
           ? '<img class="member-mentor" src="' + mentorIcon + '" alt="メンター" title="メンター: ' + escapeHtml(MENTOR_MAP[m.name] || '') + '" onerror="this.style.display=\'none\'">'
           : (isMay2026OrLaterView() ? '<span class="member-mentor-spacer" aria-hidden="true"></span>' : '');
         return '<div class="' + cls + '" data-member-name="' + escapeHtml(m.name) + '">' +
-          '<div class="member-item-bubble">' + bubble + '</div>' +
           mentorHtml +
           '<img class="member-item-avatar" src="' + m.icon + '" alt="' + escapeHtml(m.name) + '" onerror="this.style.display=\'none\'">' +
           '<span class="member-item-name">' + escapeHtml(m.name) + '</span>' +
