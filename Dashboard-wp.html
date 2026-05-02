@@ -1558,16 +1558,37 @@
       0%, 100% { transform: translateY(0); }
       50% { transform: translateY(-3px); }
     }
-    /* ランキングテーブルの「ゴール握る人」カラム */
-    .mentor-col { display: none; }
-    .show-mentor-col .mentor-col { display: table-cell; }
-    .detail-mentor-icon {
-      width: 26px; height: 26px;
+
+    /* ===== 5月以降: unique メンター行（上段）===== */
+    .mentors-row {
+      display: flex;
+      flex-direction: row;
+      gap: 16px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 28px;
+    }
+    .mentor-row-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 64px;
+    }
+    .mentor-row-item img {
+      width: 56px; height: 56px;
       border-radius: 50%;
-      border: 2px solid #FB923C;
+      border: 2px solid #F97316;
       object-fit: cover;
-      vertical-align: middle;
-      box-shadow: 0 1px 3px rgba(249,115,22,0.4);
+      box-shadow: 0 2px 8px rgba(249,115,22,0.5);
+      animation: mentorBob 1.4s ease-in-out infinite;
+      background: #FED7AA;
+    }
+    .mentor-row-label {
+      font-size: 10px;
+      color: #C2410C;
+      font-weight: 700;
+      margin-top: 4px;
+      white-space: nowrap;
     }
 
     /* ===== 5月以降: 引っ張り綱（戦士たちセクション内）===== */
@@ -1678,6 +1699,9 @@
         <h3>- 全ての人を輝かせる戦士たち -</h3>
         <div class="members-list-wrap" style="position:relative;">
           <svg class="pulling-rope-overlay" id="pullingRopeOverlay" aria-hidden="true"></svg>
+          <!-- 上段：unique メンター行（5月以降のみ）-->
+          <div class="mentors-row" id="mentorsRow" style="display:none;"></div>
+          <!-- 下段：本人メンバー一覧（既存・フラット）-->
           <div class="members-list" id="strongestMembers"></div>
         </div>
       </div>
@@ -1743,7 +1767,7 @@
         <table class="detail-table" id="detailTable">
           <thead>
             <tr>
-              <th class="sticky-col sticky-rank" rowspan="2">名前</th><th class="sticky-col sticky-icon" rowspan="2"></th><th class="mentor-col" rowspan="2">ゴール<br>握る人</th><th class="sticky-col sticky-revenue" rowspan="2">着金額</th>
+              <th class="sticky-col sticky-rank" rowspan="2">名前</th><th class="sticky-col sticky-icon" rowspan="2"></th><th class="sticky-col sticky-revenue" rowspan="2">着金額</th>
               <th rowspan="2" style="background:#FEE8CD;">ゴール</th><th rowspan="2" style="background:#FEE8CD;">ゴールとの<br>差分</th><th rowspan="2" style="background:#FEE8CD;">1日必要な<br>着金</th><th rowspan="2" style="background:#FEE8CD;">現状の平均単価<br>×成約率の場合の<br>ゴールに必要な<br>プッシュ数</th><th rowspan="2" style="background:#FEE8CD;">現商談ペースでの<br>ゴールに必要な<br>出勤数</th>
               <th rowspan="2">商談数</th>
               <th colspan="3" style="border-bottom:1px solid #E2E8F0;">成約</th>
@@ -1860,9 +1884,7 @@
     };
 
     // 退職済みメンバー（ダッシュボードから非表示）
-    // 注: 「悟空」(荒木) は2026年5月から復活。api-proxy.php の ICON_MAP_MAY2026 で5月以降のみ表示制御してるためここから外す。
-    // 「やまと」は退職継続のため除外維持。
-    var HIDDEN_MEMBERS = ['やまと'];
+    var HIDDEN_MEMBERS = ['悟空', 'やまと'];
 
     function fixMemberNames(data) {
       if (!data || !data.members) return data;
@@ -2342,7 +2364,20 @@
       var iconMap = {};
       data.members.forEach(function(mm) { iconMap[mm.name] = mm.icon || ''; });
 
-      // 同メンターを連続配置するため、メンター別に並び替え（5月以降のみ）
+      function renderItem(item, offType) {
+        var m = item.m, idx = item.idx;
+        var cls = 'member-item';
+        if (idx === 0 && !offType) cls += ' is-top';
+        if (offType === 'full') cls += ' is-off';
+        if (offType === 'half') cls += ' is-half';
+        // 一言コメント・メンターアイコンは廃止。メンター関係は上段の mentorsRow + SVG綱で表現。
+        return '<div class="' + cls + '" data-member-name="' + escapeHtml(m.name) + '">' +
+          '<img class="member-item-avatar" src="' + m.icon + '" alt="' + escapeHtml(m.name) + '" onerror="this.style.display=\'none\'">' +
+          '<span class="member-item-name">' + escapeHtml(m.name) + '</span>' +
+          '</div>';
+      }
+
+      // 5月以降: メンターを持つ人 → グループ順、メンター不在 → 右端
       function getMentorOf(name) {
         for (var i = 0; i < PULLING_PAIRS.length; i++) {
           if (PULLING_PAIRS[i].pulled === name) return PULLING_PAIRS[i].puller;
@@ -2357,7 +2392,6 @@
           if (!groups[key]) groups[key] = [];
           groups[key].push(it);
         });
-        // メンター不在(_NONE_)は右端に配置
         var order = ['押切', '意思決定', 'ぜんぶり', 'ポジティブ', '夜神月', '1日1more', '言い切り', 'ゴジータ', '_NONE_'];
         var result = [];
         order.forEach(function(k) { if (groups[k]) result = result.concat(groups[k]); });
@@ -2365,38 +2399,64 @@
         return result;
       }
 
-      function renderItem(item, offType) {
-        var m = item.m, idx = item.idx;
-        var cls = 'member-item';
-        if (idx === 0 && !offType) cls += ' is-top';
-        if (offType === 'full') cls += ' is-off';
-        if (offType === 'half') cls += ' is-half';
-        // 一言コメント・メンターアイコンは廃止。メンター関係はSVG綱で表現する。
-        return '<div class="' + cls + '" data-member-name="' + escapeHtml(m.name) + '">' +
-          '<img class="member-item-avatar" src="' + m.icon + '" alt="' + escapeHtml(m.name) + '" onerror="this.style.display=\'none\'">' +
-          '<span class="member-item-name">' + escapeHtml(m.name) + '</span>' +
-          '</div>';
-      }
-      // メンター別に並び替えて出力（メンター不在は右端）
-      function renderGroup(items, offType) {
-        items = reorderForMentor(items);
-        var html = '';
-        items.forEach(function(it) {
-          html += renderItem(it, offType);
-        });
-        return html;
-      }
-
       var html = '';
-      // チーム表示は廃止 - 常に個人表示
-      // 同メンターを連続配置（5月以降のみ並び替え発動）
-      html += renderGroup(working, null);
-      html += renderGroup(halfOff, 'half');
-      if (fullOff.length > 0 && (working.length > 0 || halfOff.length > 0)) {
+      var workingOrdered = reorderForMentor(working);
+      var halfOffOrdered = reorderForMentor(halfOff);
+      var fullOffOrdered = reorderForMentor(fullOff);
+      workingOrdered.forEach(function(item) { html += renderItem(item, null); });
+      halfOffOrdered.forEach(function(item) { html += renderItem(item, 'half'); });
+      if (fullOffOrdered.length > 0 && (workingOrdered.length > 0 || halfOffOrdered.length > 0)) {
         html += '<div class="members-divider"></div>';
       }
-      html += renderGroup(fullOff, 'full');
+      fullOffOrdered.forEach(function(item) { html += renderItem(item, 'full'); });
       container.innerHTML = html;
+
+      // 上段：unique メンター行を描画（5月以降のみ）
+      renderMentorsRow(data, iconMap);
+    }
+
+    // 上段の unique mentor 行を描画
+    function renderMentorsRow(data, iconMap) {
+      var row = document.getElementById('mentorsRow');
+      if (!row) return;
+      if (!isMay2026OrLaterView()) {
+        row.innerHTML = '';
+        row.style.display = 'none';
+        return;
+      }
+      // PULLING_PAIRS から unique mentor 抽出（順序維持）
+      var seen = {};
+      var mentors = [];
+      PULLING_PAIRS.forEach(function(p) {
+        if (!seen[p.puller]) { seen[p.puller] = true; mentors.push(p.puller); }
+      });
+      // メンター順: 押切→意思決定→ぜんぶり→ポジティブ→夜神月→1日1more→言い切り→ゴジータ
+      var order = ['押切', '意思決定', 'ぜんぶり', 'ポジティブ', '夜神月', '1日1more', '言い切り', 'ゴジータ'];
+      mentors.sort(function(a, b) {
+        var ai = order.indexOf(a), bi = order.indexOf(b);
+        if (ai === -1) ai = 999;
+        if (bi === -1) bi = 999;
+        return ai - bi;
+      });
+      var html = '';
+      mentors.forEach(function(name) {
+        var url = (iconMap && iconMap[name]) || '';
+        if (!url) {
+          for (var i = 0; i < PULLING_PAIRS.length; i++) {
+            if (PULLING_PAIRS[i].puller === name && PULLING_PAIRS[i].pullerIconUrl) {
+              url = PULLING_PAIRS[i].pullerIconUrl;
+              break;
+            }
+          }
+        }
+        if (!url) return;
+        html += '<div class="mentor-row-item" data-mentor-name="' + escapeHtml(name) + '">' +
+          '<img src="' + url + '" alt="' + escapeHtml(name) + '" onerror="this.style.display=\'none\'">' +
+          '<span class="mentor-row-label">' + escapeHtml(name) + '</span>' +
+        '</div>';
+      });
+      row.innerHTML = html;
+      row.style.display = html ? 'flex' : 'none';
     }
 
     // ===== Progress Section =====
@@ -2762,23 +2822,17 @@
     }
     function getMentorIcon(memberName, iconMap) {
       if (!isMay2026OrLaterView()) return '';
-      // PULLING_PAIRSから直接探して、pullerIconUrl があればそれを使う
-      // （メンバー一覧に出ない人=押切等のメンターも表示できるように）
-      for (var i = 0; i < PULLING_PAIRS.length; i++) {
-        var p = PULLING_PAIRS[i];
-        if (p.pulled === memberName) {
-          return p.pullerIconUrl || iconMap[p.puller] || '';
-        }
-      }
-      return '';
+      var mentor = MENTOR_MAP[memberName];
+      if (!mentor) return '';
+      return iconMap[mentor] || '';
     }
     var _lastPullingData = null;
 
     function renderPullingAnimation(data) {
       if (data) _lastPullingData = data;
       var svg = document.getElementById('pullingRopeOverlay');
-      var list = document.getElementById('strongestMembers');
-      if (!svg || !list) return;
+      var wrap = svg ? svg.parentElement : null; // .members-list-wrap
+      if (!svg || !wrap) return;
 
       var month = currentViewMonth || (data && data.currentMonth) || (new Date().getMonth() + 1);
       var year = currentViewYear || (new Date().getFullYear());
@@ -2791,30 +2845,42 @@
 
       // レイアウト確定後に位置取得（フォント・画像load後）
       requestAnimationFrame(function() {
-        var listRect = list.getBoundingClientRect();
-        if (listRect.width === 0) return;
+        var wrapRect = wrap.getBoundingClientRect();
+        if (wrapRect.width === 0) return;
 
-        // SVGをmembers-list-wrap全体に被せる
+        // SVGを members-list-wrap 全体に被せる（上段mentor + 下段member 両方を含む）
         svg.style.display = 'block';
-        svg.style.width = listRect.width + 'px';
-        svg.style.height = listRect.height + 'px';
-        svg.setAttribute('viewBox', '0 0 ' + listRect.width + ' ' + listRect.height);
+        svg.style.width = wrapRect.width + 'px';
+        svg.style.height = wrapRect.height + 'px';
+        svg.setAttribute('viewBox', '0 0 ' + wrapRect.width + ' ' + wrapRect.height);
 
-        // メンバー位置取得
-        var positions = {};
-        list.querySelectorAll('.member-item').forEach(function(item) {
+        // 下段メンバー位置取得（本人アイコン）
+        var memberPos = {};
+        wrap.querySelectorAll('.member-item').forEach(function(item) {
           var name = item.getAttribute('data-member-name');
           if (!name) return;
           var avatar = item.querySelector('.member-item-avatar');
           var rect = (avatar || item).getBoundingClientRect();
-          positions[name] = {
-            x: rect.left + rect.width / 2 - listRect.left,
-            y: rect.top + rect.height / 2 - listRect.top,
+          memberPos[name] = {
+            x: rect.left + rect.width / 2 - wrapRect.left,
+            y: rect.top + rect.height / 2 - wrapRect.top,
+            r: rect.width / 2
+          };
+        });
+        // 上段メンター位置取得
+        var mentorPos = {};
+        wrap.querySelectorAll('[data-mentor-name]').forEach(function(item) {
+          var name = item.getAttribute('data-mentor-name');
+          var img = item.querySelector('img');
+          var rect = (img || item).getBoundingClientRect();
+          mentorPos[name] = {
+            x: rect.left + rect.width / 2 - wrapRect.left,
+            y: rect.top + rect.height / 2 - wrapRect.top,
             r: rect.width / 2
           };
         });
 
-        // SVG path生成（各引っ張りペアを綱として描画）
+        // SVG path生成（メンター→メンバーへ綱）
         var defs = '<defs>' +
           '<marker id="ropeArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">' +
           '<path d="M 0 0 L 10 5 L 0 10 z" fill="#F97316" />' +
@@ -2822,8 +2888,9 @@
           '</defs>';
         var paths = '';
         PULLING_PAIRS.forEach(function(pair, i) {
-          var from = positions[pair.puller];
-          var to = positions[pair.pulled];
+          // 線の起点はメンターアイコン（上段）優先、なければメンバー位置
+          var from = mentorPos[pair.puller] || memberPos[pair.puller];
+          var to = memberPos[pair.pulled];
           if (!from || !to) return;
 
           // 円周上の端点を計算（直線方向）
@@ -3073,25 +3140,10 @@
       var memberKgi = monthGoal.memberKgi || {};
       var cwPoints = data.chatworkPoints || {};
 
-      // 5月以降: 「ゴール握る人」カラムを表示
-      var detailTable = document.getElementById('detailTable');
-      if (detailTable) {
-        if (isMay2026OrLaterView()) {
-          detailTable.classList.add('show-mentor-col');
-        } else {
-          detailTable.classList.remove('show-mentor-col');
-        }
-      }
-      // メンバー名→アイコンURLマップ（メンター画像取得用）
-      var iconMapForDetail = {};
-      members.forEach(function(mm) { iconMapForDetail[mm.name] = mm.icon || ''; });
-
       var rows = '';
       for (var i = 0; i < members.length; i++) {
         var m = members[i];
         var iconHtml = m.icon ? '<img src="' + m.icon + '" alt="" onerror="this.style.display=\'none\'">' : '';
-        var mentorIconUrl = getMentorIcon(m.name, iconMapForDetail);
-        var mentorCellHtml = '<td class="mentor-col">' + (mentorIconUrl ? '<img class="detail-mentor-icon" src="' + mentorIconUrl + '" alt="" onerror="this.style.display=\'none\'">' : '') + '</td>';
 
         // プロキシ(closedConsul/closedOnclass) と GAS(conClosed/onClosed) 両対応
         var conClosed = m.closedConsul || m.conClosed || 0;
@@ -3118,7 +3170,6 @@
         rows += '<tr>' +
           '<td class="sticky-col sticky-rank col-rank">' + formatRank(m.rank) + '</td>' +
           '<td class="sticky-col sticky-icon">' + iconHtml + '</td>' +
-          mentorCellHtml +
           '<td class="sticky-col sticky-revenue col-revenue">' + formatManYen(m.revenue) + '</td>' +
           calcPushCols(m, memberKgi) +
           '<td>' + m.deals + '</td>' +
@@ -3171,7 +3222,6 @@
       tfoot.innerHTML = '<tr>' +
         '<td class="sticky-col sticky-rank" colspan="1"></td>' +
         '<td class="sticky-col sticky-icon">合計</td>' +
-        '<td class="mentor-col"></td>' +
         '<td class="sticky-col sticky-revenue col-revenue">' + formatManYen(totals.revenue) + '</td>' +
         '<td style="background:#FEE8CD;"><span class="kgi-val">' + (totals.goalTotal > 0 ? formatManYen(totals.goalTotal) : '-') + '</span></td><td style="background:#FEE8CD;">' + (totals.goalTotal > 0 ? formatManYen(Math.max(0, totals.goalTotal - totals.revenue)) : '-') + '</td><td style="background:#FEE8CD;"></td><td style="background:#FEE8CD;"></td><td style="background:#FEE8CD;"></td>' +
         '<td>' + totals.deals + '</td>' +
