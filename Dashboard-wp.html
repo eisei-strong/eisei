@@ -1611,26 +1611,35 @@
     }
     .mentor-row-label {
       font-size: 10px;
-      color: #FCD34D;
-      font-weight: 700;
+      color: #FDE047;
+      font-weight: 800;
       margin-bottom: 4px;
       white-space: nowrap;
-      text-shadow: 0 1px 2px rgba(0,0,0,0.6), 0 0 4px rgba(252,211,77,0.35);
       letter-spacing: 0.3px;
+      padding: 1px 6px;
+      background: rgba(0,0,0,0.6);
+      border-radius: 4px;
+      text-shadow:
+        0 0 2px rgba(0,0,0,1),
+        0 0 4px rgba(0,0,0,0.9),
+        0 1px 2px rgba(0,0,0,0.95),
+        0 0 8px rgba(253,224,71,0.4);
     }
     .mentor-row-badge {
       display: inline-block;
       font-size: 7px;
-      font-weight: 700;
+      font-weight: 800;
       letter-spacing: 1px;
-      color: #FCD34D;
-      background: rgba(252,211,77,0.1);
-      border: 1px solid rgba(252,211,77,0.5);
-      padding: 0 5px;
+      color: #FDE047;
+      background: rgba(0,0,0,0.65);
+      border: 1px solid rgba(253,224,71,0.6);
+      padding: 1px 5px;
       border-radius: 3px;
       margin-bottom: 3px;
       text-transform: uppercase;
-      text-shadow: 0 0 3px rgba(252,211,77,0.35);
+      text-shadow:
+        0 0 2px rgba(0,0,0,1),
+        0 0 4px rgba(253,224,71,0.4);
     }
     @keyframes mentorEnter {
       from { opacity: 0; transform: translateY(-10px); }
@@ -1646,19 +1655,6 @@
       40%      { transform: translateY(-4px) scale(1.04); }
       55%      { transform: translateY(-3px) scale(1.03); }
       70%      { transform: translateY(0)    scale(1); }
-    }
-
-    /* 上段下端のコマンドベースライン */
-    .pulling-baseline-svg {
-      stroke: #FB923C;
-      stroke-width: 1.2;
-      stroke-dasharray: 0 1;
-      animation: baselineDraw 0.8s ease-out 0.3s forwards;
-      opacity: 0.7;
-      filter: drop-shadow(0 0 3px rgba(249,115,22,0.45));
-    }
-    @keyframes baselineDraw {
-      to { stroke-dasharray: 9999 0; }
     }
 
     /* ===== スマホ最適化（メンター司令塔ステージ）===== */
@@ -1719,12 +1715,6 @@
         ropeTug 1.8s ease-in-out infinite;
       opacity: 0.6;
       transform-origin: center;
-    }
-    .pulling-baseline {
-      stroke: #F97316;
-      stroke-width: 2;
-      stroke-linecap: round;
-      opacity: 0.75;
     }
     @keyframes ropeFlow {
       to { stroke-dashoffset: -22; }
@@ -3050,17 +3040,6 @@
           '</marker>' +
           '</defs>';
         var paths = '';
-
-        // 司令塔ステージの下端を「コマンドベースライン」として描画（左右対称、フェード端）
-        // メンター行コンテナの下端を取得
-        var mRow = document.getElementById('mentorsRow');
-        if (mRow) {
-          var mRect = mRow.getBoundingClientRect();
-          var bX1 = mRect.left + mRect.width * 0.04 - wrapRect.left;
-          var bX2 = mRect.right - mRect.width * 0.04 - wrapRect.left;
-          var bY = mRect.bottom - wrapRect.top + 4;
-          paths += '<line class="pulling-baseline-svg" x1="' + bX1 + '" y1="' + bY + '" x2="' + bX2 + '" y2="' + bY + '" />';
-        }
 
         // メンターごとの担当数を数えておく（中央揃え分岐用）
         var pulledCountByPuller = {};
