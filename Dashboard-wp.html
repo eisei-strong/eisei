@@ -1512,6 +1512,37 @@
       color: #E11D48;
     }
     .detail-table tfoot .col-revenue { color: #E11D48; }
+
+    /* ===== 5月以降: 引っ張り綱（戦士たちセクション内）===== */
+    .members-list-wrap {
+      position: relative;
+    }
+    .pulling-rope-overlay {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+      z-index: 1;
+      display: none;
+      overflow: visible;
+    }
+    .members-list-wrap .members-list {
+      position: relative;
+      z-index: 2; /* 綱の上にアイコン */
+    }
+    .pulling-rope {
+      stroke: #F97316;
+      stroke-width: 2.5;
+      fill: none;
+      stroke-linecap: round;
+      stroke-dasharray: 7 4;
+      filter: drop-shadow(0 1px 2px rgba(249,115,22,0.4));
+      animation: ropeFlow 0.9s linear infinite;
+      opacity: 0.85;
+    }
+    @keyframes ropeFlow {
+      to { stroke-dashoffset: -22; }
+    }
   </style>
 </head>
 
@@ -1566,12 +1597,6 @@
         </div>
       </div>
 
-      <!-- 5月以降: メンバー引っ張り演出（手で引っ張る・常時ループ）-->
-      <div class="pulling-section" id="pullingAnimation" style="display:none;">
-        <div class="pulling-title">🔥 引っ張れ！全員で底上げ 🔥</div>
-        <div class="pulling-grid" id="pullingGrid"></div>
-      </div>
-
       <!-- 今日の必達バナー -->
       <div class="hissatsu-banner" id="hissatsuBanner">
         <div class="kiran"></div>
@@ -1594,7 +1619,10 @@
       <!-- Strongest Members -->
       <div class="members-bar" id="membersBar" style="display:none;">
         <h3>- 全ての人を輝かせる戦士たち -</h3>
-        <div class="members-list" id="strongestMembers"></div>
+        <div class="members-list-wrap" style="position:relative;">
+          <svg class="pulling-rope-overlay" id="pullingRopeOverlay" aria-hidden="true"></svg>
+          <div class="members-list" id="strongestMembers"></div>
+        </div>
       </div>
 
       <!-- チーム目標カード（共創） -->
@@ -2256,7 +2284,7 @@
         if (offType === 'full') cls += ' is-off';
         if (offType === 'half') cls += ' is-half';
         var bubble = makeBubble(m, idx, offType);
-        return '<div class="' + cls + '">' +
+        return '<div class="' + cls + '" data-member-name="' + escapeHtml(m.name) + '">' +
           '<div class="member-item-bubble">' + bubble + '</div>' +
           '<img class="member-item-avatar" src="' + m.icon + '" alt="' + escapeHtml(m.name) + '" onerror="this.style.display=\'none\'">' +
           '<span class="member-item-name">' + escapeHtml(m.name) + '</span>' +
@@ -2608,7 +2636,7 @@
       container.innerHTML = html;
     }
 
-    // ===== 5月以降: メンバー引っ張り演出 =====
+    // ===== 5月以降: 戦士たちセクションに引っ張り綱を描画 =====
     var PULLING_PAIRS = [
       { puller: '意思決定', pulled: 'ぜんぶり' },
       { puller: '意思決定', pulled: 'ポジティブ' },
@@ -2622,40 +2650,90 @@
       { puller: '夜神月', pulled: '信' },
       { puller: 'ゴジータ', pulled: 'サンウォン' }
     ];
+    var _lastPullingData = null;
 
     function renderPullingAnimation(data) {
-      var section = document.getElementById('pullingAnimation');
-      if (!section) return;
+      if (data) _lastPullingData = data;
+      var svg = document.getElementById('pullingRopeOverlay');
+      var list = document.getElementById('strongestMembers');
+      if (!svg || !list) return;
+
       var month = currentViewMonth || (data && data.currentMonth) || (new Date().getMonth() + 1);
       var year = currentViewYear || (new Date().getFullYear());
       var isMay2026OrLater = (year > 2026) || (year === 2026 && month >= 5);
       if (!isMay2026OrLater) {
-        section.style.display = 'none';
+        svg.innerHTML = '';
+        svg.style.display = 'none';
         return;
       }
 
-      var iconMap = {};
-      if (data && data.members) {
-        data.members.forEach(function(m) { iconMap[m.name] = m.icon || ''; });
-      }
+      // レイアウト確定後に位置取得（フォント・画像load後）
+      requestAnimationFrame(function() {
+        var listRect = list.getBoundingClientRect();
+        if (listRect.width === 0) return;
 
-      var grid = document.getElementById('pullingGrid');
-      var html = '';
-      PULLING_PAIRS.forEach(function(pair) {
-        var pullerIcon = iconMap[pair.puller] || '';
-        var pulledIcon = iconMap[pair.pulled] || '';
-        if (!pullerIcon || !pulledIcon) return;
-        html +=
-          '<div class="pulling-pair">' +
-            '<div class="pulling-puller" style="background-image:url(' + pullerIcon + ')"></div>' +
-            '<span class="pulling-hand">🤚</span>' +
-            '<div class="pulling-pulled" style="background-image:url(' + pulledIcon + ')"></div>' +
-            '<span class="pulling-pair-label">' + escapeHtml(pair.puller) + '→' + escapeHtml(pair.pulled) + '</span>' +
-          '</div>';
+        // SVGをmembers-list-wrap全体に被せる
+        svg.style.display = 'block';
+        svg.style.width = listRect.width + 'px';
+        svg.style.height = listRect.height + 'px';
+        svg.setAttribute('viewBox', '0 0 ' + listRect.width + ' ' + listRect.height);
+
+        // メンバー位置取得
+        var positions = {};
+        list.querySelectorAll('.member-item').forEach(function(item) {
+          var name = item.getAttribute('data-member-name');
+          if (!name) return;
+          var avatar = item.querySelector('.member-item-avatar');
+          var rect = (avatar || item).getBoundingClientRect();
+          positions[name] = {
+            x: rect.left + rect.width / 2 - listRect.left,
+            y: rect.top + rect.height / 2 - listRect.top,
+            r: rect.width / 2
+          };
+        });
+
+        // SVG path生成（各引っ張りペアを綱として描画）
+        var defs = '<defs>' +
+          '<marker id="ropeArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">' +
+          '<path d="M 0 0 L 10 5 L 0 10 z" fill="#F97316" />' +
+          '</marker>' +
+          '</defs>';
+        var paths = '';
+        PULLING_PAIRS.forEach(function(pair, i) {
+          var from = positions[pair.puller];
+          var to = positions[pair.pulled];
+          if (!from || !to) return;
+
+          // 円周上の端点を計算（直線方向）
+          var dx = to.x - from.x, dy = to.y - from.y;
+          var dist = Math.sqrt(dx*dx + dy*dy);
+          if (dist === 0) return;
+          var ux = dx/dist, uy = dy/dist;
+          var sx = from.x + ux * (from.r + 2);
+          var sy = from.y + uy * (from.r + 2);
+          var ex = to.x - ux * (to.r + 4);
+          var ey = to.y - uy * (to.r + 4);
+
+          // しなりを下向きに付ける（曲率は距離に応じて）
+          var midX = (sx + ex) / 2;
+          var midY = (sy + ey) / 2 + Math.min(40, dist * 0.18);
+
+          var d = 'M ' + sx + ' ' + sy + ' Q ' + midX + ' ' + midY + ' ' + ex + ' ' + ey;
+          paths += '<path class="pulling-rope" d="' + d + '" marker-end="url(#ropeArrow)" style="animation-delay:' + (i * 0.08) + 's"></path>';
+        });
+
+        svg.innerHTML = defs + paths;
       });
-      grid.innerHTML = html;
-      section.style.display = html ? 'block' : 'none';
     }
+
+    // リサイズ時も再描画（200msデバウンス）
+    var _ropeResizeTimer = null;
+    window.addEventListener('resize', function() {
+      clearTimeout(_ropeResizeTimer);
+      _ropeResizeTimer = setTimeout(function() {
+        if (_lastPullingData) renderPullingAnimation(_lastPullingData);
+      }, 200);
+    });
 
     // ===== Member KGI =====
     function buildMemberKgi(m) {
