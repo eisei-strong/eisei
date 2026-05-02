@@ -1276,6 +1276,9 @@ function renderMain(){
   show('mainScreen');
   document.getElementById('bottomNav').classList.add('active');
   document.getElementById('userName').textContent='';
+  // カレンダータイトルを当月で動的表示（4月ハードコード解除）
+  var ct=document.querySelector('.cal-title');
+  if(ct)ct.textContent=(new Date().getMonth()+1)+'月';
 
   var totalDays=0,totalPosts=0,maxStreak=0,cur=0;streak=0;
   var today=new Date();
