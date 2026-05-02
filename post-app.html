@@ -1191,6 +1191,8 @@ function initApp(){
         renderLoginStreak();
       }
       loadHope();
+      // 隣接月を裏でプリフェッチ（月切替を高速化）
+      setTimeout(prefetchAdjacentMonths,500);
     }).catch(function(){if(!monthDays.length)handleSessionExpired()});
   } else if(userId){
     // IDが保存されている → パスワード画面へ直行
@@ -1282,6 +1284,8 @@ function doLoginWith(pw){
       renderLoginStreak();
       showLoginStreakCelebration(loginData.streak);
     }
+    // 隣接月を裏でプリフェッチ（月切替を高速化）
+    setTimeout(prefetchAdjacentMonths,500);
   }).catch(function(){
     document.getElementById('loginBtn').disabled=false;document.getElementById('loginBtn').textContent='ログイン';
     document.getElementById('loginError').textContent='通信エラー';
@@ -1307,14 +1311,43 @@ function changeMonth(delta){
 }
 function loadMonth(year,month){
   var key=getMonthCacheKey(year,month);
-  var cached=localStorage.getItem(key);
-  if(cached){try{monthDays=JSON.parse(cached);renderMain()}catch(e){}}
+  var cachedJson=localStorage.getItem(key);
+  if(cachedJson){try{monthDays=JSON.parse(cachedJson);renderMain()}catch(e){cachedJson=null}}
   if(!token)return;
   api('action=postGet&token='+encodeURIComponent(token)+'&year='+year+'&month='+month).then(function(d){
     if(d.error){if(d.error.indexOf('セッション')>=0)handleSessionExpired();return}
+    var newJson=JSON.stringify(d.month.days);
+    if(cachedJson===newJson)return; // 差分なしなら再描画スキップ（チラつき防止）
     monthDays=d.month.days;
-    localStorage.setItem(key,JSON.stringify(monthDays));
+    localStorage.setItem(key,newJson);
     renderMain();
+  }).catch(function(){});
+}
+
+// 隣接月（前月・次月）を裏でプリフェッチしてキャッシュに保存
+// → 月切替時にAPI待ちゼロで即表示できる
+function prefetchAdjacentMonths(){
+  if(!token)return;
+  var startYm=RUN_START_YEAR*12+(RUN_START_MONTH-1);
+  var n=new Date();
+  var nowYm=n.getFullYear()*12+n.getMonth();
+  // 前月
+  var prevYm=currentYear*12+(currentMonth-1)-1;
+  if(prevYm>=startYm){
+    var py=Math.floor(prevYm/12), pm=(prevYm%12)+1;
+    prefetchMonth(py,pm);
+  }
+  // 次月
+  var nextYm=currentYear*12+(currentMonth-1)+1;
+  if(nextYm<=nowYm){
+    var ny=Math.floor(nextYm/12), nm=(nextYm%12)+1;
+    prefetchMonth(ny,nm);
+  }
+}
+function prefetchMonth(year,month){
+  api('action=postGet&token='+encodeURIComponent(token)+'&year='+year+'&month='+month).then(function(d){
+    if(d.error)return;
+    localStorage.setItem(getMonthCacheKey(year,month),JSON.stringify(d.month.days));
   }).catch(function(){});
 }
 function updateNavButtons(){
