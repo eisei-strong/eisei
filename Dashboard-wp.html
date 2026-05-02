@@ -2068,7 +2068,9 @@
       if (currentViewMonth && currentViewYear) {
         url += '&month=' + currentViewMonth + '&year=' + currentViewYear;
       }
-      fetch(url)
+      // キャッシュバスト（ブラウザキャッシュを無効化、PHP側のキャッシュは残るので軽量）
+      url += '&_t=' + Date.now();
+      fetch(url, { cache: 'no-store' })
         .then(function(r) {
           if (!r.ok) throw new Error('HTTP ' + r.status);
           return r.json();
