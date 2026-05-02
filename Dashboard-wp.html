@@ -1572,36 +1572,116 @@
       50% { transform: translateY(-3px); }
     }
 
-    /* ===== 5月以降: unique メンター行（上段）===== */
+    /* ===== 5月以降: 司令塔ステージ（上段メンター行）===== */
     .mentors-row {
-      position: relative;       /* メンターを担当メンバー平均位置に absolute 配置するため */
-      height: 96px;             /* メンターアイコン+ラベル分 */
-      margin-bottom: 32px;      /* 基準線+SVG分の余白 */
+      position: relative;
+      height: 124px;
+      margin-bottom: 36px;
+      padding: 14px 8px 18px;
+      border-radius: 14px;
+      background:
+        linear-gradient(180deg, rgba(30,41,59,0.92) 0%, rgba(15,23,42,0.95) 100%);
+      box-shadow:
+        0 8px 24px -8px rgba(0,0,0,0.45),
+        inset 0 1px 0 rgba(251,146,60,0.25);
+      overflow: visible;
     }
+    /* 上段ステージのオレンジ縁取り（上下） */
+    .mentors-row::before,
+    .mentors-row::after {
+      content: '';
+      position: absolute;
+      left: 8%; right: 8%;
+      height: 1px;
+      background: linear-gradient(90deg, transparent 0%, #F97316 30%, #FB923C 50%, #F97316 70%, transparent 100%);
+      opacity: 0.7;
+    }
+    .mentors-row::before { top: 4px; }
+    .mentors-row::after { bottom: 6px; }
+
+    /* COMMAND ラベル（左上タグ風） */
+    .mentors-row-tag {
+      position: absolute;
+      top: -10px;
+      left: 18px;
+      background: linear-gradient(135deg, #F97316, #C2410C);
+      color: #FFFBEB;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 2.5px;
+      padding: 3px 10px;
+      border-radius: 999px;
+      box-shadow: 0 4px 10px rgba(249,115,22,0.55);
+      text-transform: uppercase;
+      pointer-events: none;
+      z-index: 3;
+    }
+
     .mentor-row-item {
       position: absolute;
-      top: 0;
+      top: 14px;
       display: flex;
-      flex-direction: column-reverse; /* 名前をアイコンの上に表示 */
+      flex-direction: column-reverse; /* 名前をアイコンの上に */
       align-items: center;
-      width: 64px;
+      width: 76px;
       transition: left 0.3s ease;
+      animation: mentorEnter 0.6s cubic-bezier(0.2, 0.8, 0.3, 1) backwards;
+      z-index: 2;
     }
     .mentor-row-item img {
-      width: 56px; height: 56px;
+      width: 64px; height: 64px;
       border-radius: 50%;
-      border: 2px solid #F97316;
+      border: 3px solid #FB923C;
       object-fit: cover;
-      box-shadow: 0 2px 8px rgba(249,115,22,0.5);
-      animation: mentorBob 1.4s ease-in-out infinite;
-      background: #FED7AA;
+      background: #1E293B;
+      box-shadow:
+        0 0 0 2px rgba(251,146,60,0.25),
+        0 0 18px 4px rgba(249,115,22,0.55),
+        0 6px 16px rgba(0,0,0,0.45);
+      animation: mentorGlow 2.6s ease-in-out infinite alternate;
     }
     .mentor-row-label {
-      font-size: 10px;
-      color: #C2410C;
+      font-size: 11px;
+      color: #FED7AA;
       font-weight: 700;
-      margin-bottom: 4px; /* 名前は上、アイコンの上に余白 */
+      margin-bottom: 5px;
       white-space: nowrap;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.55);
+      letter-spacing: 0.5px;
+    }
+    .mentor-row-badge {
+      display: inline-block;
+      font-size: 8px;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      color: #1E293B;
+      background: linear-gradient(135deg, #FCD34D, #F59E0B);
+      padding: 1px 6px;
+      border-radius: 3px;
+      margin-bottom: 4px;
+      box-shadow: 0 1px 3px rgba(245,158,11,0.6);
+      text-transform: uppercase;
+    }
+    @keyframes mentorEnter {
+      from { opacity: 0; transform: translateY(-12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes mentorGlow {
+      from { box-shadow: 0 0 0 2px rgba(251,146,60,0.2), 0 0 14px 3px rgba(249,115,22,0.45), 0 6px 16px rgba(0,0,0,0.45); }
+      to   { box-shadow: 0 0 0 3px rgba(251,146,60,0.35), 0 0 22px 6px rgba(249,115,22,0.7), 0 6px 16px rgba(0,0,0,0.45); }
+    }
+
+    /* 上段下端のコマンドベースライン（指揮系統の起点） */
+    .pulling-baseline-svg {
+      stroke: #FB923C;
+      stroke-width: 1.5;
+      stroke-dasharray: 0 1; /* 初期は非表示 */
+      animation: baselineDraw 0.8s ease-out 0.3s forwards;
+      opacity: 0.85;
+      filter: drop-shadow(0 0 4px rgba(249,115,22,0.6));
+    }
+    @keyframes baselineDraw {
+      to { stroke-dasharray: 9999 0; }
     }
 
     /* ===== 5月以降: 引っ張り綱（戦士たちセクション内）===== */
@@ -2463,8 +2543,11 @@
         if (bi === -1) bi = 999;
         return ai - bi;
       });
-      var html = '';
-      mentors.forEach(function(name) {
+      // ステージタグ（COMMAND）
+      var html = '<div class="mentors-row-tag">COMMAND</div>';
+      // 押切は最上位の総司令官、それ以外は MENTOR
+      var BADGE_BY_NAME = { '押切': 'CHIEF' };
+      mentors.forEach(function(name, idx) {
         var url = (iconMap && iconMap[name]) || '';
         if (!url) {
           for (var i = 0; i < PULLING_PAIRS.length; i++) {
@@ -2475,13 +2558,17 @@
           }
         }
         if (!url) return;
-        html += '<div class="mentor-row-item" data-mentor-name="' + escapeHtml(name) + '">' +
+        var badge = BADGE_BY_NAME[name] || 'MENTOR';
+        // 順番に登場（stagger）
+        var delay = (idx * 0.06).toFixed(2);
+        html += '<div class="mentor-row-item" data-mentor-name="' + escapeHtml(name) + '" style="animation-delay:' + delay + 's;">' +
           '<img src="' + url + '" alt="' + escapeHtml(name) + '" onerror="this.style.display=\'none\'">' +
           '<span class="mentor-row-label">' + escapeHtml(name) + '</span>' +
+          '<span class="mentor-row-badge">' + badge + '</span>' +
         '</div>';
       });
       row.innerHTML = html;
-      row.style.display = html ? 'flex' : 'none';
+      row.style.display = (mentors.length > 0) ? 'block' : 'none';
     }
 
     // ===== Progress Section =====
@@ -2947,7 +3034,16 @@
           '</defs>';
         var paths = '';
 
-        // 横方向の基準線は廃止（ユーザー指示: 邪魔なので消す）。線の通過点としては baselineY を使い続ける。
+        // 司令塔ステージの下端を「コマンドベースライン」として描画（左右対称、フェード端）
+        // メンター行コンテナの下端を取得
+        var mRow = document.getElementById('mentorsRow');
+        if (mRow) {
+          var mRect = mRow.getBoundingClientRect();
+          var bX1 = mRect.left + mRect.width * 0.04 - wrapRect.left;
+          var bX2 = mRect.right - mRect.width * 0.04 - wrapRect.left;
+          var bY = mRect.bottom - wrapRect.top + 4;
+          paths += '<line class="pulling-baseline-svg" x1="' + bX1 + '" y1="' + bY + '" x2="' + bX2 + '" y2="' + bY + '" />';
+        }
 
         // 各メンターから担当メンバーへ「コ」の字型の線を引く
         // 同じメンターから複数人へ引くとき、基準線上の通過点を分岐角度ずらしで見やすく
