@@ -1561,18 +1561,18 @@
 
     /* ===== 5月以降: unique メンター行（上段）===== */
     .mentors-row {
-      display: flex;
-      flex-direction: row;
-      gap: 16px;
-      justify-content: center;
-      flex-wrap: wrap;
-      margin-bottom: 28px;
+      position: relative;       /* メンターを担当メンバー平均位置に absolute 配置するため */
+      height: 96px;             /* メンターアイコン+ラベル分 */
+      margin-bottom: 32px;      /* 基準線+SVG分の余白 */
     }
     .mentor-row-item {
+      position: absolute;
+      top: 0;
       display: flex;
       flex-direction: column;
       align-items: center;
       width: 64px;
+      transition: left 0.3s ease;
     }
     .mentor-row-item img {
       width: 56px; height: 56px;
@@ -1617,6 +1617,12 @@
       filter: drop-shadow(0 1px 2px rgba(249,115,22,0.4));
       animation: ropeFlow 0.9s linear infinite;
       opacity: 0.85;
+    }
+    .pulling-baseline {
+      stroke: #F97316;
+      stroke-width: 2;
+      stroke-linecap: round;
+      opacity: 0.75;
     }
     @keyframes ropeFlow {
       to { stroke-dashoffset: -22; }
@@ -2848,12 +2854,6 @@
         var wrapRect = wrap.getBoundingClientRect();
         if (wrapRect.width === 0) return;
 
-        // SVGを members-list-wrap 全体に被せる（上段mentor + 下段member 両方を含む）
-        svg.style.display = 'block';
-        svg.style.width = wrapRect.width + 'px';
-        svg.style.height = wrapRect.height + 'px';
-        svg.setAttribute('viewBox', '0 0 ' + wrapRect.width + ' ' + wrapRect.height);
-
         // 下段メンバー位置取得（本人アイコン）
         var memberPos = {};
         wrap.querySelectorAll('.member-item').forEach(function(item) {
@@ -2867,7 +2867,25 @@
             r: rect.width / 2
           };
         });
-        // 上段メンター位置取得
+
+        // 上段メンターを「担当メンバーの平均X位置」に再配置
+        var mentorRow = document.getElementById('mentorsRow');
+        if (mentorRow) {
+          var rowRect = mentorRow.getBoundingClientRect();
+          mentorRow.querySelectorAll('.mentor-row-item').forEach(function(item) {
+            var name = item.getAttribute('data-mentor-name');
+            var pulleds = [];
+            PULLING_PAIRS.forEach(function(p) {
+              if (p.puller === name && memberPos[p.pulled]) pulleds.push(memberPos[p.pulled]);
+            });
+            if (pulleds.length === 0) return;
+            var avgX = pulleds.reduce(function(s, p) { return s + p.x; }, 0) / pulleds.length;
+            var offsetLeft = rowRect.left - wrapRect.left;
+            item.style.left = (avgX - 32 - offsetLeft) + 'px'; // 64px幅の半分
+          });
+        }
+
+        // 上段メンター位置取得（再配置後）
         var mentorPos = {};
         wrap.querySelectorAll('[data-mentor-name]').forEach(function(item) {
           var name = item.getAttribute('data-mentor-name');
@@ -2876,38 +2894,71 @@
           mentorPos[name] = {
             x: rect.left + rect.width / 2 - wrapRect.left,
             y: rect.top + rect.height / 2 - wrapRect.top,
+            yBottom: rect.bottom - wrapRect.top,
             r: rect.width / 2
           };
         });
 
-        // SVG path生成（メンター→メンバーへ綱）
+        // SVG を members-list-wrap 全体に被せる
+        svg.style.display = 'block';
+        svg.style.width = wrapRect.width + 'px';
+        svg.style.height = wrapRect.height + 'px';
+        svg.setAttribute('viewBox', '0 0 ' + wrapRect.width + ' ' + wrapRect.height);
+
+        // 基準線のY位置（メンター行の下端あたり）
+        var baselineY = 0;
+        var nMentors = 0;
+        Object.keys(mentorPos).forEach(function(k) {
+          baselineY += mentorPos[k].yBottom;
+          nMentors++;
+        });
+        baselineY = nMentors > 0 ? (baselineY / nMentors) + 18 : 90;
+
+        // SVG path生成
         var defs = '<defs>' +
           '<marker id="ropeArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">' +
           '<path d="M 0 0 L 10 5 L 0 10 z" fill="#F97316" />' +
           '</marker>' +
           '</defs>';
         var paths = '';
+
+        // 横方向のオレンジ基準線（メンター行の下に1本）
+        paths += '<line class="pulling-baseline" x1="0" y1="' + baselineY + '" x2="' + wrapRect.width + '" y2="' + baselineY + '" />';
+
+        // 各メンターから担当メンバーへ「コ」の字型の線を引く
+        // 同じメンターから複数人へ引くとき、基準線上の通過点を分岐角度ずらしで見やすく
+        var perMentorIndex = {};
         PULLING_PAIRS.forEach(function(pair, i) {
-          // 線の起点はメンターアイコン（上段）優先、なければメンバー位置
-          var from = mentorPos[pair.puller] || memberPos[pair.puller];
+          var from = mentorPos[pair.puller];
           var to = memberPos[pair.pulled];
           if (!from || !to) return;
 
-          // 円周上の端点を計算（直線方向）
-          var dx = to.x - from.x, dy = to.y - from.y;
-          var dist = Math.sqrt(dx*dx + dy*dy);
-          if (dist === 0) return;
-          var ux = dx/dist, uy = dy/dist;
-          var sx = from.x + ux * (from.r + 2);
-          var sy = from.y + uy * (from.r + 2);
-          var ex = to.x - ux * (to.r + 4);
-          var ey = to.y - uy * (to.r + 4);
+          // 同じメンターからの何本目か（左→右）
+          var key = pair.puller;
+          if (!perMentorIndex[key]) perMentorIndex[key] = 0;
+          var idxInMentor = perMentorIndex[key]++;
 
-          // しなりを下向きに付ける（曲率は距離に応じて）
-          var midX = (sx + ex) / 2;
-          var midY = (sy + ey) / 2 + Math.min(40, dist * 0.18);
+          // メンター下端から基準線まで縦
+          var sx = from.x;
+          var sy = from.yBottom + 2;
+          // メンバー上端まで降りる目標
+          var ex = to.x;
+          var ey = to.y - to.r - 4;
 
-          var d = 'M ' + sx + ' ' + sy + ' Q ' + midX + ' ' + midY + ' ' + ex + ' ' + ey;
+          // 基準線通過点を、複数本の場合は少しずらす（左右に分岐角度）
+          var spreadOffset = (idxInMentor - 0) * 6; // 同じメンター内で6pxずつずらし
+          var bx1 = sx;          // メンター直下（基準線通過点1）
+          var by = baselineY;
+          var bx2 = ex;          // メンバー直上（基準線通過点2）
+
+          // ベジェ曲線（メンター→基準線→メンバー）
+          // メンター位置(sx,sy) → 基準線上(midX, baselineY) → メンバー(ex,ey)
+          // 滑らかにするため Q コマンドで2つのコントロールポイントを使う
+          var midX = (sx + ex) / 2 + spreadOffset;
+          var d = 'M ' + sx + ' ' + sy +
+                  ' L ' + sx + ' ' + (baselineY - 6) +
+                  ' Q ' + midX + ' ' + baselineY + ' ' + ex + ' ' + (baselineY + 6) +
+                  ' L ' + ex + ' ' + ey;
           paths += '<path class="pulling-rope" d="' + d + '" marker-end="url(#ropeArrow)" style="animation-delay:' + (i * 0.08) + 's"></path>';
         });
 
