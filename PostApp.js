@@ -1305,6 +1305,84 @@ function fixUnifiedSheetHeaders() {
 }
 
 /**
+ * 指定シートの全月ヘッダー（4月〜当月）を完全リビルドする
+ * プッシュ数の merge エラー対策。ヘッダー1〜2行目を完全クリアして書き直す。
+ * データ行（3行目以降）は触らない。
+ * GASエディタから手動実行。
+ */
+function rebuildPushSheetHeaders() {
+  rebuildHopeSheetHeadersForName_(POST_APP_PUSH_SHEET_NAME);
+}
+
+function rebuildHopeSheetHeaders() {
+  rebuildHopeSheetHeadersForName_(POST_APP_HOPE_SHEET_NAME);
+}
+
+function rebuildHopeSheetHeadersForName_(name) {
+  var ss = SpreadsheetApp.openById(POST_APP_SS_ID);
+  var sheet = ss.getSheetByName(name);
+  if (!sheet) {
+    Logger.log(name + ' シートが見つかりません');
+    return;
+  }
+  var now = new Date();
+  var thisYear = now.getFullYear();
+  var thisMonth = now.getMonth() + 1;
+
+  // 1〜2行目のD列以降を完全クリア（マージ含む、メタ列A〜Cは保持）
+  var maxCol = sheet.getMaxColumns();
+  if (maxCol > 3) {
+    var rng = sheet.getRange(1, 4, 2, maxCol - 3);
+    try { rng.breakApart(); } catch (e) { Logger.log('breakApart skipped: ' + e.message); }
+    rng.clearContent();
+    rng.clearFormat();
+  }
+
+  // 4月〜当月までのヘッダーを順番に書く
+  var col = 4;
+  for (var m = POST_APP_RUN_START_MONTH; m <= thisMonth; m++) {
+    var monthDays = new Date(thisYear, m, 0).getDate();
+    writeMonthHopeHeader_(sheet, col, monthDays, m);
+    col += monthDays * 3;
+  }
+
+  Logger.log(name + ': 全月ヘッダーを再構築 (' + POST_APP_RUN_START_MONTH + '月〜' + thisMonth + '月、' + (col - 4) + '列)');
+}
+
+function writeMonthHopeHeader_(sheet, startCol, monthDays, month) {
+  var totalCols = monthDays * 3;
+  // 1行目: 日付
+  var dateRow = [];
+  for (var d = 1; d <= monthDays; d++) {
+    dateRow.push(month + '/' + d, '', '');
+  }
+  sheet.getRange(1, startCol, 1, totalCols)
+    .setValues([dateRow])
+    .setHorizontalAlignment('center')
+    .setFontWeight('bold')
+    .setBackground('#F1F8E9');
+  for (var d2 = 0; d2 < monthDays; d2++) {
+    sheet.getRange(1, startCol + d2 * 3, 1, 3).merge();
+  }
+  // 2行目: YT/IG/TT
+  var categoryRow = [];
+  for (var d3 = 1; d3 <= monthDays; d3++) {
+    categoryRow.push('YT', 'IG', 'TT');
+  }
+  sheet.getRange(2, startCol, 1, totalCols)
+    .setValues([categoryRow])
+    .setHorizontalAlignment('center')
+    .setFontWeight('bold')
+    .setFontColor('#FFFFFF');
+  for (var d4 = 0; d4 < monthDays; d4++) {
+    var baseCol = startCol + d4 * 3;
+    sheet.getRange(2, baseCol).setBackground('#E53935');     // YT 赤
+    sheet.getRange(2, baseCol + 1).setBackground('#9C27B0'); // IG 紫
+    sheet.getRange(2, baseCol + 2).setBackground('#26C6DA'); // TT 水色
+  }
+}
+
+/**
  * 投稿数シートE列の合計数式を当月の列範囲ベースで更新
  */
 function updatePostSheetTotalFormula_(sheet) {
