@@ -2357,43 +2357,32 @@
           if (!groups[key]) groups[key] = [];
           groups[key].push(it);
         });
-        var order = ['_NONE_', '押切', '意思決定', 'ぜんぶり', 'ポジティブ', '夜神月', '1日1more', '言い切り', 'ゴジータ'];
+        // メンター不在(_NONE_)は右端に配置
+        var order = ['押切', '意思決定', 'ぜんぶり', 'ポジティブ', '夜神月', '1日1more', '言い切り', 'ゴジータ', '_NONE_'];
         var result = [];
         order.forEach(function(k) { if (groups[k]) result = result.concat(groups[k]); });
         Object.keys(groups).forEach(function(k) { if (order.indexOf(k) === -1) result = result.concat(groups[k]); });
         return result;
       }
 
-      function renderItem(item, offType, hideMentor) {
+      function renderItem(item, offType) {
         var m = item.m, idx = item.idx;
         var cls = 'member-item';
         if (idx === 0 && !offType) cls += ' is-top';
         if (offType === 'full') cls += ' is-off';
         if (offType === 'half') cls += ' is-half';
-        // 一言コメント（吹き出し）は廃止
-        // 同メンターを連続配置: グループの最初のメンバー以外はメンター非表示（spacerで段差揃え）
-        var mentorIcon = hideMentor ? '' : getMentorIcon(m.name, iconMap);
-        var mentorHtml = mentorIcon
-          ? '<img class="member-mentor" src="' + mentorIcon + '" alt="メンター" title="メンター: ' + escapeHtml(MENTOR_MAP[m.name] || '') + '" onerror="this.style.display=\'none\'">'
-          : (isMay2026OrLaterView() ? '<span class="member-mentor-spacer" aria-hidden="true"></span>' : '');
+        // 一言コメント・メンターアイコンは廃止。メンター関係はSVG綱で表現する。
         return '<div class="' + cls + '" data-member-name="' + escapeHtml(m.name) + '">' +
-          mentorHtml +
           '<img class="member-item-avatar" src="' + m.icon + '" alt="' + escapeHtml(m.name) + '" onerror="this.style.display=\'none\'">' +
           '<span class="member-item-name">' + escapeHtml(m.name) + '</span>' +
           '</div>';
       }
-      // メンターグループの最初の人だけメンター表示する用ヘルパー
+      // メンター別に並び替えて出力（メンター不在は右端）
       function renderGroup(items, offType) {
         items = reorderForMentor(items);
-        var prevMentor = '___INIT___';
         var html = '';
         items.forEach(function(it) {
-          var mentor = getMentorOf(it.m.name) || '_NONE_';
-          var isFirst = mentor !== prevMentor;
-          prevMentor = mentor;
-          // メンターなしグループは全員にspacer（hide=true）
-          var hide = !isFirst || mentor === '_NONE_';
-          html += renderItem(it, offType, hide);
+          html += renderItem(it, offType);
         });
         return html;
       }
