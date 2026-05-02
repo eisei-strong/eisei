@@ -142,32 +142,118 @@ $LEGACY_NAME_MAP = [
     'トニー' => '週1休みくん',
 ];
 
-// アイコンマップ
+// アイコンマップ（4月以前用 = 本番現状の13人）
+// アイコンURLは自前ホスト形式（giver.work/sales-dashboard/icons/）に統一
 $ICON_MAP = [
-    '意思決定' => 'https://appdata.chatwork.com/avatar/w7zBRgQg7l.png',
-    'ポジティブ' => 'https://appdata.chatwork.com/avatar/GqRrmbWZqw.png',
-    '週1休みくん' => 'https://appdata.chatwork.com/avatar/zMEPJO9p73.png',
-    'ヒトコト' => 'https://appdata.chatwork.com/avatar/2Akb3xE9q0.rsz.png',
-    '言い切り' => 'https://appdata.chatwork.com/avatar/374Bk2XBqn.png',
-    'ありのまま' => 'https://appdata.chatwork.com/avatar/Oqaob3GO76.png',
-    'ぜんぶり' => 'https://appdata.chatwork.com/avatar/VqPDr9Vwqg.png',
-    '1日1more' => 'https://appdata.chatwork.com/avatar/372J8ve875.rsz.png',
-    'スマイル' => 'https://appdata.chatwork.com/avatar/B7Wo401K7J.rsz.png',
-    'ゴジータ' => 'https://appdata.chatwork.com/avatar/372J8vnz75.png',
-    'L' => 'https://appdata.chatwork.com/avatar/w7zBRgGD7l.png',
-    '悟空' => 'https://appdata.chatwork.com/avatar/Vq3WYmk4ql.png',
-    'やまと' => 'https://appdata.chatwork.com/avatar/Vq3WYnr8ql.rsz.png',
-    '夜神月' => 'https://appdata.chatwork.com/avatar/zMEPJERa73.png',
-    'けつだん' => 'https://appdata.chatwork.com/avatar/4MlnyN9eA5.png',
+    '意思決定' => 'https://giver.work/sales-dashboard/icons/ishikettei.png',
+    'ポジティブ' => 'https://giver.work/sales-dashboard/icons/positive.png',
+    '週1休みくん' => 'https://giver.work/sales-dashboard/icons/shu1yasumi.png',
+    'ヒトコト' => 'https://giver.work/sales-dashboard/icons/hitokoto.png',
+    '言い切り' => 'https://giver.work/sales-dashboard/icons/iikiri.png',
+    'ありのまま' => 'https://giver.work/sales-dashboard/icons/arinomama.png',
+    'ぜんぶり' => 'https://giver.work/sales-dashboard/icons/zenburi.png',
+    '1日1more' => 'https://giver.work/sales-dashboard/icons/ichinichi1more.png',
+    'スマイル' => 'https://giver.work/sales-dashboard/icons/smile.png',
+    'ゴジータ' => 'https://giver.work/sales-dashboard/icons/gojita.png',
+    'L' => 'https://giver.work/sales-dashboard/icons/l.png',
+    '夜神月' => 'https://giver.work/sales-dashboard/icons/yagami.png',
+    'けつだん' => 'https://giver.work/sales-dashboard/icons/ketsudan.png',
 ];
 
-// チームマップ
+// チームマップ（4月以前用）
 $TEAM_MAP = [
     '意思決定' => 1, '言い切り' => 1, 'ありのまま' => 1, '1日1more' => 1,
     'ぜんぶり' => 2, 'スマイル' => 2, 'ヒトコト' => 2, 'ポジティブ' => 2,
-    '悟空' => 3, 'L' => 3, '夜神月' => 3, '週1休みくん' => 3, 'ゴジータ' => 3, 'やまと' => 3, 'けつだん' => 3,
+    'L' => 3, '夜神月' => 3, '週1休みくん' => 3, 'ゴジータ' => 3, 'けつだん' => 3,
 ];
 $TEAM_NAMES = [1 => 'チーム1億', 2 => 'シリウス', 3 => 'ジャイアントキリング'];
+
+// ===== 5月以降用マップ（2026/05〜）=====
+// 変更点: L・スマイル除外、サンウォン・司波・信・悟空 追加、チーム制度は廃止だが既存所属は残す（新規4人は無所属）
+$REAL_NAME_MAP_MAY2026 = [
+    '阿部' => '意思決定',
+    '伊東' => 'ポジティブ',
+    '久保田' => 'ヒトコト',
+    '辻阪' => 'ありのまま',
+    '五十嵐' => 'ぜんぶり',
+    '新居' => '1日1more',
+    '大久保' => '言い切り',
+    '大久保友佑悟' => '言い切り',
+    '矢吹' => '週1休みくん',
+    '矢吹友一' => '週1休みくん',
+    '勝友美' => 'ポジティブ',
+    '勝' => 'ポジティブ',
+    'ドライ' => 'ポジティブ',
+    '吉崎' => 'ゴジータ',
+    '吉崎息吹' => 'ゴジータ',
+    'ゴジータ' => 'ゴジータ',
+    '中市' => '夜神月',
+    '夜神月' => '夜神月',
+    '福島' => 'けつだん',
+    'けつだん' => 'けつだん',
+    // 5月から復活
+    '荒木' => '悟空',
+    '荒木泰人' => '悟空',
+    '悟空' => '悟空',
+    // 5月から新規
+    '笹山' => 'サンウォン',
+    '笹山楓太' => 'サンウォン',
+    'サンウォン' => 'サンウォン',
+    '坂野' => '司波',
+    '坂野宙輝' => '司波',
+    '司波' => '司波',
+    '吉田' => '信',
+    '吉田羚虹' => '信',
+    '信' => '信',
+    // 「鍋嶋(L)」「佐々木/佐々木心雪(スマイル)」は意図的に削除 → 集計対象外
+];
+
+$ICON_MAP_MAY2026 = [
+    '意思決定' => 'https://giver.work/sales-dashboard/icons/ishikettei.png',
+    'ポジティブ' => 'https://giver.work/sales-dashboard/icons/positive.png',
+    '週1休みくん' => 'https://giver.work/sales-dashboard/icons/shu1yasumi.png',
+    'ヒトコト' => 'https://giver.work/sales-dashboard/icons/hitokoto.png',
+    '言い切り' => 'https://giver.work/sales-dashboard/icons/iikiri.png',
+    'ありのまま' => 'https://giver.work/sales-dashboard/icons/arinomama.png',
+    'ぜんぶり' => 'https://giver.work/sales-dashboard/icons/zenburi.png',
+    '1日1more' => 'https://giver.work/sales-dashboard/icons/ichinichi1more.png',
+    'ゴジータ' => 'https://giver.work/sales-dashboard/icons/gojita.png',
+    '夜神月' => 'https://giver.work/sales-dashboard/icons/yagami.png',
+    'けつだん' => 'https://giver.work/sales-dashboard/icons/ketsudan.png',
+    // 5月から
+    'サンウォン' => 'https://giver.work/sales-dashboard/icons/sungwon.png',
+    '司波' => 'https://giver.work/sales-dashboard/icons/shiba.png',
+    '信' => 'https://giver.work/sales-dashboard/icons/shin.png',
+    '悟空' => 'https://giver.work/sales-dashboard/icons/goku.png',
+    // 'L', 'スマイル' は意図的に削除
+];
+
+$TEAM_MAP_MAY2026 = [
+    // 5月からチーム制度廃止だが、既存メンバーの所属は維持。新規4人は無所属(=未指定)
+    '意思決定' => 1, '言い切り' => 1, 'ありのまま' => 1, '1日1more' => 1,
+    'ぜんぶり' => 2, 'ヒトコト' => 2, 'ポジティブ' => 2,
+    '夜神月' => 3, '週1休みくん' => 3, 'ゴジータ' => 3, 'けつだん' => 3,
+    // 'L', 'スマイル' 削除、新規4人は無所属
+];
+
+/**
+ * 当該月が2026年5月以降かを判定
+ */
+function isMay2026OrLater($month, $year) {
+    return ($year > 2026) || ($year == 2026 && $month >= 5);
+}
+
+/**
+ * 当該月の名前マップ・アイコンマップ・チームマップを返す
+ */
+function getMapsForMonth($month, $year) {
+    global $REAL_NAME_MAP, $ICON_MAP, $TEAM_MAP,
+           $REAL_NAME_MAP_MAY2026, $ICON_MAP_MAY2026, $TEAM_MAP_MAY2026;
+    if (isMay2026OrLater($month, $year)) {
+        return [$REAL_NAME_MAP_MAY2026, $ICON_MAP_MAY2026, $TEAM_MAP_MAY2026];
+    }
+    return [$REAL_NAME_MAP, $ICON_MAP, $TEAM_MAP];
+}
 
 // ===== ヘルパー =====
 
@@ -276,12 +362,13 @@ function getKyosoData() {
     return is_array($data) && isset($data[$month]) ? $data[$month] : [];
 }
 
-function resolveV2Name($rawField) {
+function resolveV2Name($rawField, $nameMap = null) {
     global $REAL_NAME_MAP;
+    if ($nameMap === null) $nameMap = $REAL_NAME_MAP;
     $rawPerson = explode('：', str_replace(':', '：', $rawField))[0];
     $rawPerson = trim($rawPerson);
-    if (isset($REAL_NAME_MAP[$rawPerson])) return $REAL_NAME_MAP[$rawPerson];
-    foreach ($REAL_NAME_MAP as $key => $val) {
+    if (isset($nameMap[$rawPerson])) return $nameMap[$rawPerson];
+    foreach ($nameMap as $key => $val) {
         if (mb_strpos($rawPerson, $key) === 0) return $val;
     }
     return null;
@@ -321,7 +408,10 @@ function parsePayDate($dateStr, $defaultYear) {
 // ===== マスターCSVから全データ構築 =====
 
 function fetchFromMasterCSV($month, $year) {
-    global $MASTER_SHEET_URL, $ICON_MAP, $TEAM_MAP, $TEAM_NAMES, $COL_SEIKATSU_HOGO, $COL_SEISHIN_SHIKKAN, $COL_SHOUGAISHA_TECHOU;
+    global $MASTER_SHEET_URL, $TEAM_NAMES, $COL_SEIKATSU_HOGO, $COL_SEISHIN_SHIKKAN, $COL_SHOUGAISHA_TECHOU;
+
+    // 月別マップ取得（5月以降: 新メンバー4人追加 + L/スマイル除外、4月以前: 既存）
+    list($nameMap, $iconMap, $teamMap) = getMapsForMonth($month, $year);
 
     $rows = getMasterCsvRows();
     if (!$rows) return null;
@@ -388,7 +478,7 @@ function fetchFromMasterCSV($month, $year) {
     $duplicateStart = PHP_INT_MAX;
     foreach ($rows as $idx => $row) {
         if ($idx === 0 || count($row) < 12) continue;
-        if (!resolveV2Name($row[3] ?? '')) continue;
+        if (!resolveV2Name($row[3] ?? '', $nameMap)) continue;
         if ($lastDataRow > 0 && $idx - $lastDataRow > 500) {
             $duplicateStart = $idx;
             break;
@@ -405,7 +495,7 @@ function fetchFromMasterCSV($month, $year) {
 
     // 全メンバーを初期化（データがなくても表示するため）
     $memberData = [];
-    foreach ($ICON_MAP as $name => $icon) {
+    foreach ($iconMap as $name => $icon) {
         $memberData[$name] = [
             'revenue' => 0, 'pastRevenue' => 0, 'prevMonthRevenue' => 0, 'deals' => 0, 'closed' => 0, 'coCount' => 0,
             'closedOnclass' => 0, 'closedConsul' => 0,
@@ -423,7 +513,7 @@ function fetchFromMasterCSV($month, $year) {
         if ($idx === 0 || count($row) < 12) continue;
         if ($idx >= $duplicateStart) break;
 
-        $v2Name = resolveV2Name($row[3] ?? '');
+        $v2Name = resolveV2Name($row[3] ?? '', $nameMap);
         if (!$v2Name) continue;
         if (!isset($memberData[$v2Name])) {
             $memberData[$v2Name] = [
@@ -555,7 +645,7 @@ function fetchFromMasterCSV($month, $year) {
                             'date' => $parsedDate,
                             'dateShort' => intval($pd[1]) . '/' . intval($pd[2]),
                             'name' => $v2Name,
-                            'icon' => $ICON_MAP[$v2Name] ?? '',
+                            'icon' => $iconMap[$v2Name] ?? '',
                             'amount' => round($payAmount, 1),
                         ];
                     }
@@ -590,7 +680,7 @@ function fetchFromMasterCSV($month, $year) {
                             'date' => $parsedDate,
                             'dateShort' => intval($pd[1]) . '/' . intval($pd[2]),
                             'name' => $v2Name,
-                            'icon' => $ICON_MAP[$v2Name] ?? '',
+                            'icon' => $iconMap[$v2Name] ?? '',
                             'amount' => round($payAmount, 1),
                         ];
                     }
@@ -610,7 +700,7 @@ function fetchFromMasterCSV($month, $year) {
     $totalRevenue = 0;
 
     foreach ($memberData as $name => $d) {
-        if (!isset($ICON_MAP[$name])) continue;
+        if (!isset($iconMap[$name])) continue;
         $closed = $d['closed'];
         // 商談数 = 成約 + 全失注（CO・否決・継続失注を含む）
         $totalLost = $d['lost'] + $d['lostByLfCbs'] + $d['lostContinuing'] + $d['coCount'];
@@ -620,8 +710,8 @@ function fetchFromMasterCSV($month, $year) {
 
         $members[] = [
             'name' => $name,
-            'icon' => $ICON_MAP[$name],
-            'team' => $TEAM_MAP[$name] ?? 0,
+            'icon' => $iconMap[$name],
+            'team' => $teamMap[$name] ?? 0,
             'revenue' => $revenue,
             'pastRevenue' => round($d['pastRevenue'], 1),
             'prevMonthRevenue' => round($d['prevMonthRevenue'], 1),
@@ -823,7 +913,9 @@ function recalculate(&$data) {
 // ===== 休日データ取得 =====
 
 function fetchHolidayData($month, $year) {
-    global $ICON_MAP;
+    // 月別マップ取得（5月以降は新マップ、4月以前は既存）
+    list($_, $iconMap, $__) = getMapsForMonth($month, $year);
+
     $holidayFile = __DIR__ . '/holiday-data.json';
     $empty = ['byDate' => new \stdClass(), 'counts' => []];
 
@@ -846,7 +938,7 @@ function fetchHolidayData($month, $year) {
             $byDate[$dateKey][] = [
                 'name' => $name,
                 'type' => $entry['type'] ?? 'full',
-                'icon' => $ICON_MAP[$name] ?? '',
+                'icon' => $iconMap[$name] ?? '',
             ];
         }
     }
