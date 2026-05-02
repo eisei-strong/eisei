@@ -181,8 +181,8 @@ $REAL_NAME_MAP_MAY2026 = [
     '新居' => '1日1more',
     '大久保' => '言い切り',
     '大久保友佑悟' => '言い切り',
-    '矢吹' => '週1休みくん',
-    '矢吹友一' => '週1休みくん',
+    // '矢吹' => '週1休みくん',  // 5月からメンバー一覧外
+    // '矢吹友一' => '週1休みくん',
     '勝友美' => 'ポジティブ',
     '勝' => 'ポジティブ',
     'ドライ' => 'ポジティブ',
@@ -191,8 +191,8 @@ $REAL_NAME_MAP_MAY2026 = [
     'ゴジータ' => 'ゴジータ',
     '中市' => '夜神月',
     '夜神月' => '夜神月',
-    '福島' => 'けつだん',
-    'けつだん' => 'けつだん',
+    // '福島' => 'けつだん',  // 5月からメンバー一覧外
+    // 'けつだん' => 'けつだん',
     // 5月から復活
     '荒木' => '悟空',
     '荒木泰人' => '悟空',
@@ -214,7 +214,7 @@ $REAL_NAME_MAP_MAY2026 = [
 $ICON_MAP_MAY2026 = [
     '意思決定' => 'https://giver.work/sales-dashboard/icons/ishikettei.png',
     'ポジティブ' => 'https://giver.work/sales-dashboard/icons/positive.png',
-    '週1休みくん' => 'https://giver.work/sales-dashboard/icons/shu1yasumi.png',
+    // '週1休みくん' => 'https://giver.work/sales-dashboard/icons/shu1yasumi.png',  // 5月からメンバー一覧外
     // 'ヒトコト' => 'https://giver.work/sales-dashboard/icons/hitokoto.png',  // 5月から休止
     '言い切り' => 'https://giver.work/sales-dashboard/icons/iikiri.png',
     'ありのまま' => 'https://giver.work/sales-dashboard/icons/arinomama.png',
@@ -222,7 +222,7 @@ $ICON_MAP_MAY2026 = [
     '1日1more' => 'https://giver.work/sales-dashboard/icons/ichinichi1more.png',
     'ゴジータ' => 'https://giver.work/sales-dashboard/icons/gojita.png',
     '夜神月' => 'https://giver.work/sales-dashboard/icons/yagami.png',
-    'けつだん' => 'https://giver.work/sales-dashboard/icons/ketsudan.png',
+    // 'けつだん' => 'https://giver.work/sales-dashboard/icons/ketsudan.png',  // 5月からメンバー一覧外
     // 5月から
     'サンウォン' => 'https://giver.work/sales-dashboard/icons/sungwon.png',
     '司波' => 'https://giver.work/sales-dashboard/icons/shiba.png',
@@ -235,9 +235,9 @@ $ICON_MAP_MAY2026 = [
 $TEAM_MAP_MAY2026 = [
     // 5月からチーム制度廃止だが、既存メンバーの所属は維持。新規4人は無所属(=未指定)
     '意思決定' => 1, '言い切り' => 1, 'ありのまま' => 1, '1日1more' => 1,
-    'ぜんぶり' => 2, 'ヒトコト' => 2, 'ポジティブ' => 2,
-    '夜神月' => 3, '週1休みくん' => 3, 'ゴジータ' => 3, 'けつだん' => 3,
-    // 'L', 'スマイル' 削除、新規4人は無所属
+    'ぜんぶり' => 2, 'ポジティブ' => 2,
+    '夜神月' => 3, 'ゴジータ' => 3,
+    // 'L', 'スマイル', '週1休みくん', 'けつだん', 'ヒトコト' は5月メンバー一覧外、新規4人は無所属
 ];
 
 /**
