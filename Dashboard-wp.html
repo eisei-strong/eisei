@@ -612,8 +612,10 @@
     @media (max-width: 768px) {
       .members-bar { padding: 12px 8px; }
       .members-bar h3 { font-size: 12px; margin-bottom: 12px; }
-      .members-list { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 2px; padding-top: 28px; }
-      .member-item { flex: 0 0 calc(100% / 7 - 4px); min-width: 0; }
+      /* PCと表示を揃えるため flex-wrap: nowrap で1行・横スクロール */
+      .members-list-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      .members-list { display: flex; flex-wrap: nowrap; justify-content: flex-start; gap: 6px; padding-top: 16px; min-width: max-content; }
+      .member-item { flex: 0 0 auto; min-width: 0; }
       .member-item-avatar { width: 40px; height: 40px; border-width: 2px; }
       .member-item-name { font-size: 8px; white-space: nowrap; }
       .member-item-bubble { font-size: 7px; padding: 1px 4px; top: -20px; }
@@ -1569,7 +1571,7 @@
       position: absolute;
       top: 0;
       display: flex;
-      flex-direction: column;
+      flex-direction: column-reverse; /* 名前をアイコンの上に表示 */
       align-items: center;
       width: 64px;
       transition: left 0.3s ease;
@@ -1587,7 +1589,7 @@
       font-size: 10px;
       color: #C2410C;
       font-weight: 700;
-      margin-top: 4px;
+      margin-bottom: 4px; /* 名前は上、アイコンの上に余白 */
       white-space: nowrap;
     }
 
