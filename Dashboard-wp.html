@@ -1566,6 +1566,12 @@
         </div>
       </div>
 
+      <!-- 5月以降: メンバー引っ張り演出（手で引っ張る・常時ループ）-->
+      <div class="pulling-section" id="pullingAnimation" style="display:none;">
+        <div class="pulling-title">🔥 引っ張れ！全員で底上げ 🔥</div>
+        <div class="pulling-grid" id="pullingGrid"></div>
+      </div>
+
       <!-- 今日の必達バナー -->
       <div class="hissatsu-banner" id="hissatsuBanner">
         <div class="kiran"></div>
@@ -2038,6 +2044,7 @@
       updatePaymentNews(data, isArchive);
       updateKyosoMessages(data);
       updateBottleneck(data);
+      renderPullingAnimation(data);
 
       // 過去月の着金速報・日割りセクションを非表示
       var newsTop = document.getElementById('newsTop');
@@ -2599,6 +2606,55 @@
       }
       section.style.display = '';
       container.innerHTML = html;
+    }
+
+    // ===== 5月以降: メンバー引っ張り演出 =====
+    var PULLING_PAIRS = [
+      { puller: '意思決定', pulled: 'ぜんぶり' },
+      { puller: '意思決定', pulled: 'ポジティブ' },
+      { puller: '意思決定', pulled: '夜神月' },
+      { puller: 'ぜんぶり', pulled: '言い切り' },
+      { puller: 'ぜんぶり', pulled: '1日1more' },
+      { puller: '1日1more', pulled: 'ありのまま' },
+      { puller: '言い切り', pulled: 'ゴジータ' },
+      { puller: 'ポジティブ', pulled: '司波' },
+      { puller: 'ポジティブ', pulled: '悟空' },
+      { puller: '夜神月', pulled: '信' },
+      { puller: 'ゴジータ', pulled: 'サンウォン' }
+    ];
+
+    function renderPullingAnimation(data) {
+      var section = document.getElementById('pullingAnimation');
+      if (!section) return;
+      var month = currentViewMonth || (data && data.currentMonth) || (new Date().getMonth() + 1);
+      var year = currentViewYear || (new Date().getFullYear());
+      var isMay2026OrLater = (year > 2026) || (year === 2026 && month >= 5);
+      if (!isMay2026OrLater) {
+        section.style.display = 'none';
+        return;
+      }
+
+      var iconMap = {};
+      if (data && data.members) {
+        data.members.forEach(function(m) { iconMap[m.name] = m.icon || ''; });
+      }
+
+      var grid = document.getElementById('pullingGrid');
+      var html = '';
+      PULLING_PAIRS.forEach(function(pair) {
+        var pullerIcon = iconMap[pair.puller] || '';
+        var pulledIcon = iconMap[pair.pulled] || '';
+        if (!pullerIcon || !pulledIcon) return;
+        html +=
+          '<div class="pulling-pair">' +
+            '<div class="pulling-puller" style="background-image:url(' + pullerIcon + ')"></div>' +
+            '<span class="pulling-hand">🤚</span>' +
+            '<div class="pulling-pulled" style="background-image:url(' + pulledIcon + ')"></div>' +
+            '<span class="pulling-pair-label">' + escapeHtml(pair.puller) + '→' + escapeHtml(pair.pulled) + '</span>' +
+          '</div>';
+      });
+      grid.innerHTML = html;
+      section.style.display = html ? 'block' : 'none';
     }
 
     // ===== Member KGI =====
