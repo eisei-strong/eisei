@@ -2370,10 +2370,15 @@
         return formatManYen(m.revenue) + ' チェックイン';
       }
 
+      // 5月以降の戦士たちセクションだけ非表示にするメンバー（ランキング/詳細テーブルには表示）
+      var WARRIORS_HIDE_MAY2026 = ['週1休みくん', 'けつだん'];
+
       // 出勤 / 半休 / 全休に分類
       var working = [], halfOff = [], fullOff = [];
       data.members.forEach(function(m, idx) {
         if (!m.icon) return;
+        // 戦士たちセクション専用フィルタ（5月以降のみ）
+        if (isMay2026OrLaterView() && WARRIORS_HIDE_MAY2026.indexOf(m.name) >= 0) return;
         var off = todayOff[m.name];
         if (off === 'full') fullOff.push({m:m, idx:idx});
         else if (off === 'half') halfOff.push({m:m, idx:idx});
