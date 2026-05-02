@@ -28,23 +28,29 @@ var POST_APP_MONTH_DAYS = (function(){
 })();
 
 /**
- * 投稿数シートの当月列範囲を返す
- * @return {{startCol: number, monthDays: number, endCol: number}}
+ * 投稿数シートの指定月の列範囲を返す
+ * @param {number} [year] 省略時は当年
+ * @param {number} [month] 省略時は当月（1-12）
  */
-function getCurrentMonthColRange_() {
+function getMonthColRange_(year, month) {
   var now = new Date();
-  var year = now.getFullYear();
-  var month = now.getMonth() + 1;
+  if (!year) year = now.getFullYear();
+  if (!month) month = now.getMonth() + 1;
   var startCol = POST_APP_DATE_START_COL;
   var startYm = POST_APP_RUN_START_YEAR * 12 + (POST_APP_RUN_START_MONTH - 1);
-  var nowYm = year * 12 + (month - 1);
-  for (var i = startYm; i < nowYm; i++) {
+  var ym = year * 12 + (month - 1);
+  for (var i = startYm; i < ym; i++) {
     var y = Math.floor(i / 12);
     var m = (i % 12) + 1;
     startCol += new Date(y, m, 0).getDate();
   }
   var monthDays = new Date(year, month, 0).getDate();
-  return { startCol: startCol, monthDays: monthDays, endCol: startCol + monthDays - 1 };
+  return { year: year, month: month, startCol: startCol, monthDays: monthDays, endCol: startCol + monthDays - 1 };
+}
+
+/** 後方互換: 当月の列範囲 */
+function getCurrentMonthColRange_() {
+  return getMonthColRange_();
 }
 
 /**
@@ -289,7 +295,7 @@ function postAppLogin_(id, password) {
 
 // ---- 全月データ取得（ログイン後のリフレッシュ用） ----
 
-function postAppGet_(token) {
+function postAppGet_(token, year, month) {
   var id = verifyToken_(token);
   if (!id) return { error: 'セッション切れです。再ログインしてください。' };
 
@@ -307,22 +313,40 @@ function postAppGet_(token) {
 
   var row = rowIdx + 2;
   var name = sheet.getRange(row, POST_APP_NAME_COL).getValue();
-  var monthData = getMonthData_(sheet, row);
+  var monthData = getMonthData_(sheet, row, year, month);
 
-  // ログイン日を記録
-  recordLogin_(String(id).trim());
-  var loginData = getLoginStreakData_(String(id).trim());
+  // ログイン記録は当月のときのみ
+  var now = new Date();
+  var isCurrent = !year || (parseInt(year) === now.getFullYear() && parseInt(month) === now.getMonth() + 1);
+  var loginData = null;
+  if (isCurrent) {
+    recordLogin_(String(id).trim());
+    loginData = getLoginStreakData_(String(id).trim());
+  }
 
   return { ok: true, id: String(id).trim(), name: String(name), month: monthData, login: loginData };
 }
 
 // ---- 月データ一括取得ヘルパー ----
 
-function getMonthData_(sheet, row) {
-  var range = getCurrentMonthColRange_();
+function getMonthData_(sheet, row, year, month) {
+  var range = getMonthColRange_(year ? parseInt(year) : null, month ? parseInt(month) : null);
   var headers = sheet.getRange(1, range.startCol, 1, range.monthDays).getValues()[0];
   var values = sheet.getRange(row, range.startCol, 1, range.monthDays).getValues()[0];
-  var total = sheet.getRange(row, POST_APP_TOTAL_COL).getValue();
+
+  // total: 当月はE列(リアルタイム数式)、過去月は範囲から集計
+  var now = new Date();
+  var isCurrent = (range.year === now.getFullYear() && range.month === now.getMonth() + 1);
+  var total;
+  if (isCurrent) {
+    total = sheet.getRange(row, POST_APP_TOTAL_COL).getValue();
+  } else {
+    total = 0;
+    for (var v = 0; v < values.length; v++) {
+      var s = String(values[v] || '').trim();
+      if (s && s !== '❌') total += parseInt(s) || 0;
+    }
+  }
 
   var days = [];
   for (var i = 0; i < headers.length; i++) {
@@ -339,12 +363,12 @@ function getMonthData_(sheet, row) {
   } else if (contract) {
     contractStr = String(contract);
   }
-  return { days: days, total: total, contract: contractStr };
+  return { year: range.year, month: range.month, days: days, total: total, contract: contractStr };
 }
 
-// ---- 保存（任意の日付を指定可能） ----
+// ---- 保存（任意の月の日付を指定可能） ----
 
-function postAppSave_(token, value, col) {
+function postAppSave_(token, value, col, year, month) {
   var id = verifyToken_(token);
   if (!id) return { error: 'セッション切れです。再ログインしてください。' };
 
@@ -355,9 +379,9 @@ function postAppSave_(token, value, col) {
   var sheet = ss.getSheetByName(POST_APP_SHEET_NAME);
   if (!sheet) return { error: 'シートが見つかりません' };
 
-  // col = 当月日数内の0始まりインデックス
+  // col = 指定月の日数内の0始まりインデックス
   var colNum = parseInt(col);
-  var range = getCurrentMonthColRange_();
+  var range = getMonthColRange_(year ? parseInt(year) : null, month ? parseInt(month) : null);
   if (isNaN(colNum) || colNum < 0 || colNum >= range.monthDays) return { error: '日付が無効です' };
   var targetCol = range.startCol + colNum;
 

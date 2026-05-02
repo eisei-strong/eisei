@@ -89,7 +89,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif;bac
 
 /* カレンダー */
 .cal-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
-.cal-title{font-size:16px;font-weight:800;color:#3C3C3C}
+.cal-hdr{display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:8px}
+.cal-title{font-size:16px;font-weight:800;color:#3C3C3C;min-width:48px;text-align:center}
+.cal-nav{background:none;border:none;font-size:24px;color:#1CB0F6;cursor:pointer;padding:4px 12px;font-weight:700;-webkit-tap-highlight-color:transparent}
+.cal-nav:disabled{color:#E0E0E0;cursor:not-allowed}
+.cal-nav:active{transform:scale(0.9)}
 .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-bottom:16px}
 .cal-dow{text-align:center;font-size:11px;color:#AFAFAF;padding:4px 0;font-weight:700}
 .cal-day{aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:14px;cursor:pointer;transition:all .12s;font-size:14px;font-weight:700;border:2px solid transparent;position:relative;-webkit-user-select:none;user-select:none}
@@ -449,7 +453,11 @@ a{color:#1CB0F6;font-weight:600}
   </div>
 
   <!-- カレンダー -->
-  <div class="cal-hdr"><div class="cal-title">4月</div></div>
+  <div class="cal-hdr">
+    <button class="cal-nav prev" onclick="changeMonth(-1)">‹</button>
+    <div class="cal-title">5月</div>
+    <button class="cal-nav next" onclick="changeMonth(1)">›</button>
+  </div>
   <div class="cal-grid" id="calGrid"></div>
 </div>
 
@@ -669,6 +677,12 @@ function normLabel(label,col){
 }
 var loginData=null;
 var currentTab='post';
+// 月切替UI用
+var currentYear=new Date().getFullYear();
+var currentMonth=new Date().getMonth()+1;
+var RUN_START_YEAR=2026;
+var RUN_START_MONTH=4;
+function getMonthCacheKey(y,m){return 'pa_month_'+y+'_'+(m<10?'0'+m:m)}
 var prevCharaIdx=-1; // レベルアップ検出用
 var streak=0; // 連続投稿日数（renderEvoTableからも参照）
 var hopeData=null; // リスト数データ（権限ある人のみ）
@@ -1246,6 +1260,9 @@ function doLoginWith(pw){
     token=d.token;userId=d.id;userName=d.name;
     monthDays=d.month.days;
     userContract=d.month.contract||'';
+    // ログイン時は当月にリセット
+    currentYear=new Date().getFullYear();
+    currentMonth=new Date().getMonth()+1;
     localStorage.setItem('pa_t',token);
     localStorage.setItem('pa_id',userId);
     localStorage.setItem('pa_name',userName);
@@ -1272,13 +1289,53 @@ function doLoginWith(pw){
 }
 
 // ---- メイン描画（投稿記録） ----
+// ---- 月切替UI ----
+function isViewingCurrentMonth(){
+  var n=new Date();
+  return currentYear===n.getFullYear()&&currentMonth===(n.getMonth()+1);
+}
+function changeMonth(delta){
+  if(!token)return;
+  var ym=currentYear*12+(currentMonth-1)+delta;
+  var startYm=RUN_START_YEAR*12+(RUN_START_MONTH-1);
+  var n=new Date();
+  var nowYm=n.getFullYear()*12+n.getMonth();
+  if(ym<startYm||ym>nowYm)return;
+  currentYear=Math.floor(ym/12);
+  currentMonth=(ym%12)+1;
+  loadMonth(currentYear,currentMonth);
+}
+function loadMonth(year,month){
+  var key=getMonthCacheKey(year,month);
+  var cached=localStorage.getItem(key);
+  if(cached){try{monthDays=JSON.parse(cached);renderMain()}catch(e){}}
+  if(!token)return;
+  api('action=postGet&token='+encodeURIComponent(token)+'&year='+year+'&month='+month).then(function(d){
+    if(d.error){if(d.error.indexOf('セッション')>=0)handleSessionExpired();return}
+    monthDays=d.month.days;
+    localStorage.setItem(key,JSON.stringify(monthDays));
+    renderMain();
+  }).catch(function(){});
+}
+function updateNavButtons(){
+  var ym=currentYear*12+(currentMonth-1);
+  var startYm=RUN_START_YEAR*12+(RUN_START_MONTH-1);
+  var n=new Date();
+  var nowYm=n.getFullYear()*12+n.getMonth();
+  var p=document.querySelector('.cal-nav.prev');
+  var nx=document.querySelector('.cal-nav.next');
+  if(p)p.disabled=(ym<=startYm);
+  if(nx)nx.disabled=(ym>=nowYm);
+}
+
 function renderMain(){
   show('mainScreen');
   document.getElementById('bottomNav').classList.add('active');
   document.getElementById('userName').textContent='';
-  // カレンダータイトルを当月で動的表示（4月ハードコード解除）
+  // カレンダータイトルを表示中の月で動的表示
   var ct=document.querySelector('.cal-title');
-  if(ct)ct.textContent=(new Date().getMonth()+1)+'月';
+  if(ct)ct.textContent=currentMonth+'月';
+  updateNavButtons();
 
   var totalDays=0,totalPosts=0,maxStreak=0,cur=0;streak=0;
   var today=new Date();
@@ -1646,6 +1703,7 @@ function pickValue(el){
   var oldVal=monthDays[selectedCol].value;
   monthDays[selectedCol].value=val;
   localStorage.setItem('pa_month',JSON.stringify(monthDays));
+  localStorage.setItem(getMonthCacheKey(currentYear,currentMonth),JSON.stringify(monthDays));
   rankingCache=null; // 保存時にランキングキャッシュをクリア
   renderMain();
   document.getElementById('modalBg').classList.remove('active');
@@ -1688,12 +1746,13 @@ function pickValue(el){
     toast('記録しました');
   }
 
-  api('action=postSave&token='+encodeURIComponent(token)+'&value='+encodeURIComponent(val)+'&col='+selectedCol)
+  api('action=postSave&token='+encodeURIComponent(token)+'&value='+encodeURIComponent(val)+'&col='+selectedCol+'&year='+currentYear+'&month='+currentMonth)
     .then(function(d){
       if(d.error){
         // 保存失敗 → 元に戻す
         monthDays[selectedCol].value=oldVal;
         localStorage.setItem('pa_month',JSON.stringify(monthDays));
+        localStorage.setItem(getMonthCacheKey(currentYear,currentMonth),JSON.stringify(monthDays));
         renderMain();
         if(d.error.indexOf('セッション')>=0){handleSessionExpired();return}
         toast('保存失敗: '+d.error);
@@ -1701,6 +1760,7 @@ function pickValue(el){
     }).catch(function(){
       monthDays[selectedCol].value=oldVal;
       localStorage.setItem('pa_month',JSON.stringify(monthDays));
+      localStorage.setItem(getMonthCacheKey(currentYear,currentMonth),JSON.stringify(monthDays));
       renderMain();
       toast('通信エラー。後で再読み込みしてください');
     });
