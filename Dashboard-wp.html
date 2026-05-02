@@ -2694,7 +2694,8 @@
 
     // ===== 5月以降: 戦士たちセクションに引っ張り綱を描画 =====
     var PULLING_PAIRS = [
-      { puller: '押切', pulled: '意思決定' },
+      // 押切は意思決定のメンター専用（メンバー一覧には出さない）。アイコンURLを直接指定。
+      { puller: '押切', pulled: '意思決定', pullerIconUrl: 'https://giver.work/sales-dashboard/icons/oshikiri.png' },
       { puller: '意思決定', pulled: 'ぜんぶり' },
       { puller: '意思決定', pulled: 'ポジティブ' },
       { puller: '意思決定', pulled: '夜神月' },
@@ -2720,9 +2721,15 @@
     }
     function getMentorIcon(memberName, iconMap) {
       if (!isMay2026OrLaterView()) return '';
-      var mentor = MENTOR_MAP[memberName];
-      if (!mentor) return '';
-      return iconMap[mentor] || '';
+      // PULLING_PAIRSから直接探して、pullerIconUrl があればそれを使う
+      // （メンバー一覧に出ない人=押切等のメンターも表示できるように）
+      for (var i = 0; i < PULLING_PAIRS.length; i++) {
+        var p = PULLING_PAIRS[i];
+        if (p.pulled === memberName) {
+          return p.pullerIconUrl || iconMap[p.puller] || '';
+        }
+      }
+      return '';
     }
     var _lastPullingData = null;
 
