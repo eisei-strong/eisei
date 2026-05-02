@@ -1513,7 +1513,43 @@
     }
     .detail-table tfoot .col-revenue { color: #E11D48; }
 
-    /* ===== 5月以降: メンター表示 ===== */
+    /* ===== 5月以降: メンターグループレイアウト ===== */
+    .warrior-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      margin: 0 2px;
+    }
+    .group-mentor {
+      width: 56px; height: 56px;
+      border-radius: 50%;
+      border: 2px solid #F97316;
+      box-shadow: 0 2px 8px rgba(249,115,22,0.5);
+      overflow: hidden;
+      background: #FED7AA;
+      animation: mentorBob 1.4s ease-in-out infinite;
+    }
+    .group-mentor img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .group-mentor-spacer {
+      width: 56px;
+      height: 56px;
+    }
+    .group-members {
+      display: flex;
+      flex-direction: row;
+      gap: 4px;
+    }
+    @keyframes mentorBob {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-3px); }
+    }
+
+    /* ===== 5月以降: メンター表示（旧。member-mentorはもう使わない）===== */
     .member-icon-wrap {
       position: relative;
       display: inline-block;
@@ -2342,27 +2378,41 @@
       var iconMap = {};
       data.members.forEach(function(mm) { iconMap[mm.name] = mm.icon || ''; });
 
-      // 同メンターを連続配置するため、メンター別に並び替え（5月以降のみ）
+      // メンター取得
       function getMentorOf(name) {
         for (var i = 0; i < PULLING_PAIRS.length; i++) {
           if (PULLING_PAIRS[i].pulled === name) return PULLING_PAIRS[i].puller;
         }
         return null;
       }
-      function reorderForMentor(items) {
-        if (!isMay2026OrLaterView()) return items;
-        var groups = {};
+      // メンター名→アイコンURL（iconMap優先、無ければPULLING_PAIRSのpullerIconUrl）
+      function getMentorAvatarUrl(mentorName) {
+        if (!mentorName) return '';
+        if (iconMap[mentorName]) return iconMap[mentorName];
+        for (var i = 0; i < PULLING_PAIRS.length; i++) {
+          if (PULLING_PAIRS[i].puller === mentorName && PULLING_PAIRS[i].pullerIconUrl) {
+            return PULLING_PAIRS[i].pullerIconUrl;
+          }
+        }
+        return '';
+      }
+      // メンター別にグループ化（5月以降のみ）。順序: 押切→意思決定→...→_NONE_(右端)
+      function buildMentorGroups(items) {
+        if (!isMay2026OrLaterView()) {
+          // 4月以前はグループ化なし、メンターなしの単一グループに集約
+          return [{ mentor: null, members: items }];
+        }
+        var map = {};
         items.forEach(function(it) {
           var key = getMentorOf(it.m.name) || '_NONE_';
-          if (!groups[key]) groups[key] = [];
-          groups[key].push(it);
+          if (!map[key]) map[key] = { mentor: (key === '_NONE_' ? null : key), members: [] };
+          map[key].members.push(it);
         });
-        // メンター不在(_NONE_)は右端に配置
         var order = ['押切', '意思決定', 'ぜんぶり', 'ポジティブ', '夜神月', '1日1more', '言い切り', 'ゴジータ', '_NONE_'];
-        var result = [];
-        order.forEach(function(k) { if (groups[k]) result = result.concat(groups[k]); });
-        Object.keys(groups).forEach(function(k) { if (order.indexOf(k) === -1) result = result.concat(groups[k]); });
-        return result;
+        var groups = [];
+        order.forEach(function(k) { if (map[k]) groups.push(map[k]); });
+        Object.keys(map).forEach(function(k) { if (order.indexOf(k) === -1) groups.push(map[k]); });
+        return groups;
       }
 
       function renderItem(item, offType) {
@@ -2377,12 +2427,30 @@
           '<span class="member-item-name">' + escapeHtml(m.name) + '</span>' +
           '</div>';
       }
-      // メンター別に並び替えて出力（メンター不在は右端）
+      // メンター別グループでレンダリング: 各グループは [上段:メンターアイコン1個 / 下段:同メンターのメンバー]
       function renderGroup(items, offType) {
-        items = reorderForMentor(items);
+        var groups = buildMentorGroups(items);
         var html = '';
-        items.forEach(function(it) {
-          html += renderItem(it, offType);
+        groups.forEach(function(g) {
+          var membersHtml = g.members.map(function(it) { return renderItem(it, offType); }).join('');
+          if (isMay2026OrLaterView() && g.mentor) {
+            var mentorUrl = getMentorAvatarUrl(g.mentor);
+            html += '<div class="warrior-group">' +
+              '<div class="group-mentor" data-mentor-name="' + escapeHtml(g.mentor) + '">' +
+                (mentorUrl ? '<img src="' + mentorUrl + '" alt="メンター: ' + escapeHtml(g.mentor) + '" onerror="this.style.display=\'none\'">' : '') +
+              '</div>' +
+              '<div class="group-members">' + membersHtml + '</div>' +
+            '</div>';
+          } else if (isMay2026OrLaterView()) {
+            // メンター不在グループ: 上段spacerで段差揃え
+            html += '<div class="warrior-group warrior-group-no-mentor">' +
+              '<div class="group-mentor-spacer" aria-hidden="true"></div>' +
+              '<div class="group-members">' + membersHtml + '</div>' +
+            '</div>';
+          } else {
+            // 4月以前は従来表示（フラット）
+            html += membersHtml;
+          }
         });
         return html;
       }
@@ -2800,14 +2868,25 @@
         svg.style.height = listRect.height + 'px';
         svg.setAttribute('viewBox', '0 0 ' + listRect.width + ' ' + listRect.height);
 
-        // メンバー位置取得
-        var positions = {};
+        // メンバー位置取得（本人アイコン）
+        var memberPos = {};
         list.querySelectorAll('.member-item').forEach(function(item) {
           var name = item.getAttribute('data-member-name');
           if (!name) return;
           var avatar = item.querySelector('.member-item-avatar');
           var rect = (avatar || item).getBoundingClientRect();
-          positions[name] = {
+          memberPos[name] = {
+            x: rect.left + rect.width / 2 - listRect.left,
+            y: rect.top + rect.height / 2 - listRect.top,
+            r: rect.width / 2
+          };
+        });
+        // メンター位置取得（グループ上段のメンターアイコン）
+        var mentorPos = {};
+        list.querySelectorAll('[data-mentor-name]').forEach(function(item) {
+          var name = item.getAttribute('data-mentor-name');
+          var rect = item.getBoundingClientRect();
+          mentorPos[name] = {
             x: rect.left + rect.width / 2 - listRect.left,
             y: rect.top + rect.height / 2 - listRect.top,
             r: rect.width / 2
@@ -2822,8 +2901,9 @@
           '</defs>';
         var paths = '';
         PULLING_PAIRS.forEach(function(pair, i) {
-          var from = positions[pair.puller];
-          var to = positions[pair.pulled];
+          // 線の起点はメンターアイコン位置（グループ上段）優先、なければメンバー本人位置
+          var from = mentorPos[pair.puller] || memberPos[pair.puller];
+          var to = memberPos[pair.pulled];
           if (!from || !to) return;
 
           // 円周上の端点を計算（直線方向）
