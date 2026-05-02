@@ -1513,6 +1513,52 @@
     }
     .detail-table tfoot .col-revenue { color: #E11D48; }
 
+    /* ===== 5月以降: メンター表示 ===== */
+    .member-icon-wrap {
+      position: relative;
+      display: inline-block;
+    }
+    .mentor-badge {
+      position: absolute;
+      top: -6px;
+      right: -8px;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 2px solid #F97316;
+      background: white;
+      object-fit: cover;
+      box-shadow: 0 2px 6px rgba(249,115,22,0.5);
+      z-index: 3;
+    }
+    .member-card.rank-1 .mentor-badge { width: 36px; height: 36px; top: -8px; right: -10px; }
+    .member-card.rank-2 .mentor-badge,
+    .member-card.rank-3 .mentor-badge { width: 32px; height: 32px; }
+    /* 戦士たち：メンターを本人の上に縦配置 */
+    .member-mentor {
+      width: 26px; height: 26px;
+      border-radius: 50%;
+      border: 2px solid #F97316;
+      background: white;
+      object-fit: cover;
+      box-shadow: 0 2px 6px rgba(249,115,22,0.4);
+      display: block;
+      margin: 0 auto -6px auto;
+      position: relative;
+      z-index: 2;
+      animation: mentorBob 1.4s ease-in-out infinite;
+    }
+    .member-mentor-spacer {
+      width: 26px;
+      height: 26px;
+      display: block;
+      margin: 0 auto -6px auto;
+    }
+    @keyframes mentorBob {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-3px); }
+    }
+
     /* ===== 5月以降: 引っ張り綱（戦士たちセクション内）===== */
     .members-list-wrap {
       position: relative;
@@ -2277,6 +2323,10 @@
         else working.push({m:m, idx:idx});
       });
 
+      // メンバー名→アイコンURLマップ（メンター画像取得用）
+      var iconMap = {};
+      data.members.forEach(function(mm) { iconMap[mm.name] = mm.icon || ''; });
+
       function renderItem(item, offType) {
         var m = item.m, idx = item.idx;
         var cls = 'member-item';
@@ -2284,8 +2334,13 @@
         if (offType === 'full') cls += ' is-off';
         if (offType === 'half') cls += ' is-half';
         var bubble = makeBubble(m, idx, offType);
+        var mentorIcon = getMentorIcon(m.name, iconMap);
+        var mentorHtml = mentorIcon
+          ? '<img class="member-mentor" src="' + mentorIcon + '" alt="メンター" title="メンター: ' + escapeHtml(MENTOR_MAP[m.name] || '') + '" onerror="this.style.display=\'none\'">'
+          : (isMay2026OrLaterView() ? '<span class="member-mentor-spacer" aria-hidden="true"></span>' : '');
         return '<div class="' + cls + '" data-member-name="' + escapeHtml(m.name) + '">' +
           '<div class="member-item-bubble">' + bubble + '</div>' +
+          mentorHtml +
           '<img class="member-item-avatar" src="' + m.icon + '" alt="' + escapeHtml(m.name) + '" onerror="this.style.display=\'none\'">' +
           '<span class="member-item-name">' + escapeHtml(m.name) + '</span>' +
           '</div>';
@@ -2650,6 +2705,23 @@
       { puller: '夜神月', pulled: '信' },
       { puller: 'ゴジータ', pulled: 'サンウォン' }
     ];
+    // メンターマップ: 各メンバーの「自分を引っ張ってくれる人」（puller）
+    var MENTOR_MAP = (function() {
+      var m = {};
+      PULLING_PAIRS.forEach(function(p) { m[p.pulled] = p.puller; });
+      return m;
+    })();
+    function isMay2026OrLaterView() {
+      var month = currentViewMonth || (new Date().getMonth() + 1);
+      var year = currentViewYear || (new Date().getFullYear());
+      return (year > 2026) || (year === 2026 && month >= 5);
+    }
+    function getMentorIcon(memberName, iconMap) {
+      if (!isMay2026OrLaterView()) return '';
+      var mentor = MENTOR_MAP[memberName];
+      if (!mentor) return '';
+      return iconMap[mentor] || '';
+    }
     var _lastPullingData = null;
 
     function renderPullingAnimation(data) {
@@ -2762,15 +2834,23 @@
       var container = document.getElementById('memberCards');
       container.innerHTML = '';
 
+      // メンバー名→アイコンURLマップ（メンター画像取得用）
+      var iconMap = {};
+      data.members.forEach(function(mm) { iconMap[mm.name] = mm.icon || ''; });
+
       data.members.forEach(function(m, index) {
         var card = document.createElement('div');
         card.className = 'member-card fade-in-up';
         if (m.rank <= 3) card.classList.add('rank-' + m.rank);
         card.style.animationDelay = (isFirstLoad ? index * 0.08 : 0) + 's';
 
-        // Icon
+        // Icon (5月以降はメンターバッジを右上に重ねる)
+        var mentorIcon = getMentorIcon(m.name, iconMap);
+        var mentorBadgeHtml = mentorIcon
+          ? '<img class="mentor-badge" src="' + mentorIcon + '" alt="メンター" title="メンター: ' + escapeHtml(MENTOR_MAP[m.name] || '') + '" onerror="this.style.display=\'none\'">'
+          : '';
         var iconHtml = m.icon
-          ? '<img class="member-icon" src="' + m.icon + '" alt="">'
+          ? '<span class="member-icon-wrap"><img class="member-icon" src="' + m.icon + '" alt="">' + mentorBadgeHtml + '</span>'
           : '';
 
         // Medal or rank badge
