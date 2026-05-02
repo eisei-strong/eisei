@@ -1890,7 +1890,9 @@
     };
 
     // 退職済みメンバー（ダッシュボードから非表示）
-    var HIDDEN_MEMBERS = ['悟空', 'やまと'];
+    // 「悟空」(荒木) は2026年5月から復活。api-proxy.php の ICON_MAP_MAY2026 で5月以降のみ表示制御。
+    // 「やまと」は退職継続のため除外維持。
+    var HIDDEN_MEMBERS = ['やまと'];
 
     function fixMemberNames(data) {
       if (!data || !data.members) return data;
@@ -2922,8 +2924,7 @@
           '</defs>';
         var paths = '';
 
-        // 横方向のオレンジ基準線（メンター行の下に1本）
-        paths += '<line class="pulling-baseline" x1="0" y1="' + baselineY + '" x2="' + wrapRect.width + '" y2="' + baselineY + '" />';
+        // 横方向の基準線は廃止（ユーザー指示: 邪魔なので消す）。線の通過点としては baselineY を使い続ける。
 
         // 各メンターから担当メンバーへ「コ」の字型の線を引く
         // 同じメンターから複数人へ引くとき、基準線上の通過点を分岐角度ずらしで見やすく
