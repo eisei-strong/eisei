@@ -1534,25 +1534,25 @@
     .member-card.rank-1 .mentor-badge { width: 36px; height: 36px; top: -8px; right: -10px; }
     .member-card.rank-2 .mentor-badge,
     .member-card.rank-3 .mentor-badge { width: 32px; height: 32px; }
-    /* 戦士たち：メンターを本人の上に縦配置 */
+    /* 戦士たち：メンターを本人の上に縦配置（2倍サイズ）*/
     .member-mentor {
-      width: 26px; height: 26px;
+      width: 52px; height: 52px;
       border-radius: 50%;
       border: 2px solid #F97316;
       background: white;
       object-fit: cover;
       box-shadow: 0 2px 6px rgba(249,115,22,0.4);
       display: block;
-      margin: 0 auto -6px auto;
+      margin: 0 auto -10px auto;
       position: relative;
       z-index: 2;
       animation: mentorBob 1.4s ease-in-out infinite;
     }
     .member-mentor-spacer {
-      width: 26px;
-      height: 26px;
+      width: 52px;
+      height: 52px;
       display: block;
-      margin: 0 auto -6px auto;
+      margin: 0 auto -10px auto;
     }
     @keyframes mentorBob {
       0%, 100% { transform: translateY(0); }
