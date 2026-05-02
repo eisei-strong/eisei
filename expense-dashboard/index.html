@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Namaka 経費ダッシュボード</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+/* ===== Reset & Base ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Sans', sans-serif;
+  background: #F1F5F9;
+  color: #1E293B;
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+/* ===== Loading ===== */
+#loading {
+  position: fixed; inset: 0; background: #FFF; z-index: 1000;
+  display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 16px;
+}
+.spinner {
+  width: 48px; height: 48px; border: 4px solid #E2E8F0;
+  border-top-color: #059669; border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text { color: #64748B; font-size: 14px; }
+
+/* ===== App Container ===== */
+#app { display: none; max-width: 1200px; margin: 0 auto; padding: 16px; }
+
+/* ===== Hero Header ===== */
+.hero {
+  background: linear-gradient(135deg, #064E3B 0%, #065F46 40%, #047857 70%, #059669 100%);
+  border-radius: 20px; padding: 28px 24px 20px; color: #FFF;
+  position: relative; overflow: hidden; margin-bottom: 20px;
+}
+.hero::before {
+  content: ''; position: absolute; top: -40px; right: -40px;
+  width: 160px; height: 160px; border-radius: 50%;
+  background: rgba(255,255,255,0.06);
+}
+.hero-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.hero-title { font-size: 20px; font-weight: 800; letter-spacing: 0.5px; }
+.hero-sub { font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 2px; }
+
+/* Month Nav */
+.month-nav { display: flex; align-items: center; gap: 8px; }
+.month-nav button {
+  background: rgba(255,255,255,0.15); border: none; color: #FFF;
+  width: 36px; height: 36px; border-radius: 50%; font-size: 16px;
+  cursor: pointer; transition: background 0.2s;
+}
+.month-nav button:hover { background: rgba(255,255,255,0.25); }
+.month-nav button:disabled { opacity: 0.3; cursor: default; }
+.month-label { font-size: 18px; font-weight: 700; min-width: 120px; text-align: center; }
+.archive-badge {
+  display: inline-block; background: rgba(255,255,255,0.2); border-radius: 4px;
+  font-size: 10px; padding: 1px 6px; margin-left: 6px; vertical-align: middle;
+}
+
+/* Buttons */
+.hero-btns { display: flex; gap: 8px; align-items: center; }
+.btn-refresh {
+  background: rgba(255,255,255,0.2); border: none; color: #FFF;
+  padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: background 0.2s;
+}
+.btn-refresh:hover { background: rgba(255,255,255,0.3); }
+.btn-refresh:disabled { opacity: 0.5; cursor: default; }
+#updatedAt { font-size: 11px; color: rgba(255,255,255,0.6); }
+
+/* ===== KPI Cards ===== */
+.kpi-grid { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+.kpi-card {
+  flex: 1; min-width: 200px; background: #FFF; border-radius: 14px;
+  padding: 20px; border: 1px solid #E2E8F0; position: relative; overflow: hidden;
+}
+.kpi-label { font-size: 12px; color: #64748B; font-weight: 600; margin-bottom: 4px; }
+.kpi-value { font-size: 28px; font-weight: 800; line-height: 1.2; }
+.kpi-value.green { color: #059669; }
+.kpi-value.red { color: #DC2626; }
+.kpi-value.blue { color: #2563EB; }
+.kpi-diff {
+  font-size: 12px; margin-top: 6px; font-weight: 600;
+  display: inline-flex; align-items: center; gap: 2px;
+  padding: 2px 8px; border-radius: 20px;
+}
+.kpi-diff.up { background: #F0FDF4; color: #16A34A; }
+.kpi-diff.down { background: #FEF2F2; color: #DC2626; }
+.kpi-diff.neutral { background: #F8FAFC; color: #64748B; }
+.kpi-rate { font-size: 14px; color: #64748B; margin-top: 4px; }
+
+/* ===== Profit Bar ===== */
+.profit-bar-wrap { margin-bottom: 24px; }
+.profit-bar-label { display: flex; justify-content: space-between; font-size: 12px; color: #64748B; margin-bottom: 6px; }
+.profit-bar-track {
+  background: #E2E8F0; border-radius: 10px; height: 28px; overflow: hidden; position: relative;
+}
+.profit-bar-fill {
+  height: 100%; border-radius: 10px; display: flex; align-items: center;
+  justify-content: flex-end; padding-right: 10px;
+  font-size: 12px; font-weight: 700; color: #FFF; transition: width 0.6s ease;
+}
+.profit-bar-fill.high { background: linear-gradient(90deg, #059669, #34D399); }
+.profit-bar-fill.mid { background: linear-gradient(90deg, #2563EB, #60A5FA); }
+.profit-bar-fill.low { background: linear-gradient(90deg, #EF4444, #FB7185); }
+
+/* ===== Section ===== */
+.section {
+  background: #FFF; border-radius: 14px; padding: 20px;
+  border: 1px solid #E2E8F0; margin-bottom: 20px;
+}
+.section-title {
+  font-size: 15px; font-weight: 700; margin-bottom: 16px;
+  display: flex; align-items: center; gap: 8px;
+}
+.section-icon { font-size: 18px; }
+
+/* ===== Charts Row ===== */
+
+/* ===== Trend Chart ===== */
+.trend-wrap { position: relative; height: 300px; }
+
+/* ===== Wasteful Alerts ===== */
+.alert-list { display: flex; flex-direction: column; gap: 8px; }
+.alert-item {
+  display: flex; justify-content: space-between; align-items: center;
+  background: #FEF2F2; border: 1px solid #FECACA; border-radius: 10px; padding: 12px 16px;
+}
+.alert-left { flex: 1; }
+.alert-cat { font-size: 11px; color: #DC2626; font-weight: 600; }
+.alert-desc { font-size: 13px; color: #1E293B; margin-top: 2px; }
+.alert-amount { font-size: 16px; font-weight: 700; color: #DC2626; white-space: nowrap; }
+
+/* ===== Top Expenses Table ===== */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+thead th {
+  text-align: left; padding: 10px 12px; background: #F8FAFC;
+  border-bottom: 2px solid #E2E8F0; font-weight: 700; color: #64748B;
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;
+  cursor: pointer; white-space: nowrap;
+}
+thead th:hover { background: #F1F5F9; }
+tbody td { padding: 10px 12px; border-bottom: 1px solid #F1F5F9; }
+tbody tr:hover { background: #F8FAFC; }
+.cat-badge {
+  display: inline-block; padding: 2px 8px; border-radius: 12px;
+  font-size: 11px; font-weight: 600; white-space: nowrap;
+}
+.td-amount { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+.td-rank { text-align: center; font-weight: 700; color: #94A3B8; width: 40px; }
+
+/* ===== Category Modal ===== */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 999;
+  display: none; align-items: center; justify-content: center;
+}
+.modal-overlay.active { display: flex; }
+.modal {
+  background: #FFF; border-radius: 16px; width: 90%; max-width: 700px;
+  max-height: 80vh; overflow-y: auto; padding: 24px;
+}
+.modal-header {
+  display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;
+}
+.modal-title { font-size: 18px; font-weight: 700; }
+.modal-close {
+  background: #F1F5F9; border: none; width: 32px; height: 32px; border-radius: 50%;
+  font-size: 16px; cursor: pointer; color: #64748B;
+}
+.modal-total { font-size: 14px; color: #64748B; margin-bottom: 16px; }
+
+/* ===== Footer ===== */
+.footer { text-align: center; padding: 16px; color: #94A3B8; font-size: 12px; }
+
+/* ===== Personnel Grid ===== */
+.personnel-grid { display: flex; gap: 24px; align-items: flex-start; }
+.personnel-chart-wrap { width: 280px; min-width: 280px; height: 280px; position: relative; }
+.personnel-detail { flex: 1; min-width: 0; }
+.personnel-bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; cursor: pointer; }
+.personnel-bar-row:hover { opacity: 0.8; }
+.personnel-bar-label { width: 120px; font-size: 12px; font-weight: 600; color: #334155; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.personnel-bar-track { flex: 1; background: #F1F5F9; border-radius: 6px; height: 22px; overflow: hidden; position: relative; }
+.personnel-bar-fill { height: 100%; border-radius: 6px; display: flex; align-items: center; padding-left: 8px; font-size: 10px; font-weight: 700; color: #FFF; transition: width 0.4s ease; min-width: 2px; }
+.personnel-bar-amount { width: 80px; text-align: right; font-size: 12px; font-weight: 700; color: #1E293B; font-variant-numeric: tabular-nums; }
+.personnel-bar-pct { width: 40px; text-align: right; font-size: 11px; color: #94A3B8; }
+.personnel-total { margin-top: 16px; padding-top: 12px; border-top: 1px solid #E2E8F0; font-size: 13px; color: #64748B; display: flex; justify-content: space-between; }
+.personnel-total strong { color: #1E293B; font-size: 16px; }
+.personnel-sub { margin-top: 6px; padding-left: 128px; }
+.personnel-sub-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; font-size: 11px; color: #64748B; }
+.personnel-sub-name { width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.personnel-sub-amount { font-weight: 600; color: #475569; }
+
+/* ===== Responsive ===== */
+@media (max-width: 768px) {
+  .kpi-grid { flex-direction: column; }
+  .kpi-card { min-width: 100%; }
+  .kpi-value { font-size: 22px; }
+  .hero { padding: 20px 16px 16px; }
+  .hero-title { font-size: 16px; }
+  .month-label { font-size: 15px; min-width: 100px; }
+  .hero-top { flex-direction: column; gap: 12px; }
+  .hero-btns { justify-content: center; }
+  .trend-wrap { height: 220px; }
+  #app { padding: 10px; }
+  .personnel-grid { flex-direction: column; }
+  .personnel-chart-wrap { width: 100%; min-width: 100%; height: 240px; }
+  .personnel-bar-label { width: 90px; }
+  .personnel-sub { padding-left: 98px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Loading -->
+<div id="loading">
+  <div class="spinner"></div>
+  <div class="loading-text">データを取得中...</div>
+</div>
+
+<!-- App -->
+<div id="app">
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-top">
+      <div>
+        <div class="hero-title">Namaka 経費ダッシュボード</div>
+        <div class="hero-sub" id="updatedAt"></div>
+      </div>
+      <div class="hero-btns">
+        <div class="month-nav">
+          <button id="prevMonthBtn" onclick="changeMonth(-1)">&#9664;</button>
+          <span class="month-label" id="monthLabel">-</span>
+          <button id="nextMonthBtn" onclick="changeMonth(1)">&#9654;</button>
+        </div>
+        <button class="btn-refresh" id="refreshBtn" onclick="refreshData()">更新</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- KPI Cards -->
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-label">着金</div>
+      <div class="kpi-value green" id="kpiRevenue">-</div>
+      <div class="kpi-diff neutral" id="kpiRevenueDiff"></div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">経費</div>
+      <div class="kpi-value red" id="kpiExpenses">-</div>
+      <div class="kpi-diff neutral" id="kpiExpensesDiff"></div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">利益</div>
+      <div class="kpi-value blue" id="kpiProfit">-</div>
+      <div class="kpi-diff neutral" id="kpiProfitDiff"></div>
+      <div class="kpi-rate" id="kpiProfitRate"></div>
+    </div>
+  </div>
+
+  <!-- Profit Bar -->
+  <div class="profit-bar-wrap">
+    <div class="profit-bar-label">
+      <span>利益率</span>
+      <span id="profitBarPct">-</span>
+    </div>
+    <div class="profit-bar-track">
+      <div class="profit-bar-fill high" id="profitBarFill" style="width:0%"></div>
+    </div>
+  </div>
+
+  <!-- Income Breakdown -->
+  <div class="section">
+    <div class="section-title"><span class="section-icon">&#x1F4B0;</span> 着金内訳</div>
+    <div class="table-wrap">
+      <table id="incomeTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>摘要</th>
+            <th>日付</th>
+            <th style="text-align:right;">金額</th>
+            <th>入金元</th>
+          </tr>
+        </thead>
+        <tbody id="incomeTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Personnel Cost Breakdown -->
+  <div class="section">
+    <div class="section-title"><span class="section-icon">&#x1F465;</span> 人件費リソース配分</div>
+    <div class="personnel-grid">
+      <div class="personnel-chart-wrap">
+        <canvas id="personnelChart"></canvas>
+      </div>
+      <div class="personnel-detail" id="personnelDetail"></div>
+    </div>
+    <div class="personnel-total" id="personnelTotal"></div>
+  </div>
+
+  <!-- Category Bar Chart -->
+  <div class="section">
+    <div class="section-title"><span class="section-icon">&#x1F4CA;</span> カテゴリ別経費（詳細）</div>
+    <div style="position:relative; height:520px;">
+      <canvas id="barChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Monthly Trends -->
+  <div class="section">
+    <div class="section-title"><span class="section-icon">&#x1F4C8;</span> 月次推移</div>
+    <div class="trend-wrap">
+      <canvas id="trendChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Wasteful Alerts -->
+  <div class="section" id="wastefulSection" style="display:none;">
+    <div class="section-title"><span class="section-icon">&#x26A0;&#xFE0F;</span> 削減検討経費</div>
+    <div class="alert-list" id="alertList"></div>
+  </div>
+
+  <!-- Top Expenses Table -->
+  <div class="section">
+    <div class="section-title"><span class="section-icon">&#x1F4CB;</span> 経費ランキング（全件）</div>
+    <div class="table-wrap">
+      <table id="topTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th onclick="sortTable('category')">カテゴリ</th>
+            <th onclick="sortTable('description')">摘要</th>
+            <th onclick="sortTable('date')">日付</th>
+            <th onclick="sortTable('amount')" style="text-align:right;">金額</th>
+            <th onclick="sortTable('source')">支払元</th>
+          </tr>
+        </thead>
+        <tbody id="topTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer" id="footerMsg">3分ごとに自動更新</div>
+</div>
+
+<!-- Category Detail Modal -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title" id="modalTitle">-</div>
+      <button class="modal-close" onclick="closeModalForce()">&times;</button>
+    </div>
+    <div class="modal-total" id="modalTotal"></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>摘要</th><th>日付</th><th style="text-align:right;">金額</th><th>支払元</th></tr></thead>
+        <tbody id="modalBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== GAS API =====
+var GAS_API = 'https://script.google.com/macros/s/AKfycby6qaaiUoadCBnxHlUNKd-RkHxarE0WBGiitkdV0IbzL6ninM-df0FFx4SYRYVfdwcxqg/exec';
+
+// ===== State =====
+var currentViewMonth = null;
+var currentViewYear = null;
+var currentLiveMonth = null;
+var currentLiveYear = null;
+var availableMonths = [];
+var autoRefreshTimer = null;
+var lastData = null;
+var currentSortField = 'amount';
+var currentSortAsc = false;
+
+// Charts
+var barChart = null;
+var trendChart = null;
+var personnelChart = null;
+
+// 人件費系の親カテゴリ
+var PERSONNEL_PARENT_CATS = [
+  '営業', '営業バックオフィス', 'バックオフィス', '動画', '広告', '営業代行/アフィリ',
+  '幹部人件費', '講師', '採用人件費', 'LINE', '家事代行'
+];
+
+// 人件費チャート色
+var PERSONNEL_COLORS = [
+  '#3B82F6','#EF4444','#8B5CF6','#F97316','#14B8A6',
+  '#6366F1','#EC4899','#22C55E','#0EA5E9','#EAB308'
+];
+
+// Category colors
+var CAT_COLORS = [
+  '#EF4444','#F97316','#EAB308','#22C55E','#14B8A6',
+  '#3B82F6','#6366F1','#A855F7','#EC4899','#78716C',
+  '#0EA5E9','#84CC16','#F43F5E','#8B5CF6','#06B6D4',
+  '#D946EF','#FB923C','#4ADE80','#2DD4BF','#818CF8',
+  '#F472B6','#FACC15','#34D399','#60A5FA','#C084FC',
+  '#FB7185','#A3E635','#38BDF8','#E879F9','#FBBF24',
+  '#10B981','#8B5CF6','#F59E0B','#6EE7B7','#93C5FD'
+];
+
+// ===== Init =====
+document.addEventListener('DOMContentLoaded', function() {
+  fetch(GAS_API + '?action=expense&type=months')
+    .then(function(r) { return r.json(); })
+    .then(function(result) {
+      availableMonths = result.months || [];
+      var cur = result.current || {};
+      currentViewMonth = cur.month;
+      currentViewYear = cur.year;
+      currentLiveMonth = cur.month;
+      currentLiveYear = cur.year;
+      updateMonthNav();
+      loadData();
+      loadTrends();
+    })
+    .catch(function(err) { onError(err); });
+
+  autoRefreshTimer = setInterval(function() {
+    if (currentViewMonth === currentLiveMonth && currentViewYear === currentLiveYear) {
+      loadData();
+    }
+  }, 180000);
+});
+
+// ===== Data Loading =====
+function loadData() {
+  var url = GAS_API + '?action=expense';
+  if (currentViewMonth && currentViewYear) {
+    url += '&month=' + currentViewMonth + '&year=' + currentViewYear;
+  }
+  fetch(url)
+    .then(function(r) { return r.json(); })
+    .then(onDataLoaded)
+    .catch(function(err) { onError(err); });
+}
+
+function loadTrends() {
+  fetch(GAS_API + '?action=expense&type=trends')
+    .then(function(r) { return r.json(); })
+    .then(function(data) { updateTrendChart(data); })
+    .catch(function(err) { console.error('Trends error:', err); });
+}
+
+function refreshData() {
+  var btn = document.getElementById('refreshBtn');
+  btn.disabled = true;
+  btn.textContent = '更新中...';
+  loadData();
+  loadTrends();
+}
+
+function onDataLoaded(data) {
+  if (data.error) { onError(data.error); return; }
+  lastData = data;
+
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+
+  updateKPICards(data);
+  updateProfitBar(data);
+  updateIncomeTable(data);
+  updatePersonnelChart(data);
+
+  updateBarChart(data);
+  updateWastefulAlerts(data);
+  updateTopExpensesTable(data);
+
+  document.getElementById('updatedAt').textContent = '最終更新: ' + data.updatedAt;
+  var isLive = (currentViewMonth === currentLiveMonth && currentViewYear === currentLiveYear);
+  document.getElementById('footerMsg').textContent = isLive ? '3分ごとに自動更新' : 'アーカイブデータを表示中';
+
+  var btn = document.getElementById('refreshBtn');
+  btn.disabled = false;
+  btn.textContent = '更新';
+}
+
+function onError(err) {
+  console.error('Error:', err);
+  // lastDataがある場合（月ナビ中のエラー）→ 前の状態に戻す
+  if (lastData) {
+    currentViewMonth = lastData.currentMonth;
+    currentViewYear = lastData.currentYear;
+    updateMonthNav();
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    var btn = document.getElementById('refreshBtn');
+    btn.disabled = false;
+    btn.textContent = '更新';
+    return;
+  }
+  var el = document.getElementById('loading');
+  el.innerHTML =
+    '<div style="text-align:center;">' +
+    '<p style="color:#EF4444;font-size:18px;font-weight:700;margin-bottom:8px;">データの取得に失敗しました</p>' +
+    '<p style="color:#94A3B8;font-size:13px;">' + escapeHtml(String(err.message || err)) + '</p>' +
+    '<button onclick="location.reload()" style="margin-top:16px;padding:8px 20px;border-radius:8px;border:1px solid #E2E8F0;background:#FFF;cursor:pointer;">再読み込み</button>' +
+    '</div>';
+}
+
+// ===== Month Navigation =====
+function changeMonth(delta) {
+  if (availableMonths.length === 0) return;
+  var idx = availableMonths.findIndex(function(m) {
+    return m.year === currentViewYear && m.month === currentViewMonth;
+  });
+  if (idx < 0) idx = availableMonths.length - 1;
+  var newIdx = Math.max(0, Math.min(availableMonths.length - 1, idx + delta));
+  currentViewMonth = availableMonths[newIdx].month;
+  currentViewYear = availableMonths[newIdx].year;
+  updateMonthNav();
+
+  document.getElementById('loading').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+  loadData();
+}
+
+function updateMonthNav() {
+  var isLive = (currentViewMonth === currentLiveMonth && currentViewYear === currentLiveYear);
+  var label = currentViewYear + '年' + currentViewMonth + '月';
+  if (isLive) label = currentViewMonth + '月';
+  var html = label;
+  if (!isLive) html += ' <span class="archive-badge">ARCHIVE</span>';
+  document.getElementById('monthLabel').innerHTML = html;
+
+  var idx = availableMonths.findIndex(function(m) {
+    return m.year === currentViewYear && m.month === currentViewMonth;
+  });
+  document.getElementById('prevMonthBtn').disabled = (idx <= 0);
+  document.getElementById('nextMonthBtn').disabled = (idx >= availableMonths.length - 1);
+}
+
+// ===== KPI Cards =====
+function updateKPICards(data) {
+  document.getElementById('kpiRevenue').textContent = formatYen(data.revenue);
+  document.getElementById('kpiExpenses').textContent = formatYen(data.totalExpenses);
+  document.getElementById('kpiProfit').textContent = formatYen(data.profit);
+  document.getElementById('kpiProfitRate').textContent = '利益率 ' + data.profitRate + '%';
+
+  setDiff('kpiRevenueDiff', data.diffRevenue, true);
+  setDiff('kpiExpensesDiff', data.diffExpenses, false);
+  setDiff('kpiProfitDiff', data.diffProfit, true);
+}
+
+function setDiff(id, val, positiveIsGood) {
+  var el = document.getElementById(id);
+  if (!val || val === 0) { el.style.display = 'none'; return; }
+  el.style.display = 'inline-flex';
+  var isUp = val > 0;
+  var isGood = positiveIsGood ? isUp : !isUp;
+  el.className = 'kpi-diff ' + (isGood ? 'up' : 'down');
+  el.textContent = (isUp ? '+' : '') + formatYenShort(val) + ' 前月比';
+}
+
+// ===== Profit Bar =====
+function updateProfitBar(data) {
+  var pct = Math.max(0, Math.min(100, data.profitRate));
+  var fill = document.getElementById('profitBarFill');
+  fill.style.width = pct + '%';
+  fill.className = 'profit-bar-fill ' + (pct >= 30 ? 'high' : pct >= 15 ? 'mid' : 'low');
+  fill.textContent = pct + '%';
+  document.getElementById('profitBarPct').textContent = pct + '%';
+}
+
+// ===== Income Table =====
+function updateIncomeTable(data) {
+  var items = data.incomeItems || [];
+  var html = '';
+  for (var i = 0; i < items.length; i++) {
+    var e = items[i];
+    html += '<tr>' +
+      '<td class="td-rank">' + (i + 1) + '</td>' +
+      '<td>' + escapeHtml(truncate(e.description, 50)) + '</td>' +
+      '<td style="white-space:nowrap;">' + escapeHtml(e.date) + '</td>' +
+      '<td class="td-amount" style="color:#059669;">' + formatYen(e.amount) + '</td>' +
+      '<td style="font-size:11px;color:#64748B;">' + escapeHtml(e.source) + '</td>' +
+      '</tr>';
+  }
+  document.getElementById('incomeTableBody').innerHTML = html || '<tr><td colspan="5" style="text-align:center;padding:24px;color:#94A3B8;">データなし</td></tr>';
+}
+
+// ===== Personnel Chart =====
+function updatePersonnelChart(data) {
+  var cats = data.categories || [];
+  var topExpenses = data.topExpenses || [];
+
+  // 親カテゴリでグルーピング + 個人名で集計
+  var parentMap = {};
+  var personMap = {}; // { parentCat: [ {name, amount} ] }
+  for (var i = 0; i < topExpenses.length; i++) {
+    var e = topExpenses[i];
+    var parent = e.category;
+    if (PERSONNEL_PARENT_CATS.indexOf(parent) < 0) continue;
+    if (!parentMap[parent]) parentMap[parent] = 0;
+    parentMap[parent] += e.amount;
+    // 摘要から名前を抽出
+    var personName = extractPersonName(e.description);
+    if (!personMap[parent]) personMap[parent] = {};
+    if (!personMap[parent][personName]) personMap[parent][personName] = 0;
+    personMap[parent][personName] += e.amount;
+  }
+
+  // ソート
+  var parentList = [];
+  var personnelTotal = 0;
+  for (var p in parentMap) {
+    parentList.push({ name: p, amount: parentMap[p] });
+    personnelTotal += parentMap[p];
+  }
+  parentList.sort(function(a, b) { return b.amount - a.amount; });
+
+  // ドーナツチャート
+  var ctx = document.getElementById('personnelChart').getContext('2d');
+  if (personnelChart) personnelChart.destroy();
+
+  personnelChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: parentList.map(function(c) { return c.name; }),
+      datasets: [{
+        data: parentList.map(function(c) { return c.amount; }),
+        backgroundColor: PERSONNEL_COLORS.slice(0, parentList.length),
+        borderWidth: 2,
+        borderColor: '#FFF'
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '55%',
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#0F172A',
+          callbacks: {
+            label: function(ctx) {
+              var pct = personnelTotal > 0 ? Math.round((ctx.raw / personnelTotal) * 100) : 0;
+              return ' ' + ctx.label + ': ' + formatYen(ctx.raw) + ' (' + pct + '%)';
+            }
+          }
+        }
+      }
+    }
+  });
+
+  // 横棒＋サブカテゴリ
+  var maxAmount = parentList.length > 0 ? parentList[0].amount : 1;
+  var html = '';
+  for (var j = 0; j < parentList.length; j++) {
+    var item = parentList[j];
+    var color = PERSONNEL_COLORS[j % PERSONNEL_COLORS.length];
+    var barW = Math.max(2, Math.round((item.amount / maxAmount) * 100));
+    var pctOfTotal = personnelTotal > 0 ? Math.round((item.amount / personnelTotal) * 100) : 0;
+
+    html += '<div class="personnel-bar-row" onclick="togglePersonnelSub(this)">';
+    html += '<div class="personnel-bar-label" title="' + escapeHtml(item.name) + '">' + escapeHtml(item.name) + '</div>';
+    html += '<div class="personnel-bar-track"><div class="personnel-bar-fill" style="width:' + barW + '%;background:' + color + ';"></div></div>';
+    html += '<div class="personnel-bar-amount">' + formatYenShort(item.amount) + '</div>';
+    html += '<div class="personnel-bar-pct">' + pctOfTotal + '%</div>';
+    html += '</div>';
+
+    // 個人名内訳（初期非表示）
+    var persons = personMap[item.name] || {};
+    var personList = [];
+    for (var pk in persons) personList.push({ name: pk, amount: persons[pk] });
+    personList.sort(function(a, b) { return b.amount - a.amount; });
+    if (personList.length > 0) {
+      html += '<div class="personnel-sub" style="display:none;">';
+      for (var s = 0; s < personList.length; s++) {
+        html += '<div class="personnel-sub-row">';
+        html += '<span class="personnel-sub-name">└ ' + escapeHtml(personList[s].name) + '</span>';
+        html += '<span class="personnel-sub-amount">' + formatYen(personList[s].amount) + '</span>';
+        html += '</div>';
+      }
+      html += '</div>';
+    }
+  }
+  document.getElementById('personnelDetail').innerHTML = html;
+
+  // 合計
+  var expTotal = data.totalExpenses || 0;
+  var pctOfExp = expTotal > 0 ? Math.round((personnelTotal / expTotal) * 100) : 0;
+  document.getElementById('personnelTotal').innerHTML =
+    '<span>人件費合計</span><strong>' + formatYen(personnelTotal) + '</strong>' +
+    '<span style="margin-left:auto;">経費全体の <strong>' + pctOfExp + '%</strong></span>';
+}
+
+function extractPersonName(desc) {
+  if (!desc) return '不明';
+  // 括弧内の名前を抽出: （名前）or （名前xxx）
+  var m = desc.match(/[（(]([^）)]+)[）)]\s*$/);
+  if (m) return m[1];
+  // 「振込 銀行名 名前」パターン
+  var parts = desc.replace(/^振込\s*/, '').split(/\s+/);
+  if (parts.length >= 2) return parts.slice(1).join(' ');
+  return desc;
+}
+
+function togglePersonnelSub(row) {
+  var sub = row.nextElementSibling;
+  if (sub && sub.classList.contains('personnel-sub')) {
+    sub.style.display = sub.style.display === 'none' ? 'block' : 'none';
+  }
+}
+
+
+// ===== Bar Chart (全カテゴリ) =====
+function updateBarChart(data) {
+  var cats = data.categories || [];
+  var barContainer = document.getElementById('barChart').parentElement;
+  barContainer.style.height = Math.max(520, cats.length * 36) + 'px';
+  var ctx = document.getElementById('barChart').getContext('2d');
+  if (barChart) barChart.destroy();
+
+  barChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: cats.map(function(c) { return c.name + '  ' + formatYenShort(c.amount); }),
+      datasets: [{
+        data: cats.map(function(c) { return c.amount; }),
+        backgroundColor: CAT_COLORS.slice(0, cats.length),
+        borderRadius: 6,
+        borderSkipped: false,
+        maxBarThickness: 32
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      indexAxis: 'y',
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#0F172A',
+          callbacks: {
+            label: function(ctx) { return ' ' + formatYen(ctx.raw); }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: '#F1F5F9' },
+          border: { display: false },
+          ticks: {
+            font: { size: 10 },
+            color: '#94A3B8',
+            callback: function(v) { return formatYenShort(v); }
+          }
+        },
+        y: {
+          grid: { display: false },
+          border: { display: false },
+          ticks: { font: { size: 11 }, color: '#334155' }
+        }
+      },
+      onClick: function(evt, elements) {
+        if (elements.length > 0) {
+          var idx = elements[0].index;
+          openCategoryModal(cats[idx].name);
+        }
+      }
+    }
+  });
+}
+
+// ===== Trend Chart =====
+function updateTrendChart(data) {
+  if (!data || !data.labels) return;
+  var ctx = document.getElementById('trendChart').getContext('2d');
+  if (trendChart) trendChart.destroy();
+
+  trendChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: data.labels,
+      datasets: [
+        {
+          label: '着金',
+          data: data.revenue,
+          borderColor: '#059669',
+          backgroundColor: 'rgba(5,150,105,0.08)',
+          fill: true,
+          tension: 0.3,
+          borderWidth: 2,
+          pointRadius: 4,
+          pointHoverRadius: 6
+        },
+        {
+          label: '経費',
+          data: data.expenses,
+          borderColor: '#DC2626',
+          backgroundColor: 'rgba(220,38,38,0.05)',
+          fill: true,
+          tension: 0.3,
+          borderWidth: 2,
+          pointRadius: 4,
+          pointHoverRadius: 6
+        },
+        {
+          label: '利益',
+          data: data.profit,
+          borderColor: '#2563EB',
+          backgroundColor: 'rgba(37,99,235,0.05)',
+          fill: true,
+          tension: 0.3,
+          borderWidth: 2,
+          pointRadius: 4,
+          pointHoverRadius: 6
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: {
+          labels: { font: { size: 12, weight: '600' }, usePointStyle: true, padding: 16 }
+        },
+        tooltip: {
+          backgroundColor: '#0F172A',
+          padding: 12,
+          cornerRadius: 8,
+          callbacks: {
+            label: function(ctx) { return ' ' + ctx.dataset.label + ': ' + formatYen(ctx.raw); }
+          }
+        }
+      },
+      scales: {
+        y: {
+          grid: { color: '#F1F5F9' },
+          border: { display: false },
+          ticks: {
+            font: { size: 10 },
+            color: '#94A3B8',
+            callback: function(v) { return formatYenShort(v); }
+          }
+        },
+        x: {
+          grid: { display: false },
+          border: { display: false },
+          ticks: { font: { size: 11 }, color: '#64748B' }
+        }
+      }
+    }
+  });
+}
+
+// ===== Wasteful Alerts =====
+function updateWastefulAlerts(data) {
+  var items = data.wasteful || [];
+  var section = document.getElementById('wastefulSection');
+  if (items.length === 0) { section.style.display = 'none'; return; }
+
+  section.style.display = 'block';
+  var html = '';
+  for (var i = 0; i < items.length; i++) {
+    var w = items[i];
+    html += '<div class="alert-item">' +
+      '<div class="alert-left">' +
+      '<div class="alert-cat">' + escapeHtml(w.category) + '</div>' +
+      '<div class="alert-desc">' + escapeHtml(w.description) + '</div>' +
+      '</div>' +
+      '<div class="alert-amount">' + formatYen(w.amount) + '</div>' +
+      '</div>';
+  }
+  document.getElementById('alertList').innerHTML = html;
+}
+
+// ===== Top Expenses Table =====
+function updateTopExpensesTable(data) {
+  var items = data.topExpenses || [];
+  renderTable(items);
+}
+
+function renderTable(items) {
+  var html = '';
+  for (var i = 0; i < items.length; i++) {
+    var e = items[i];
+    var colorIdx = getColorIndex(e.category);
+    html += '<tr>' +
+      '<td class="td-rank">' + (i + 1) + '</td>' +
+      '<td><span class="cat-badge" style="background:' + CAT_COLORS[colorIdx] + '20;color:' + CAT_COLORS[colorIdx] + ';">' + escapeHtml(e.category) + '</span></td>' +
+      '<td>' + escapeHtml(truncate(e.description, 40)) + '</td>' +
+      '<td style="white-space:nowrap;">' + escapeHtml(e.date) + '</td>' +
+      '<td class="td-amount">' + formatYen(e.amount) + '</td>' +
+      '<td style="font-size:11px;color:#64748B;">' + escapeHtml(e.source) + '</td>' +
+      '</tr>';
+  }
+  document.getElementById('topTableBody').innerHTML = html;
+}
+
+function sortTable(field) {
+  if (!lastData) return;
+  var items = (lastData.topExpenses || []).slice();
+  if (currentSortField === field) {
+    currentSortAsc = !currentSortAsc;
+  } else {
+    currentSortField = field;
+    currentSortAsc = field === 'amount' ? false : true;
+  }
+  items.sort(function(a, b) {
+    var va = a[field] || '', vb = b[field] || '';
+    if (typeof va === 'number') return currentSortAsc ? va - vb : vb - va;
+    return currentSortAsc ? String(va).localeCompare(String(vb)) : String(vb).localeCompare(String(va));
+  });
+  renderTable(items);
+}
+
+var catColorMap = {};
+function getColorIndex(cat) {
+  if (catColorMap[cat] !== undefined) return catColorMap[cat];
+  var idx = Object.keys(catColorMap).length % CAT_COLORS.length;
+  catColorMap[cat] = idx;
+  return idx;
+}
+
+// ===== Category Modal =====
+function openCategoryModal(catName) {
+  if (!lastData) return;
+  document.getElementById('modalTitle').textContent = catName;
+
+  var url = GAS_API + '?action=expense&type=detail&month=' + currentViewMonth + '&year=' + currentViewYear + '&cat=' + encodeURIComponent(catName);
+  document.getElementById('modalBody').innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:#94A3B8;">読み込み中...</td></tr>';
+  document.getElementById('modalTotal').textContent = '';
+  document.getElementById('modalOverlay').classList.add('active');
+
+  fetch(url)
+    .then(function(r) { return r.json(); })
+    .then(function(detail) {
+      document.getElementById('modalTotal').textContent =
+        '合計: ' + formatYen(detail.total) + ' (' + detail.count + '件)';
+      var html = '';
+      var items = detail.items || [];
+      for (var i = 0; i < items.length; i++) {
+        var it = items[i];
+        html += '<tr>' +
+          '<td class="td-rank">' + (i + 1) + '</td>' +
+          '<td>' + escapeHtml(truncate(it.description, 50)) + '</td>' +
+          '<td style="white-space:nowrap;">' + escapeHtml(it.date) + '</td>' +
+          '<td class="td-amount">' + formatYen(it.amount) + '</td>' +
+          '<td style="font-size:11px;color:#64748B;">' + escapeHtml(it.source) + '</td>' +
+          '</tr>';
+      }
+      document.getElementById('modalBody').innerHTML = html || '<tr><td colspan="5" style="text-align:center;padding:24px;color:#94A3B8;">データなし</td></tr>';
+    })
+    .catch(function(err) {
+      document.getElementById('modalBody').innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:#EF4444;">取得エラー</td></tr>';
+    });
+}
+
+function closeModal(e) {
+  if (e.target === document.getElementById('modalOverlay')) {
+    document.getElementById('modalOverlay').classList.remove('active');
+  }
+}
+function closeModalForce() {
+  document.getElementById('modalOverlay').classList.remove('active');
+}
+
+// ===== Formatting =====
+function formatYen(val) {
+  if (!val && val !== 0) return '-';
+  return '¥' + Math.round(val).toLocaleString('ja-JP');
+}
+
+function formatYenShort(val) {
+  if (!val && val !== 0) return '-';
+  var abs = Math.abs(val);
+  var sign = val < 0 ? '-' : '';
+  if (abs >= 100000000) return sign + (abs / 100000000).toFixed(1) + '億';
+  if (abs >= 10000) return sign + Math.round(abs / 10000).toLocaleString() + '万';
+  return sign + '¥' + abs.toLocaleString('ja-JP');
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function truncate(str, max) {
+  if (!str) return '';
+  return str.length > max ? str.substring(0, max) + '...' : str;
+}
+</script>
+</body>
+</html>
