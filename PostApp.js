@@ -49,14 +49,22 @@ function getCurrentMonthColRange_() {
 
 /**
  * ホープ数/プッシュ数シートの当月列範囲を返す（1日3列 = YT/IG/TT）
+ * シート種別ごとにデータ起点列が違う（重要）：
+ *   ホープ数: D列(4) - メタは A=ID, B=名前, C=合計
+ *   プッシュ数: L列(12) - メタは A=ID, B〜J=名前(マージ等), K=合計
+ *
+ * 引数なしで呼ばれた場合は後方互換のためホープ数として扱う。
  */
-function getCurrentMonthHopeColRange_() {
-  var HOPE_DATA_START_COL = 4; // D列
+function getCurrentMonthHopeColRange_(sheetName) {
+  var dataStartCol = 4; // デフォルト: ホープ数(D列)
+  if (sheetName === POST_APP_PUSH_SHEET_NAME) {
+    dataStartCol = 12; // プッシュ数: L列
+  }
   var COLS_PER_DAY = 3;
   var now = new Date();
   var year = now.getFullYear();
   var month = now.getMonth() + 1;
-  var startCol = HOPE_DATA_START_COL;
+  var startCol = dataStartCol;
   var startYm = POST_APP_RUN_START_YEAR * 12 + (POST_APP_RUN_START_MONTH - 1);
   var nowYm = year * 12 + (month - 1);
   for (var i = startYm; i < nowYm; i++) {
@@ -1208,13 +1216,14 @@ function ensureCurrentMonthColumns_(ss) {
   }
 
   // ホープ数・プッシュ数（2行構造ヘッダー: 日付マージ + YT/IG/TT装飾）
+  // シート種別でデータ起点列が違うので getCurrentMonthHopeColRange_(name) で取得
   [POST_APP_HOPE_SHEET_NAME, POST_APP_PUSH_SHEET_NAME].forEach(function(name) {
     var sheet = ss.getSheetByName(name);
     if (!sheet) {
       Logger.log('警告: ' + name + ' シートが存在しません');
       return;
     }
-    var hRange = getCurrentMonthHopeColRange_();
+    var hRange = getCurrentMonthHopeColRange_(name); // シート名指定で正しい起点列
     var lastCol = sheet.getLastColumn();
     if (lastCol < hRange.endCol) {
       var addCols = hRange.endCol - lastCol;
@@ -1232,7 +1241,9 @@ function ensureCurrentMonthColumns_(ss) {
         }
         sheet.getRange(3, hRange.startCol, lastRow - 2, hRange.totalCols).setValues(zeros);
       }
-      Logger.log(name + ': ' + addCols + '列追加 (' + month + '月分)');
+      Logger.log(name + ': ' + addCols + '列追加 (' + month + '月分、起点=' + postAppColToLetter_(hRange.startCol) + '列)');
+    } else {
+      Logger.log(name + ': 当月分は既存。スキップ');
     }
   });
 }
@@ -1285,23 +1296,73 @@ function writeHope2RowHeader_(sheet, hRange, month) {
 }
 
 /**
- * 既に作成済みの当月ホープ数・プッシュ数ヘッダーを2行構造に書き直す
- * GASエディタから手動実行（一回だけの修正用）
+ * ⚠️⚠️⚠️ 廃止: この関数はプッシュ数を破壊する可能性があります ⚠️⚠️⚠️
+ * プッシュ数のデータ起点はL列(12)、ホープ数はD列(4)。シート別に分岐が必要。
+ * 当月分の追加は ensureCurrentMonthColumnsTrigger または addPushSheetCurrentMonth を使ってください。
  */
 function fixUnifiedSheetHeaders() {
-  var ss = SpreadsheetApp.openById(POST_APP_SS_ID);
-  var hRange = getCurrentMonthHopeColRange_();
-  var month = new Date().getMonth() + 1;
+  Logger.log('⚠️⚠️⚠️ 廃止された関数です ⚠️⚠️⚠️');
+  Logger.log('代わりに以下を実行:');
+  Logger.log('  - 全シート当月分追加: ensureCurrentMonthColumnsTrigger');
+  Logger.log('  - プッシュ数のみ:     addPushSheetCurrentMonth');
+}
 
-  [POST_APP_HOPE_SHEET_NAME, POST_APP_PUSH_SHEET_NAME].forEach(function(name) {
-    var sheet = ss.getSheetByName(name);
-    if (!sheet) {
-      Logger.log(name + ' シートが見つかりません');
-      return;
+/**
+ * プッシュ数シートに当月分の列を最小破壊で追加
+ * - 既存4月分（L〜CW列）は絶対触らない
+ * - 5月分（CX列〜）に93列追加 + ヘッダー（日付マージ + YT/IG/TT装飾）+ 0初期化
+ * GASエディタから手動実行
+ */
+function addPushSheetCurrentMonth() {
+  var ss = SpreadsheetApp.openById(POST_APP_SS_ID);
+  var sheet = ss.getSheetByName(POST_APP_PUSH_SHEET_NAME);
+  if (!sheet) {
+    Logger.log('❌ プッシュ数シートが見つかりません');
+    return;
+  }
+
+  var hRange = getCurrentMonthHopeColRange_(POST_APP_PUSH_SHEET_NAME);
+  var month = new Date().getMonth() + 1;
+  var lastCol = sheet.getLastColumn();
+
+  Logger.log('=== プッシュ数 ' + month + '月分追加（事前チェック）===');
+  Logger.log('lastRow: ' + sheet.getLastRow());
+  Logger.log('lastCol: ' + lastCol + ' (' + postAppColToLetter_(lastCol) + ')');
+  Logger.log('期待される' + month + '月開始列: ' + postAppColToLetter_(hRange.startCol) + ' (' + hRange.startCol + ')');
+  Logger.log('期待される' + month + '月終端列: ' + postAppColToLetter_(hRange.endCol) + ' (' + hRange.endCol + ')');
+
+  if (lastCol >= hRange.endCol) {
+    Logger.log('✓ ' + month + '月分は既に追加済み。スキップ。');
+    return;
+  }
+
+  // lastCol < startCol-1 の場合は既存月分が足りない疑い → 安全のため手動確認に回す
+  if (lastCol < hRange.startCol - 1) {
+    Logger.log('⚠️ lastCol(' + lastCol + ')が期待される前月終端(' + (hRange.startCol - 1) + ')未満。');
+    Logger.log('既存月の列が想定通りないため、安全のため処理を中止します。');
+    Logger.log('スプシで構造確認 → 必要なら手動で前月までのデータ列を補ってから再実行してください。');
+    return;
+  }
+
+  var addCols = hRange.endCol - lastCol;
+  sheet.insertColumnsAfter(lastCol, addCols);
+  Logger.log('insertColumnsAfter: ' + addCols + '列追加');
+
+  writeHope2RowHeader_(sheet, hRange, month);
+
+  // データ行は3行目以降を0で初期化
+  var lastRow = sheet.getLastRow();
+  if (lastRow >= 3) {
+    var zeros = [];
+    for (var r = 0; r < lastRow - 2; r++) {
+      var row = [];
+      for (var c = 0; c < hRange.totalCols; c++) row.push(0);
+      zeros.push(row);
     }
-    writeHope2RowHeader_(sheet, hRange, month);
-    Logger.log(name + ': 当月ヘッダーを2行構造に修正 (' + month + '月)');
-  });
+    sheet.getRange(3, hRange.startCol, lastRow - 2, hRange.totalCols).setValues(zeros);
+  }
+
+  Logger.log('✅ プッシュ数 ' + month + '月分追加完了 (' + addCols + '列、起点=' + postAppColToLetter_(hRange.startCol) + ')');
 }
 
 /**
@@ -1310,12 +1371,24 @@ function fixUnifiedSheetHeaders() {
  * データ行（3行目以降）は触らない。
  * GASエディタから手動実行。
  */
+/**
+ * ⚠️⚠️⚠️ 廃止: 2026-05-02 にプッシュ数の4月分を破壊した事故関数 ⚠️⚠️⚠️
+ * 当月追加は addPushSheetCurrentMonth を使ってください。
+ */
 function rebuildPushSheetHeaders() {
-  rebuildHopeSheetHeadersForName_(POST_APP_PUSH_SHEET_NAME);
+  Logger.log('⚠️⚠️⚠️ 廃止された関数です ⚠️⚠️⚠️');
+  Logger.log('プッシュ数の起点列(L=12)を考慮してないため、誤った位置に書いてシートを破壊します。');
+  Logger.log('代わりに addPushSheetCurrentMonth を実行してください。');
 }
 
+/**
+ * ⚠️⚠️⚠️ 廃止: 全月リビルドは破壊リスク高 ⚠️⚠️⚠️
+ * 当月追加は ensureCurrentMonthColumnsTrigger を使ってください。
+ */
 function rebuildHopeSheetHeaders() {
-  rebuildHopeSheetHeadersForName_(POST_APP_HOPE_SHEET_NAME);
+  Logger.log('⚠️⚠️⚠️ 廃止された関数です ⚠️⚠️⚠️');
+  Logger.log('全月リビルドは既存マージ・装飾を破壊するリスクが高いです。');
+  Logger.log('当月追加なら ensureCurrentMonthColumnsTrigger を実行してください。');
 }
 
 function rebuildHopeSheetHeadersForName_(name) {
