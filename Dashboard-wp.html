@@ -1514,6 +1514,17 @@
       color: #E11D48;
     }
     .detail-table tfoot .col-revenue { color: #E11D48; }
+    /* 詳細テーブル「ゴール握る人」カラム（5月以降のみ表示）*/
+    .mentor-col { display: none; }
+    .show-mentor-col .mentor-col { display: table-cell; }
+    .detail-mentor-icon {
+      width: 26px; height: 26px;
+      border-radius: 50%;
+      border: 2px solid #FB923C;
+      object-fit: cover;
+      vertical-align: middle;
+      box-shadow: 0 1px 3px rgba(249,115,22,0.4);
+    }
 
     /* ===== 5月以降: メンター表示 ===== */
     .member-icon-wrap {
@@ -1775,7 +1786,7 @@
         <table class="detail-table" id="detailTable">
           <thead>
             <tr>
-              <th class="sticky-col sticky-rank" rowspan="2">名前</th><th class="sticky-col sticky-icon" rowspan="2"></th><th class="sticky-col sticky-revenue" rowspan="2">着金額</th>
+              <th class="sticky-col sticky-rank" rowspan="2">名前</th><th class="sticky-col sticky-icon" rowspan="2"></th><th class="mentor-col" rowspan="2">ゴール<br>握る人</th><th class="sticky-col sticky-revenue" rowspan="2">着金額</th>
               <th rowspan="2" style="background:#FEE8CD;">ゴール</th><th rowspan="2" style="background:#FEE8CD;">ゴールとの<br>差分</th><th rowspan="2" style="background:#FEE8CD;">1日必要な<br>着金</th><th rowspan="2" style="background:#FEE8CD;">現状の平均単価<br>×成約率の場合の<br>ゴールに必要な<br>プッシュ数</th><th rowspan="2" style="background:#FEE8CD;">現商談ペースでの<br>ゴールに必要な<br>出勤数</th>
               <th rowspan="2">商談数</th>
               <th colspan="3" style="border-bottom:1px solid #E2E8F0;">成約</th>
@@ -1924,9 +1935,8 @@
         }
       }
       // フロントエンド追加メンバー（APIに含まれないがチームに表示）
-      var extraMembers = [
-        { name: '押切', icon: 'https://giver.work/sales-dashboard/icons/oshikiri.png', team: 3, revenue: 0, deals: 0, closed: 0, closeRate: 0, fundedDeals: 0, sales: 0, avgPrice: 0, coRevenue: 0, coAmount: 0, creditCard: 0, shinpan: 0, cbs: '-', lifety: '-', lost: 0, lostCont: 0, cont: 0, prevRevenue: 0, diffRevenue: 0, prevDeals: 0, diffDeals: 0, prevClosed: 0, diffClosed: 0, prevCloseRate: 0, diffCloseRate: 0, gapToTop: 0, rank: 99, holidays: 0 }
-      ];
+      // 注: 押切は意思決定のメンター専用表示 → メンバー一覧には追加しない（除外）
+      var extraMembers = [];
       extraMembers.forEach(function(em) {
         var s = MEMBER_START[em.name];
         if (s && !(vy > s.year || (vy === s.year && vm >= s.month))) return;
@@ -3176,6 +3186,18 @@
       if (!members.length) { wrap.style.display = 'none'; return; }
       wrap.style.display = '';
 
+      // 5月以降: 「ゴール握る人」カラムを表示
+      var detailTable = document.getElementById('detailTable');
+      if (detailTable) {
+        if (isMay2026OrLaterView()) {
+          detailTable.classList.add('show-mentor-col');
+        } else {
+          detailTable.classList.remove('show-mentor-col');
+        }
+      }
+      var iconMapForDetail = {};
+      members.forEach(function(mm) { iconMapForDetail[mm.name] = mm.icon || ''; });
+
       // ライフティ承認率を解析（"2/4" → 50）
       function parseLifetyRate(s) {
         if (!s || s === '-') return -1;
@@ -3221,9 +3243,13 @@
         // CO額: 常に青
         var coWarn = m.coAmount > 0 ? ' \u26A0\uFE0F' : '';
 
+        var mentorIconUrl = getMentorIcon(m.name, iconMapForDetail);
+        var mentorCellHtml = '<td class="mentor-col">' + (mentorIconUrl ? '<img class="detail-mentor-icon" src="' + mentorIconUrl + '" alt="" onerror="this.style.display=\'none\'">' : '') + '</td>';
+
         rows += '<tr>' +
           '<td class="sticky-col sticky-rank col-rank">' + formatRank(m.rank) + '</td>' +
           '<td class="sticky-col sticky-icon">' + iconHtml + '</td>' +
+          mentorCellHtml +
           '<td class="sticky-col sticky-revenue col-revenue">' + formatManYen(m.revenue) + '</td>' +
           calcPushCols(m, memberKgi) +
           '<td>' + m.deals + '</td>' +
@@ -3276,6 +3302,7 @@
       tfoot.innerHTML = '<tr>' +
         '<td class="sticky-col sticky-rank" colspan="1"></td>' +
         '<td class="sticky-col sticky-icon">合計</td>' +
+        '<td class="mentor-col"></td>' +
         '<td class="sticky-col sticky-revenue col-revenue">' + formatManYen(totals.revenue) + '</td>' +
         '<td style="background:#FEE8CD;"><span class="kgi-val">' + (totals.goalTotal > 0 ? formatManYen(totals.goalTotal) : '-') + '</span></td><td style="background:#FEE8CD;">' + (totals.goalTotal > 0 ? formatManYen(Math.max(0, totals.goalTotal - totals.revenue)) : '-') + '</td><td style="background:#FEE8CD;"></td><td style="background:#FEE8CD;"></td><td style="background:#FEE8CD;"></td>' +
         '<td>' + totals.deals + '</td>' +
