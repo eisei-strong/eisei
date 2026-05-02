@@ -43,6 +43,10 @@
     }
 
     @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes leaderPulse {
+      0%, 100% { box-shadow: 0 0 12px 4px rgba(249,115,22,0.6); }
+      50% { box-shadow: 0 0 20px 8px rgba(245,158,11,0.8); }
+    }
 
     /* ===== Container ===== */
     .container {
@@ -499,88 +503,10 @@
     }
     .members-list {
       display: flex;
-      justify-content: center;
-      align-items: flex-end;
-      padding-top: 8px;
-      gap: 0;
-      overflow: visible;
-      gap: 0;
-    }
-    .team-group {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      flex: 1;
-      min-width: 0;
-      padding: 10px 4px 4px;
-      border-radius: 16px;
-      border: 2px solid transparent;
-      transition: all 0.3s;
-    }
-    .team-group.rank-1 {
-      background: linear-gradient(180deg, rgba(251,191,36,0.10) 0%, transparent 60%);
-      border-color: #FCD34D;
-      margin-top: -20px;
-    }
-    .team-group.rank-2 {
-      background: linear-gradient(180deg, rgba(148,163,184,0.10) 0%, transparent 60%);
-      border-color: #CBD5E1;
-    }
-    .team-group.rank-3 {
-      background: linear-gradient(180deg, rgba(251,146,60,0.08) 0%, transparent 60%);
-      border-color: #FDBA74;
-    }
-    /* 表彰台: 1位=真ん中, 2位=左, 3位=右 (HTMLは1位,2位,3位の順) */
-    .members-list > .team-group:nth-child(1) { order: 2; }
-    .members-list > .team-group:nth-child(2) { order: 1; }
-    .members-list > .team-group:nth-child(3) { order: 3; }
-    .team-group-header {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 2px;
-      margin-bottom: 8px;
-    }
-    .team-group-medal {
-      font-size: 28px;
-      line-height: 1;
-    }
-    .team-group-label {
-      font-size: 12px;
-      font-weight: 800;
-      color: #334155;
-      letter-spacing: 0.03em;
-      padding: 2px 10px;
-      white-space: nowrap;
-    }
-    .team-group.rank-1 .team-group-label { color: #92400E; }
-    .team-group.rank-2 .team-group-label { color: #475569; }
-    .team-group.rank-3 .team-group-label { color: #9A3412; }
-    .team-group-revenue {
-      font-size: 16px;
-      font-weight: 900;
-      white-space: nowrap;
-    }
-    .team-group.rank-1 .team-group-revenue { color: #D97706; }
-    .team-group.rank-2 .team-group-revenue { color: #64748B; }
-    .team-group.rank-3 .team-group-revenue { color: #EA580C; }
-    .team-group-rank {
-      display: none;
-    }
-    .team-group-members {
-      display: flex;
       justify-content: space-around;
       align-items: flex-end;
-      width: 100%;
-      padding-top: 16px;
+      padding-top: 24px;
       overflow: visible;
-    }
-    .team-divider {
-      width: 2px;
-      background: #E2E8F0;
-      align-self: stretch;
-      margin: 0 6px;
-      border-radius: 2px;
     }
     .member-item {
       display: flex;
@@ -591,6 +517,15 @@
       min-width: 0;
       position: relative;
     }
+    .member-item:first-child .member-item-bubble {
+      left: 0;
+      transform: none;
+    }
+    .member-item:first-child .member-item-bubble::after {
+      left: 24px;
+    }
+    .member-item:nth-child(odd) { margin-top: 0; margin-bottom: 18px; }
+    .member-item:nth-child(even) { margin-top: 36px; margin-bottom: 0; }
     .member-item-avatar {
       width: 80px;
       height: 80px;
@@ -675,25 +610,15 @@
     }
 
     @media (max-width: 768px) {
-      .members-bar { padding: 12px; }
-      .members-bar h3 { font-size: 11px; margin-bottom: 8px; }
-      .members-list { flex-direction: column; gap: 8px; }
-      .team-group { flex-direction: column; }
-      .team-group-label { font-size: 10px; }
-      .team-group { padding: 6px 2px 2px; border-radius: 12px; }
-      .members-list > .team-group:nth-child(1) { order: 1; }
-      .members-list > .team-group:nth-child(2) { order: 2; }
-      .members-list > .team-group:nth-child(3) { order: 3; }
-      .team-group.rank-1 { margin-top: 0; }
-      .team-group-header { margin-bottom: 4px; }
-      .team-group-medal { font-size: 22px; }
-      .team-group-revenue { font-size: 13px; }
-      .team-group-label { font-size: 10px; }
-      .team-group-members { padding-top: 8px; }
-      .team-divider { display: none; }
+      .members-bar { padding: 12px 8px; }
+      .members-bar h3 { font-size: 12px; margin-bottom: 12px; }
+      .members-list { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 2px; padding-top: 28px; }
+      .member-item { flex: 0 0 calc(100% / 7 - 4px); min-width: 0; }
       .member-item-avatar { width: 40px; height: 40px; border-width: 2px; }
-      .member-item-name { font-size: 8px; }
-      .member-item-bubble { font-size: 7px; padding: 2px 5px; top: -18px; }
+      .member-item-name { font-size: 8px; white-space: nowrap; }
+      .member-item-bubble { font-size: 7px; padding: 1px 4px; top: -20px; }
+      .member-item:nth-child(odd) { margin-top: 0; margin-bottom: 10px; }
+      .member-item:nth-child(even) { margin-top: 24px; margin-bottom: 0; }
     }
 
     /* ===== Goal Progress ===== */
@@ -1704,7 +1629,6 @@
           <div class="section-title">🏆 各種ランキング</div>
           <!-- ランキングタブ -->
           <div id="rankingTabs" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px;">
-            <button class="rank-tab" data-tab="team" onclick="switchRankTab('team')">👥チーム</button>
             <button class="rank-tab active glow" data-tab="revenue" onclick="switchRankTab('revenue')">💰着金額</button>
             <button class="rank-tab" data-tab="closeRate" onclick="switchRankTab('closeRate')">🎯成約率</button>
             <button class="rank-tab" data-tab="kyoso" onclick="switchRankTab('kyoso')">🤝共創</button>
@@ -1724,12 +1648,6 @@
       <div class="cards-grid" id="memberCards" style="display:none;"></div>
 
       <!-- Detail Table -->
-      <!-- ボトルネック通知 -->
-      <div class="section" id="bottleneckSection" style="display:none;">
-        <div class="section-title">🚀 👑 ボトルネック通知</div>
-        <div id="bottleneckContent"></div>
-      </div>
-
       <div class="detail-table-wrap" id="detailTableWrap" style="display:none;">
         <table class="detail-table" id="detailTable">
           <thead>
@@ -1773,6 +1691,12 @@
         <div id="kyosoFeed"></div>
       </div>
 
+      <!-- ボトルネック通知 -->
+      <div class="section" id="bottleneckSection" style="display:none;">
+        <div class="section-title">🚀 👑 ボトルネック通知</div>
+        <div id="bottleneckContent"></div>
+      </div>
+
       <!-- Footer -->
       <div class="footer" id="footerMsg">3分ごとに自動更新</div>
 
@@ -1783,7 +1707,7 @@
         <div class="modal-sub" id="goalModalMonth"></div>
         <div class="goal-form-group">
           <label>チーム月間ゴール（万円）</label>
-          <input type="number" id="goalTeamInput" placeholder="15000">
+          <input type="number" id="goalTeamInput" placeholder="2000">
         </div>
         <hr class="goal-modal-divider">
         <h3 style="font-size:14px;font-weight:700;margin-bottom:12px;">個人ゴール（着地目標・万円）</h3>
@@ -1832,18 +1756,58 @@
     var GOAL_SETTINGS_KEY = 'sales_dashboard_goals';
 
     // フロントエンド名前マッピング（旧名→正規名+アイコン）
-    var FE_NAME_FIX = {};
+    var FE_NAME_FIX = {
+      'L': { name: '凌駕', icon: 'https://giver.work/sales-dashboard/icons/ryoga.jpg' }
+    };
+
+    // 4月以降参加のメンバー（2026年4月より前は非表示）
+    var MEMBER_START = {
+      'やまと': { year: 2026, month: 4 },
+      '夜神月': { year: 2026, month: 4 },
+      'L':      { year: 2026, month: 4 },
+      'ゴジータ': { year: 2026, month: 4 }
+    };
+
+    // 退職済みメンバー（ダッシュボードから非表示）
+    var HIDDEN_MEMBERS = ['悟空', 'やまと'];
 
     function fixMemberNames(data) {
       if (!data || !data.members) return data;
+      // 参加前の月ならメンバーを除外
+      var vy = currentViewYear || new Date().getFullYear();
+      var vm = currentViewMonth || (new Date().getMonth() + 1);
+      data.members = data.members.filter(function(m) {
+        if (HIDDEN_MEMBERS.indexOf(m.name) >= 0) return false;
+        var s = MEMBER_START[m.name];
+        if (!s) return true;
+        return vy > s.year || (vy === s.year && vm >= s.month);
+      });
       for (var i = 0; i < data.members.length; i++) {
         var m = data.members[i];
         var fix = FE_NAME_FIX[m.name];
         if (fix) {
           m.name = fix.name;
-          if (!m.icon) m.icon = fix.icon;
+          if (fix.icon) m.icon = fix.icon;
         }
       }
+      // paymentNewsの名前も修正
+      if (data.paymentNews) {
+        for (var j = 0; j < data.paymentNews.length; j++) {
+          var pn = data.paymentNews[j];
+          var pfix = FE_NAME_FIX[pn.name];
+          if (pfix) pn.name = pfix.name;
+        }
+      }
+      // フロントエンド追加メンバー（APIに含まれないがチームに表示）
+      var extraMembers = [
+        { name: '押切', icon: 'https://giver.work/sales-dashboard/icons/oshikiri.png', team: 3, revenue: 0, deals: 0, closed: 0, closeRate: 0, fundedDeals: 0, sales: 0, avgPrice: 0, coRevenue: 0, coAmount: 0, creditCard: 0, shinpan: 0, cbs: '-', lifety: '-', lost: 0, lostCont: 0, cont: 0, prevRevenue: 0, diffRevenue: 0, prevDeals: 0, diffDeals: 0, prevClosed: 0, diffClosed: 0, prevCloseRate: 0, diffCloseRate: 0, gapToTop: 0, rank: 99, holidays: 0 }
+      ];
+      extraMembers.forEach(function(em) {
+        var s = MEMBER_START[em.name];
+        if (s && !(vy > s.year || (vy === s.year && vm >= s.month))) return;
+        if (HIDDEN_MEMBERS.indexOf(em.name) >= 0) return;
+        data.members.push(em);
+      });
       return data;
     }
 
@@ -1877,7 +1841,7 @@
       var settings = getGoalSettings();
       var monthGoal = settings[gk] || {};
       document.getElementById('goalModalMonth').textContent = (currentViewYear || '') + '年' + (currentViewMonth || '') + '月のゴール設定';
-      document.getElementById('goalTeamInput').value = monthGoal.teamGoal || '';
+      document.getElementById('goalTeamInput').value = monthGoal.teamGoal || 2000;
 
       // 個人KGI入力フィールドを生成
       var container = document.getElementById('goalMemberInputs');
@@ -1911,7 +1875,7 @@
         var val = parseInt(inputs[i].value);
         if (name && val > 0) memberKgi[name] = val;
       }
-      var goalData = { teamGoal: teamVal || 0, memberKgi: memberKgi };
+      var goalData = { teamGoal: teamVal || 2000, memberKgi: memberKgi };
       // サーバーに保存（全端末共有）
       serverGoals[gk] = goalData;
       // localStorageにもフォールバック保存
@@ -1920,10 +1884,9 @@
       local[gk] = goalData;
       setGoalSettings(local);
       closeGoalSettings();
-      // api-proxy.phpにPOST（サーバー共有 → 全端末反映）
-      fetch(GAS_API, {
+      // GAS直接URLにPOST（全端末共有）
+      fetch(GAS_DIRECT, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'saveGoals', key: gk, teamGoal: goalData.teamGoal, memberKgi: goalData.memberKgi })
       }).catch(function(e) { console.warn('Goal save failed:', e); });
       // 再描画
@@ -2084,6 +2047,10 @@
         if (newsAll) newsAll.style.display = 'none';
       }
 
+      // ランキングは常に表示
+      var rankSec = document.getElementById('rankingSection');
+      if (rankSec) rankSec.style.display = '';
+
       // Timestamp (秒数不要、YYYY/MM/DD HH:MM形式)
       var ts = data.updatedAt || '';
       var tsClean = ts.replace(/:\d{2}$/, '').replace(/^\d{4}\//, '');
@@ -2129,6 +2096,7 @@
 
     // ===== Formatting（データは万円単位） =====
     function formatManYen(amount) {
+      if (amount == null || isNaN(amount)) amount = 0;
       if (amount % 1 === 0) return amount.toLocaleString() + '万円';
       return amount.toLocaleString(undefined, {minimumFractionDigits: 1, maximumFractionDigits: 1}) + '万円';
     }
@@ -2176,7 +2144,7 @@
     }
 
     function calcPushCols(m, memberKgi) {
-      var kgi = memberKgi[m.name] || 0;
+      var kgi = memberKgi[m.name] || 2000;
       var S = 'background:#FEE8CD;';
       if (!kgi) return '<td style="' + S + '" class="kgi-cell" data-member="' + escapeHtml(m.name) + '" colspan="5"><button onclick="openGoalSettings(\'' + escapeHtml(m.name).replace(/'/g, "\\'") + '\')" style="background:#F97316;color:#fff;border:none;border-radius:6px;padding:4px 12px;font-size:11px;font-weight:700;cursor:pointer;">🎯 ゴール入力</button></td>';
       var remaining = Math.max(0, kgi - (m.revenue || 0));
@@ -2236,7 +2204,7 @@
       return div.innerHTML;
     }
 
-    // ===== Strongest Members (チーム制) =====
+    // ===== Strongest Members =====
     function updateStrongestMembers(data) {
       var bar = document.getElementById('membersBar');
       var container = document.getElementById('strongestMembers');
@@ -2244,9 +2212,8 @@
       bar.style.display = '';
 
       var daysLeft = data.daysLeft || 0;
-      var teamNames = data.teamNames || {};
 
-      // 今日の休みマップを構築
+      // 今日の休みマップを構築 { name: 'full'|'half' }
       var todayOff = {};
       var hbd = data.holidayByDate || {};
       var now = new Date();
@@ -2258,40 +2225,25 @@
       function makeBubble(m, idx, offType) {
         if (offType === 'full') return '休み';
         if (offType === 'half') return '半休';
-        // 1位
-        if (idx === 0 && m.revenue > 0) return formatManYen(m.revenue) + ' でトップ独走！';
-        // 着金あり＋トップ僅差
-        if (m.revenue > 0 && m.gapToTop > 0 && m.gapToTop < 100) return 'あと' + formatManYen(m.gapToTop) + '！';
-        // 着金あり
-        if (m.revenue > 0) return formatManYen(m.revenue) + ' 着金済み';
-        // 成約あり
-        if (m.closed > 0) return m.closed + '件成約！着金待ち';
-        // 成約率高い
-        if (m.closeRate >= 60 && m.deals >= 3) return '成約率' + m.closeRate + '%！';
-        // 商談中
-        if (m.deals > 0 && m.continuing > 0) return m.deals + '件商談中';
-        if (m.deals > 0) return m.deals + '件プッシュ済み';
-        // 残り日数少ない
+        if (idx === 0) return formatManYen(m.revenue) + ' でトップ独走！';
+        if (m.gapToTop > 0 && m.gapToTop < 200) return 'あと' + formatManYen(m.gapToTop) + '！';
+        if (m.closeRate >= 60) return '成約率' + m.closeRate + '%！';
         if (daysLeft > 0 && daysLeft <= 10) return '残り' + daysLeft + '日 全力！';
-        // デフォルト: ランダム応援メッセージ
-        var cheers = ['今月もファイト！', 'まだまだこれから！', '全力で行こう！', '最初の1件を！'];
-        var ci = 0;
-        for (var c = 0; c < m.name.length; c++) ci += m.name.charCodeAt(c);
-        return cheers[ci % cheers.length];
+        return formatManYen(m.revenue) + ' チェックイン';
       }
 
-      // チームごとにグループ化
-      var teams = {};
+      // 出勤 / 半休 / 全休に分類
+      var working = [], halfOff = [], fullOff = [];
       data.members.forEach(function(m, idx) {
         if (!m.icon) return;
-        var t = m.team || 0;
-        if (!teams[t]) teams[t] = [];
         var off = todayOff[m.name];
-        teams[t].push({m: m, idx: idx, off: off || null});
+        if (off === 'full') fullOff.push({m:m, idx:idx});
+        else if (off === 'half') halfOff.push({m:m, idx:idx});
+        else working.push({m:m, idx:idx});
       });
 
-      function renderItem(item) {
-        var m = item.m, idx = item.idx, offType = item.off;
+      function renderItem(item, offType) {
+        var m = item.m, idx = item.idx;
         var cls = 'member-item';
         if (idx === 0 && !offType) cls += ' is-top';
         if (offType === 'full') cls += ' is-off';
@@ -2304,59 +2256,14 @@
           '</div>';
       }
 
-      // チーム着金ランキング → メダル割り当て
-      var teamRevenues = {};
-      data.members.forEach(function(m) {
-        var t = m.team || 0;
-        teamRevenues[t] = (teamRevenues[t] || 0) + (m.revenue || 0);
-      });
-      var teamRankList = Object.keys(teamRevenues).sort(function(a, b) {
-        return (teamRevenues[b] || 0) - (teamRevenues[a] || 0);
-      });
-      var teamMedals = {};
-      var medalEmojis = ['\uD83E\uDD47', '\uD83E\uDD48', '\uD83E\uDD49'];
-      // 同額タイ対応: 同じ着金額なら同じ順位
-      var teamRankText = {};
-      var currentRank = 1;
-      teamRankList.forEach(function(tid, i) {
-        if (i > 0 && (teamRevenues[teamRankList[i - 1]] || 0) !== (teamRevenues[tid] || 0)) {
-          currentRank = i + 1;
-        }
-        teamRankText[tid] = currentRank;
-        if (currentRank <= 3) teamMedals[tid] = medalEmojis[currentRank - 1];
-      });
-
-      // チームを着金順に並べる（1位が左）
-      var sortedTeamIds = teamRankList.filter(function(tid) { return teams[tid]; });
-      // teamRankListに含まれないチームも追加
-      Object.keys(teams).forEach(function(tid) {
-        if (sortedTeamIds.indexOf(tid) === -1) sortedTeamIds.push(tid);
-      });
-
       var html = '';
-      sortedTeamIds.forEach(function(tid, i) {
-        var tName = teamNames[tid] || 'チーム' + tid;
-        var medal = teamMedals[tid] || '';
-        var rev = Math.round(teamRevenues[tid] || 0);
-        var rank = teamRankText[tid] || 0;
-        var rankClass = rank <= 3 ? ' rank-' + rank : '';
-        // チーム内: 出勤→半休→全休の順に並べる
-        var sorted = teams[tid].sort(function(a, b) {
-          var oa = a.off === 'full' ? 2 : a.off === 'half' ? 1 : 0;
-          var ob = b.off === 'full' ? 2 : b.off === 'half' ? 1 : 0;
-          return oa - ob;
-        });
-        var membersHtml = '';
-        sorted.forEach(function(item) { membersHtml += renderItem(item); });
-        html += '<div class="team-group' + rankClass + '">' +
-          '<div class="team-group-header">' +
-            '<div class="team-group-medal">' + medal + '</div>' +
-            '<div class="team-group-label">' + escapeHtml(tName) + '</div>' +
-            '<div class="team-group-revenue">' + formatManYen(rev) + '</div>' +
-          '</div>' +
-          '<div class="team-group-members">' + membersHtml + '</div>' +
-          '</div>';
-      });
+      // チーム表示は廃止 - 常に個人表示
+      working.forEach(function(item) { html += renderItem(item, null); });
+      halfOff.forEach(function(item) { html += renderItem(item, 'half'); });
+      if (fullOff.length > 0 && (working.length > 0 || halfOff.length > 0)) {
+        html += '<div class="members-divider"></div>';
+      }
+      fullOff.forEach(function(item) { html += renderItem(item, 'full'); });
       container.innerHTML = html;
     }
 
@@ -2365,7 +2272,7 @@
       var gk = goalKey();
       var settings = getGoalSettings();
       var monthGoal = settings[gk] || {};
-      var teamGoal = (monthGoal.teamGoal > 0) ? monthGoal.teamGoal : data.teamGoal;
+      var teamGoal = (monthGoal.teamGoal > 0) ? monthGoal.teamGoal : 2000;
       var remaining = Math.max(0, teamGoal - data.totalRevenue);
       var pct = teamGoal > 0 ? Math.round((data.totalRevenue / teamGoal) * 100) : 0;
       var remainPct = Math.max(0, 100 - pct);
@@ -2448,70 +2355,6 @@
       var cwPoints = data.chatworkPoints || {};
       var tab = currentRankTab;
 
-      // --- チームランキング ---
-      if (tab === 'team') {
-        var teamNames = data.teamNames || {};
-        var teamTotals = {};
-        members.forEach(function(m) {
-          var t = m.team || 0;
-          if (!teamTotals[t]) teamTotals[t] = { id: t, revenue: 0, deals: 0, closed: 0, closeRate: 0 };
-          teamTotals[t].revenue += (m.revenue || 0);
-          teamTotals[t].deals += (m.deals || 0);
-          teamTotals[t].closed += (m.closed || 0);
-        });
-        var teamItems = [];
-        for (var tid in teamTotals) {
-          var tt = teamTotals[tid];
-          tt.closeRate = tt.deals > 0 ? Math.round(tt.closed / tt.deals * 100) : 0;
-          tt.name = teamNames[tid] || 'チーム' + tid;
-          teamItems.push(tt);
-        }
-        teamItems.sort(function(a, b) { return b.revenue - a.revenue; });
-
-        var medals = ['\uD83E\uDD47', '\uD83E\uDD48', '\uD83E\uDD49'];
-        var medalBars = [
-          'linear-gradient(90deg,#F59E0B,#F97316)',
-          'linear-gradient(90deg,#94A3B8,#CBD5E1)',
-          'linear-gradient(90deg,#FDBA74,#FB923C)'
-        ];
-        var topRev = teamItems.length > 0 ? teamItems[0].revenue : 1;
-        if (topRev <= 0) topRev = 1;
-
-        // 同額タイ対応: 順位割り当て
-        var teamRanks = [];
-        var curRank = 1;
-        for (var ri = 0; ri < teamItems.length; ri++) {
-          if (ri > 0 && teamItems[ri].revenue !== teamItems[ri - 1].revenue) curRank = ri + 1;
-          teamRanks.push(curRank);
-        }
-
-        var html = '<div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:10px;padding:10px 12px;">';
-        html += '<div style="display:flex;flex-direction:column;gap:8px;">';
-        for (var i = 0; i < teamItems.length; i++) {
-          var t = teamItems[i];
-          var tRank = teamRanks[i];
-          var medal = tRank <= 3 ? medals[tRank - 1] : tRank + '\u4F4D';
-          var barPct = Math.min(100, Math.max(2, Math.round((t.revenue / topRev) * 100)));
-          var barBg = i < 3 ? medalBars[i] : 'linear-gradient(90deg,#FCD34D,#F59E0B)';
-          html += '<div style="display:flex;align-items:center;gap:6px;">' +
-            '<span style="font-size:16px;min-width:26px;text-align:center;">' + medal + '</span>' +
-            '<span style="font-size:13px;font-weight:800;min-width:90px;color:#92400E;white-space:nowrap;">' + escapeHtml(t.name) + '</span>' +
-            '<div style="flex:1;height:24px;background:#FEF3C7;border-radius:6px;overflow:hidden;">' +
-              '<div style="width:' + barPct + '%;height:100%;background:' + barBg + ';border-radius:6px;transition:width 0.6s ease;"></div>' +
-            '</div>' +
-            '<span style="font-size:13px;font-weight:800;min-width:60px;text-align:right;color:#D97706;">' + formatManYen(Math.round(t.revenue)) + '</span>' +
-          '</div>' +
-          '<div style="padding-left:32px;display:flex;gap:12px;font-size:11px;color:#78716C;">' +
-            '<span>\u5546\u8AC7 ' + t.deals + '\u4EF6</span>' +
-            '<span>\u6210\u7D04 ' + t.closed + '\u4EF6</span>' +
-            '<span>\u6210\u7D04\u7387 ' + t.closeRate + '%</span>' +
-          '</div>';
-        }
-        html += '</div></div>';
-        container.innerHTML = html;
-        return;
-      }
-
       // ランキングデータ生成
       var items = members.map(function(m) {
         var val, label, sortVal;
@@ -2541,6 +2384,12 @@
         }
         return { name: m.name, icon: m.icon, val: val, label: label, sortVal: sortVal };
       });
+
+      // ゼロデータのメンバーを除外（attendance/coは逆順なので除外しない）
+      var isReversed = (tab === 'attendance' || tab === 'co');
+      if (!isReversed) {
+        items = items.filter(function(p) { return p.val > 0; });
+      }
 
       // ソート（降順、attendanceは休み少ない順=昇順なのでsortValを-valにしてある）
       items.sort(function(a, b) { return b.sortVal - a.sortVal; });
@@ -2598,10 +2447,11 @@
         html += '<div style="display:flex;align-items:center;gap:4px;">' +
           '<span style="font-size:11px;min-width:22px;text-align:center;">' + medal + '</span>' +
           iconEl +
+          '<span style="font-size:10px;min-width:50px;max-width:50px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700;color:#334155;">' + escapeHtml(p.name) + '</span>' +
           '<div style="flex:1;height:20px;background:' + c.trackBg + ';border-radius:6px;overflow:hidden;">' +
             '<div style="width:' + barPct + '%;height:100%;background:' + barBg + ';border-radius:6px;transition:width 0.6s ease;"></div>' +
           '</div>' +
-          '<span style="font-size:12px;font-weight:800;min-width:48px;text-align:right;color:' + (isZero ? '#EF4444' : c.valColor) + ';">' + (isZero ? '0⚠️' : escapeHtml(p.label)) + '</span>' +
+          '<span style="font-size:12px;font-weight:800;min-width:60px;text-align:right;color:' + (isZero ? '#EF4444' : c.valColor) + ';">' + (isZero ? '0⚠️' : escapeHtml(p.label)) + '</span>' +
         '</div>';
       }
       html += '</div></div>';
@@ -2611,19 +2461,13 @@
     function updateBottleneck(data) {
       var section = document.getElementById('bottleneckSection');
       var container = document.getElementById('bottleneckContent');
-
-      // 月初（1〜5日）はデータ不足のためボトルネック非表示
-      var nowDate = new Date();
-      if (nowDate.getDate() < 6) { section.style.display = 'none'; return; }
-
       var members = data.members || [];
       var cwPoints = data.chatworkPoints || {};
       if (!members.length) { section.style.display = 'none'; return; }
 
-      // 全員商談0ならボトルネック非表示
-      var totalDeals = 0;
-      members.forEach(function(m) { totalDeals += (m.deals || 0); });
-      if (totalDeals === 0) { section.style.display = 'none'; return; }
+      // 月初6日まではボトルネック通知を非表示
+      var today = new Date();
+      if (today.getDate() <= 6) { section.style.display = 'none'; return; }
 
       var metrics = [
         { key: 'revenue',   label: '着金額',     icon: '💰', get: function(m) { return m.revenue || 0; } },
@@ -2672,15 +2516,6 @@
         // 商談数多い + 着金低い → アンカリングorクロージングの質
         if (rDeals <= Math.ceil(n * 0.3) && rRev > Math.ceil(n * 0.6)) {
           results.push({ tag: '💰 着金額 ' + rRev + '位', fact: '商談数' + rDeals + '位に対して着金が' + rRev + '位', action: '単価を上げろ。アンカリングとクロージングの質を見直せ。お前の行動量があれば質を上げるだけで結果は変わる。' });
-        }
-        // CO率20%以上 → COがボトルネック
-        var coCount = m.coCount || 0;
-        var totalDealsForCo = m.deals || 0;
-        if (totalDealsForCo > 0 && coCount > 0) {
-          var coRate = Math.round(coCount / totalDealsForCo * 100);
-          if (coRate >= 20) {
-            results.push({ tag: '🚫 CO率 ' + coRate + '%', fact: '商談' + totalDealsForCo + '件中' + coCount + '件がCO（' + coRate + '%）', action: 'ZOOMを切る前に「これから先辞めたいと思うことが絶対来る」のように、これから起こる挫折を先に伝えろ。先に言っておけば挫折が来ても「あの時言われた通りだ」と踏み留まれる。言わなければ「聞いてない」でCOになる。' });
-          }
         }
         // 共創ptが平均以下
         var myKyosoPt = cwPoints[m.name] || 0;
@@ -2772,8 +2607,8 @@
       var settings = getGoalSettings();
       var monthGoal = settings[gk] || {};
       var memberKgi = monthGoal.memberKgi || {};
-      var target = memberKgi[m.name];
-      if (!target || target <= 0) return '';
+      var target = memberKgi[m.name] || 2000;
+      if (target <= 0) return '';
       var pctKgi = Math.min(100, Math.round((m.revenue / target) * 100));
       var achieved = m.revenue >= target;
       return '<div class="member-kgi">' +
@@ -3027,7 +2862,7 @@
           '<td style="background:#FFF7ED;font-weight:700;color:#EA580C;">' + ((cwPoints[m.name] || 0) === 0 ? '<span style="color:#EF4444;">0 ⚠️</span>' : cwPoints[m.name]) + '</td>' +
           '<td>' + formatManYen(m.sales) + '</td>' +
         '</tr>';
-        totals.goalTotal += (memberKgi[m.name] || 0);
+        totals.goalTotal += (memberKgi[m.name] || 2000);
         totals.revenue += m.revenue || 0;
         totals.deals += m.deals || 0;
         totals.closed += m.closed || 0;
@@ -3088,7 +2923,7 @@
         var item = items[i];
         var iconImg = item.icon
           ? '<img class="news-icon" src="' + item.icon + '" alt="" onerror="this.style.display=\'none\'">'
-          : '<div class="news-icon" style="background:#F1F5F9;display:flex;align-items:center;justify-content:center;font-size:14px;">💰</div>';
+          : '';
 
         html += '<div class="news-item fade-in-up" style="animation-delay:' + (isFirstLoad ? (startDelay + i) * 0.06 : 0) + 's;">' +
             iconImg +
@@ -3191,7 +3026,7 @@
             var item = g.items[j];
             var iconImg = item.icon
               ? '<img class="news-icon" src="' + item.icon + '" alt="" onerror="this.style.display=\'none\'">'
-              : '<div class="news-icon" style="background:#F1F5F9;display:flex;align-items:center;justify-content:center;font-size:14px;">\u{1F4B0}</div>';
+              : '';
             html += '<div class="news-item fade-in-up" style="animation-delay:' + (isFirstLoad ? idx * 0.04 : 0) + 's;">' +
                 iconImg +
               '<div class="news-content">' +
@@ -3330,9 +3165,36 @@
       // 当月: 着金速報を通常表示（データなしでも全日付表示）
       allSection.style.display = '';
       var news = data.paymentNews || [];
+      // アイコンがないアイテムにメンバーデータから補完
+      var iconMap = {};
+      var memberList = data.members || [];
+      memberList.forEach(function(m) { if (m.icon) iconMap[m.name] = m.icon; });
+      // FE_NAME_FIXの旧名・新名の両方にアイコンを登録
+      for (var fk in FE_NAME_FIX) {
+        var fv = FE_NAME_FIX[fk];
+        if (fv.icon) {
+          iconMap[fk] = fv.icon;
+          if (fv.name) iconMap[fv.name] = fv.icon;
+        }
+        if (fv.name && iconMap[fv.name] && !iconMap[fk]) iconMap[fk] = iconMap[fv.name];
+        if (fv.name && iconMap[fk] && !iconMap[fv.name]) iconMap[fv.name] = iconMap[fk];
+      }
+      news.forEach(function(item) {
+        if (!item.icon && item.name) {
+          // 完全一致
+          if (iconMap[item.name]) { item.icon = iconMap[item.name]; return; }
+          // 部分一致（メンバー名を含むか）
+          for (var ni = 0; ni < memberList.length; ni++) {
+            var mn = memberList[ni];
+            if (mn.icon && (mn.name.indexOf(item.name) >= 0 || item.name.indexOf(mn.name) >= 0)) {
+              item.icon = mn.icon; return;
+            }
+          }
+        }
+      });
       if (news.length > 0) {
         topSection.style.display = 'block';
-        topFeed.innerHTML = renderNewsItems(news.slice(0, 7), 0);
+        topFeed.innerHTML = renderNewsItems(news.slice(0, 10), 0);
       } else {
         topSection.style.display = 'none';
       }
@@ -3344,11 +3206,11 @@
   <div id="tocFab" style="position:fixed;bottom:20px;right:20px;z-index:9998;">
     <div id="tocMenu" style="display:none;background:#FFF;border:1px solid #E2E8F0;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.15);padding:10px;margin-bottom:8px;min-width:160px;">
       <a href="#membersBar" onclick="closeToc()" style="display:block;padding:6px 10px;font-size:12px;font-weight:600;color:#334155;text-decoration:none;border-radius:6px;">👥 メンバー</a>
-      <a href="#rankingSection" onclick="closeToc()" style="display:block;padding:6px 10px;font-size:12px;font-weight:600;color:#334155;text-decoration:none;border-radius:6px;">🏆 ランキング</a>
+      <a href="#rankingSection" id="tocRankingLink" onclick="closeToc()" style="display:block;padding:6px 10px;font-size:12px;font-weight:600;color:#334155;text-decoration:none;border-radius:6px;">🏆 ランキング</a>
       <a href="#detailTableWrap" onclick="closeToc()" style="display:block;padding:6px 10px;font-size:12px;font-weight:600;color:#334155;text-decoration:none;border-radius:6px;">📊 詳細テーブル</a>
       <a href="#newsAll" onclick="closeToc()" style="display:block;padding:6px 10px;font-size:12px;font-weight:600;color:#334155;text-decoration:none;border-radius:6px;">📢 着金速報</a>
-      <a href="#bottleneckSection" onclick="closeToc()" style="display:block;padding:6px 10px;font-size:12px;font-weight:600;color:#334155;text-decoration:none;border-radius:6px;">🚀 👑 ボトルネック通知</a>
       <a href="#kyosoSection" onclick="closeToc()" style="display:block;padding:6px 10px;font-size:12px;font-weight:600;color:#334155;text-decoration:none;border-radius:6px;">🤝 共創メッセージ</a>
+      <a href="#bottleneckSection" onclick="closeToc()" style="display:block;padding:6px 10px;font-size:12px;font-weight:600;color:#334155;text-decoration:none;border-radius:6px;">🚀 👑 ボトルネック通知</a>
     </div>
     <button onclick="toggleToc()" style="width:48px;height:48px;border-radius:50%;background:#1E40AF;color:#FFF;border:none;font-size:20px;box-shadow:0 2px 12px rgba(30,64,175,0.4);cursor:pointer;">📋</button>
   </div>
