@@ -1575,18 +1575,18 @@
     /* ===== 5月以降: 司令塔ステージ（上段メンター行）===== */
     .mentors-row {
       position: relative;
-      height: 124px;
-      margin-bottom: 36px;
-      padding: 14px 8px 18px;
-      border-radius: 14px;
+      height: 100px;
+      margin-bottom: 22px;
+      padding: 10px 8px 12px;
+      border-radius: 12px;
       background:
-        linear-gradient(180deg, rgba(30,41,59,0.92) 0%, rgba(15,23,42,0.95) 100%);
+        linear-gradient(180deg, rgba(51,65,85,0.85) 0%, rgba(30,41,59,0.9) 100%);
       box-shadow:
-        0 8px 24px -8px rgba(0,0,0,0.45),
-        inset 0 1px 0 rgba(251,146,60,0.25);
+        0 4px 14px -6px rgba(0,0,0,0.35),
+        inset 0 1px 0 rgba(251,146,60,0.18);
       overflow: visible;
     }
-    /* 上段ステージのオレンジ縁取り（上下） */
+    /* 上段ステージのオレンジ縁取り（上下・控えめ） */
     .mentors-row::before,
     .mentors-row::after {
       content: '';
@@ -1594,91 +1594,79 @@
       left: 8%; right: 8%;
       height: 1px;
       background: linear-gradient(90deg, transparent 0%, #F97316 30%, #FB923C 50%, #F97316 70%, transparent 100%);
-      opacity: 0.7;
+      opacity: 0.45;
     }
-    .mentors-row::before { top: 4px; }
-    .mentors-row::after { bottom: 6px; }
-
-    /* COMMAND ラベル（左上タグ風） */
-    .mentors-row-tag {
-      position: absolute;
-      top: -10px;
-      left: 18px;
-      background: linear-gradient(135deg, #F97316, #C2410C);
-      color: #FFFBEB;
-      font-size: 10px;
-      font-weight: 800;
-      letter-spacing: 2.5px;
-      padding: 3px 10px;
-      border-radius: 999px;
-      box-shadow: 0 4px 10px rgba(249,115,22,0.55);
-      text-transform: uppercase;
-      pointer-events: none;
-      z-index: 3;
-    }
+    .mentors-row::before { top: 3px; }
+    .mentors-row::after { bottom: 4px; }
 
     .mentor-row-item {
       position: absolute;
-      top: 14px;
+      top: 8px;
       display: flex;
       flex-direction: column-reverse; /* 名前をアイコンの上に */
       align-items: center;
-      width: 76px;
+      width: 68px;
       transition: left 0.3s ease;
       animation: mentorEnter 0.6s cubic-bezier(0.2, 0.8, 0.3, 1) backwards;
       z-index: 2;
     }
     .mentor-row-item img {
-      width: 64px; height: 64px;
+      width: 54px; height: 54px;
       border-radius: 50%;
-      border: 3px solid #FB923C;
+      border: 2px solid #FB923C;
       object-fit: cover;
       background: #1E293B;
       box-shadow:
-        0 0 0 2px rgba(251,146,60,0.25),
-        0 0 18px 4px rgba(249,115,22,0.55),
-        0 6px 16px rgba(0,0,0,0.45);
+        0 0 0 1px rgba(251,146,60,0.18),
+        0 0 10px 2px rgba(249,115,22,0.32),
+        0 4px 10px rgba(0,0,0,0.35);
       animation: mentorGlow 2.6s ease-in-out infinite alternate;
     }
     .mentor-row-label {
-      font-size: 11px;
+      font-size: 10px;
       color: #FED7AA;
       font-weight: 700;
-      margin-bottom: 5px;
+      margin-bottom: 4px;
       white-space: nowrap;
       text-shadow: 0 1px 2px rgba(0,0,0,0.55);
-      letter-spacing: 0.5px;
+      letter-spacing: 0.3px;
     }
     .mentor-row-badge {
       display: inline-block;
-      font-size: 8px;
-      font-weight: 800;
-      letter-spacing: 1.5px;
-      color: #1E293B;
-      background: linear-gradient(135deg, #FCD34D, #F59E0B);
-      padding: 1px 6px;
+      font-size: 7px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: #FB923C;
+      background: rgba(249,115,22,0.12);
+      border: 1px solid rgba(249,115,22,0.45);
+      padding: 0 5px;
       border-radius: 3px;
-      margin-bottom: 4px;
-      box-shadow: 0 1px 3px rgba(245,158,11,0.6);
+      margin-bottom: 3px;
       text-transform: uppercase;
     }
+    .mentor-row-badge.is-chief {
+      color: #1E293B;
+      background: linear-gradient(135deg, #FCD34D, #F59E0B);
+      border-color: #F59E0B;
+      box-shadow: 0 1px 3px rgba(245,158,11,0.45);
+    }
     @keyframes mentorEnter {
-      from { opacity: 0; transform: translateY(-12px); }
+      from { opacity: 0; transform: translateY(-10px); }
       to   { opacity: 1; transform: translateY(0); }
     }
     @keyframes mentorGlow {
-      from { box-shadow: 0 0 0 2px rgba(251,146,60,0.2), 0 0 14px 3px rgba(249,115,22,0.45), 0 6px 16px rgba(0,0,0,0.45); }
-      to   { box-shadow: 0 0 0 3px rgba(251,146,60,0.35), 0 0 22px 6px rgba(249,115,22,0.7), 0 6px 16px rgba(0,0,0,0.45); }
+      from { box-shadow: 0 0 0 1px rgba(251,146,60,0.15), 0 0 8px 2px rgba(249,115,22,0.28), 0 4px 10px rgba(0,0,0,0.35); }
+      to   { box-shadow: 0 0 0 2px rgba(251,146,60,0.25), 0 0 14px 4px rgba(249,115,22,0.5), 0 4px 10px rgba(0,0,0,0.35); }
     }
 
-    /* 上段下端のコマンドベースライン（指揮系統の起点） */
+    /* 上段下端のコマンドベースライン */
     .pulling-baseline-svg {
       stroke: #FB923C;
-      stroke-width: 1.5;
-      stroke-dasharray: 0 1; /* 初期は非表示 */
+      stroke-width: 1.2;
+      stroke-dasharray: 0 1;
       animation: baselineDraw 0.8s ease-out 0.3s forwards;
-      opacity: 0.85;
-      filter: drop-shadow(0 0 4px rgba(249,115,22,0.6));
+      opacity: 0.7;
+      filter: drop-shadow(0 0 3px rgba(249,115,22,0.45));
     }
     @keyframes baselineDraw {
       to { stroke-dasharray: 9999 0; }
@@ -1733,14 +1721,14 @@
       z-index: 2; /* 綱の上にアイコン */
     }
     .pulling-rope {
-      stroke: #F97316;
-      stroke-width: 2.5;
+      stroke: #FB923C;
+      stroke-width: 1.6;
       fill: none;
       stroke-linecap: round;
-      stroke-dasharray: 7 4;
-      filter: drop-shadow(0 1px 2px rgba(249,115,22,0.4));
-      animation: ropeFlow 0.9s linear infinite;
-      opacity: 0.85;
+      stroke-dasharray: 5 4;
+      filter: drop-shadow(0 0 2px rgba(249,115,22,0.35));
+      animation: ropeFlow 1.2s linear infinite;
+      opacity: 0.6;
     }
     .pulling-baseline {
       stroke: #F97316;
@@ -2589,12 +2577,13 @@
         }
         if (!url) return;
         var badge = BADGE_BY_NAME[name] || 'MENTOR';
+        var badgeClass = (badge === 'CHIEF') ? 'mentor-row-badge is-chief' : 'mentor-row-badge';
         // 順番に登場（stagger）
         var delay = (idx * 0.06).toFixed(2);
         html += '<div class="mentor-row-item" data-mentor-name="' + escapeHtml(name) + '" style="animation-delay:' + delay + 's;">' +
           '<img src="' + url + '" alt="' + escapeHtml(name) + '" onerror="this.style.display=\'none\'">' +
           '<span class="mentor-row-label">' + escapeHtml(name) + '</span>' +
-          '<span class="mentor-row-badge">' + badge + '</span>' +
+          '<span class="' + badgeClass + '">' + badge + '</span>' +
         '</div>';
       });
       row.innerHTML = html;
@@ -3010,10 +2999,13 @@
           };
         });
 
-        // 上段メンターを「担当メンバーの平均X位置」に再配置
+        // 上段メンターを「担当メンバーの平均X位置」に再配置（押切は他と同じレイヤー、横の最小・最大を制限）
         var mentorRow = document.getElementById('mentorsRow');
         if (mentorRow) {
           var rowRect = mentorRow.getBoundingClientRect();
+          var rowWidth = rowRect.width;
+          var ITEM_W = 68;
+          var PAD = 8;  // 左右最小余白
           mentorRow.querySelectorAll('.mentor-row-item').forEach(function(item) {
             var name = item.getAttribute('data-mentor-name');
             var pulleds = [];
@@ -3023,7 +3015,10 @@
             if (pulleds.length === 0) return;
             var avgX = pulleds.reduce(function(s, p) { return s + p.x; }, 0) / pulleds.length;
             var offsetLeft = rowRect.left - wrapRect.left;
-            item.style.left = (avgX - 32 - offsetLeft) + 'px'; // 64px幅の半分
+            var leftPx = avgX - ITEM_W / 2 - offsetLeft;
+            // 左右の余白を担保（はみ出し防止）
+            leftPx = Math.max(PAD, Math.min(rowWidth - ITEM_W - PAD, leftPx));
+            item.style.left = leftPx + 'px';
           });
         }
 
@@ -3075,41 +3070,42 @@
           paths += '<line class="pulling-baseline-svg" x1="' + bX1 + '" y1="' + bY + '" x2="' + bX2 + '" y2="' + bY + '" />';
         }
 
-        // 各メンターから担当メンバーへ「コ」の字型の線を引く
-        // 同じメンターから複数人へ引くとき、基準線上の通過点を分岐角度ずらしで見やすく
+        // メンターごとの担当数を数えておく（中央揃え分岐用）
+        var pulledCountByPuller = {};
+        PULLING_PAIRS.forEach(function(p) {
+          pulledCountByPuller[p.puller] = (pulledCountByPuller[p.puller] || 0) + 1;
+        });
+
+        // 各メンターから担当メンバーへスムーズな曲線を引く
         var perMentorIndex = {};
         PULLING_PAIRS.forEach(function(pair, i) {
           var from = mentorPos[pair.puller];
           var to = memberPos[pair.pulled];
           if (!from || !to) return;
 
-          // 同じメンターからの何本目か（左→右）
-          var key = pair.puller;
-          if (!perMentorIndex[key]) perMentorIndex[key] = 0;
-          var idxInMentor = perMentorIndex[key]++;
+          var total = pulledCountByPuller[pair.puller] || 1;
+          if (!perMentorIndex[pair.puller]) perMentorIndex[pair.puller] = 0;
+          var idxInMentor = perMentorIndex[pair.puller]++;
 
-          // メンター下端から基準線まで縦
           var sx = from.x;
           var sy = from.yBottom + 2;
-          // メンバー上端まで降りる目標
           var ex = to.x;
           var ey = to.y - to.r - 4;
 
-          // 基準線通過点を、複数本の場合は少しずらす（左右に分岐角度）
-          var spreadOffset = (idxInMentor - 0) * 6; // 同じメンター内で6pxずつずらし
-          var bx1 = sx;          // メンター直下（基準線通過点1）
-          var by = baselineY;
-          var bx2 = ex;          // メンバー直上（基準線通過点2）
+          // メンター直下に基準線への短い縦ストロークを出す（指揮系統の起点感）
+          var stalkY = baselineY - 2;
+          // ベジェのコントロールポイント（自然なS字を描く）
+          // 基準線上で「枝分かれ」させたい: 中央寄せで-1..+1の範囲に正規化
+          var spread = (total > 1) ? (idxInMentor - (total - 1) / 2) * 18 : 0;
+          var c1x = sx + spread * 0.3;
+          var c1y = baselineY + 6;
+          var c2x = ex - spread * 0.2;
+          var c2y = ey - 24;
 
-          // ベジェ曲線（メンター→基準線→メンバー）
-          // メンター位置(sx,sy) → 基準線上(midX, baselineY) → メンバー(ex,ey)
-          // 滑らかにするため Q コマンドで2つのコントロールポイントを使う
-          var midX = (sx + ex) / 2 + spreadOffset;
           var d = 'M ' + sx + ' ' + sy +
-                  ' L ' + sx + ' ' + (baselineY - 6) +
-                  ' Q ' + midX + ' ' + baselineY + ' ' + ex + ' ' + (baselineY + 6) +
-                  ' L ' + ex + ' ' + ey;
-          paths += '<path class="pulling-rope" d="' + d + '" marker-end="url(#ropeArrow)" style="animation-delay:' + (i * 0.08) + 's"></path>';
+                  ' L ' + sx + ' ' + stalkY +
+                  ' C ' + c1x + ' ' + c1y + ', ' + c2x + ' ' + c2y + ', ' + ex + ' ' + ey;
+          paths += '<path class="pulling-rope" d="' + d + '" style="animation-delay:' + (i * 0.06) + 's"></path>';
         });
 
         svg.innerHTML = defs + paths;
