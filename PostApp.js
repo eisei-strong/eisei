@@ -61,19 +61,19 @@ function getCurrentMonthColRange_() {
  *
  * 引数なしで呼ばれた場合は後方互換のためホープ数として扱う。
  */
-function getCurrentMonthHopeColRange_(sheetName) {
+function getCurrentMonthHopeColRange_(sheetName, year, month) {
   var dataStartCol = 4; // デフォルト: ホープ数(D列)
   if (sheetName === POST_APP_PUSH_SHEET_NAME) {
     dataStartCol = 12; // プッシュ数: L列
   }
   var COLS_PER_DAY = 3;
   var now = new Date();
-  var year = now.getFullYear();
-  var month = now.getMonth() + 1;
+  if (!year) year = now.getFullYear();
+  if (!month) month = now.getMonth() + 1;
   var startCol = dataStartCol;
   var startYm = POST_APP_RUN_START_YEAR * 12 + (POST_APP_RUN_START_MONTH - 1);
-  var nowYm = year * 12 + (month - 1);
-  for (var i = startYm; i < nowYm; i++) {
+  var ym = year * 12 + (month - 1);
+  for (var i = startYm; i < ym; i++) {
     var y = Math.floor(i / 12);
     var m = (i % 12) + 1;
     startCol += new Date(y, m, 0).getDate() * COLS_PER_DAY;
@@ -1530,4 +1530,147 @@ function installMonthlyAutoTrigger() {
 /** トリガーから呼ばれる本体 */
 function ensureCurrentMonthColumnsTrigger() {
   ensureCurrentMonthColumns_();
+}
+
+// ===========================================
+// 年内の全月一括セットアップ（年初 or 緊急時）
+// ===========================================
+
+/**
+ * 投稿数シートに指定月の列を右側に追加する
+ */
+function addPostSheetMonth_(ss, year, month) {
+  var sheet = ss.getSheetByName(POST_APP_SHEET_NAME);
+  if (!sheet) {
+    Logger.log('投稿数シートが見つかりません');
+    return;
+  }
+  var range = getMonthColRange_(year, month);
+  var lastCol = sheet.getLastColumn();
+  if (lastCol >= range.endCol) {
+    Logger.log('投稿数 ' + year + '/' + month + ': 既存（' + postAppColToLetter_(range.startCol) + '〜' + postAppColToLetter_(range.endCol) + '）→ スキップ');
+    return;
+  }
+  if (lastCol < range.startCol - 1) {
+    Logger.log('⚠️ 投稿数 ' + year + '/' + month + ': lastCol(' + lastCol + ')が期待される前月終端(' + (range.startCol - 1) + ')未満。前月までのデータが不足、安全のため中止。');
+    return;
+  }
+  var addCols = range.endCol - lastCol;
+  sheet.insertColumnsAfter(lastCol, addCols);
+  var dates = [];
+  for (var d = 1; d <= range.monthDays; d++) dates.push(month + '/' + d);
+  sheet.getRange(1, range.startCol, 1, range.monthDays).setValues([dates]);
+  var lastRow = sheet.getLastRow();
+  if (lastRow >= 2) {
+    var blank = [];
+    for (var r = 0; r < lastRow - 1; r++) {
+      var row = [];
+      for (var d2 = 0; d2 < range.monthDays; d2++) row.push('❌');
+      blank.push(row);
+    }
+    sheet.getRange(2, range.startCol, lastRow - 1, range.monthDays).setValues(blank);
+  }
+  Logger.log('✅ 投稿数 ' + year + '/' + month + ': ' + addCols + '列追加 (' + postAppColToLetter_(range.startCol) + '〜' + postAppColToLetter_(range.endCol) + ')');
+}
+
+/**
+ * ホープ数/プッシュ数シートに指定月の列を右側に追加する（2行構造ヘッダー）
+ */
+function addHopeSheetMonth_(ss, year, month, sheetName) {
+  var sheet = ss.getSheetByName(sheetName);
+  if (!sheet) {
+    Logger.log(sheetName + ' シートが見つかりません');
+    return;
+  }
+  var hRange = getCurrentMonthHopeColRange_(sheetName, year, month);
+  var lastCol = sheet.getLastColumn();
+  if (lastCol >= hRange.endCol) {
+    Logger.log(sheetName + ' ' + year + '/' + month + ': 既存 → スキップ');
+    return;
+  }
+  if (lastCol < hRange.startCol - 1) {
+    Logger.log('⚠️ ' + sheetName + ' ' + year + '/' + month + ': lastCol(' + lastCol + ')が期待される前月終端(' + (hRange.startCol - 1) + ')未満。前月までのデータが不足、安全のため中止。');
+    return;
+  }
+  var addCols = hRange.endCol - lastCol;
+  sheet.insertColumnsAfter(lastCol, addCols);
+  writeHope2RowHeader_(sheet, hRange, month);
+  var lastRow = sheet.getLastRow();
+  if (lastRow >= 3) {
+    var zeros = [];
+    for (var r = 0; r < lastRow - 2; r++) {
+      var row = [];
+      for (var c = 0; c < hRange.totalCols; c++) row.push(0);
+      zeros.push(row);
+    }
+    sheet.getRange(3, hRange.startCol, lastRow - 2, hRange.totalCols).setValues(zeros);
+  }
+  Logger.log('✅ ' + sheetName + ' ' + year + '/' + month + ': ' + addCols + '列追加');
+}
+
+/**
+ * プッシュ数シートのCX列以降の壊れた範囲を削除する（5/2事故の残骸クリーンアップ）
+ * 4月分（L〜CW）は保持。CX列以降を全削除→再構築用にクリーンな状態にする。
+ */
+function cleanupPushSheetBrokenColumns_(ss) {
+  var sheet = ss.getSheetByName(POST_APP_PUSH_SHEET_NAME);
+  if (!sheet) {
+    Logger.log('プッシュ数シートが見つかりません');
+    return;
+  }
+  // プッシュ数の4月分終端 = L(12) + 30*3 - 1 = 101列目（CW列）
+  var aprilEndCol = 12 + 30 * 3 - 1;
+  var lastCol = sheet.getLastColumn();
+  Logger.log('プッシュ数: lastCol=' + lastCol + ' (' + postAppColToLetter_(lastCol) + '), 4月終端=' + aprilEndCol + ' (' + postAppColToLetter_(aprilEndCol) + ')');
+  if (lastCol > aprilEndCol) {
+    var deleteCols = lastCol - aprilEndCol;
+    Logger.log('プッシュ数: ' + postAppColToLetter_(aprilEndCol + 1) + '列以降の' + deleteCols + '列を削除');
+    sheet.deleteColumns(aprilEndCol + 1, deleteCols);
+    Logger.log('✅ プッシュ数クリーンアップ完了、新lastCol=' + sheet.getLastColumn() + ' (' + postAppColToLetter_(sheet.getLastColumn()) + ')');
+  } else {
+    Logger.log('プッシュ数: クリーンアップ不要（lastCol <= 4月終端）');
+  }
+}
+
+/**
+ * 年内の全月（5月〜12月）を3シートに一括追加する
+ * 5/2事故対応 + 月跨ぎ対策の年初セットアップ用。
+ * GASエディタから手動実行。
+ *
+ * 実行内容:
+ *   Step 1: プッシュ数のCX列以降の壊れた残骸クリーンアップ
+ *   Step 2: 5月分を3シートに正しい位置で追加
+ *   Step 3: 6月〜12月分を3シートに追加
+ */
+function setupSheetsThroughDecember() {
+  var ss = SpreadsheetApp.openById(POST_APP_SS_ID);
+  var year = new Date().getFullYear();
+
+  Logger.log('==========================================');
+  Logger.log('=== 年内全月セットアップ開始: ' + year + ' ===');
+  Logger.log('==========================================');
+
+  // Step 1: プッシュ数のクリーンアップ
+  Logger.log('--- Step 1: プッシュ数の壊れた残骸クリーンアップ ---');
+  cleanupPushSheetBrokenColumns_(ss);
+
+  // Step 2: 5月分を3シートに追加（5月分が未追加 or プッシュ数で削除された分の補充）
+  Logger.log('--- Step 2: 5月分を3シートに追加 ---');
+  addPostSheetMonth_(ss, year, 5);
+  addHopeSheetMonth_(ss, year, 5, POST_APP_HOPE_SHEET_NAME);
+  addHopeSheetMonth_(ss, year, 5, POST_APP_PUSH_SHEET_NAME);
+
+  // Step 3: 6月〜12月を3シートに追加
+  Logger.log('--- Step 3: 6月〜12月を3シートに追加 ---');
+  for (var m = 6; m <= 12; m++) {
+    Logger.log('-- ' + m + '月 --');
+    addPostSheetMonth_(ss, year, m);
+    addHopeSheetMonth_(ss, year, m, POST_APP_HOPE_SHEET_NAME);
+    addHopeSheetMonth_(ss, year, m, POST_APP_PUSH_SHEET_NAME);
+  }
+
+  Logger.log('==========================================');
+  Logger.log('=== 完了: 全シートが12月分まで揃った ===');
+  Logger.log('==========================================');
+  Logger.log('スプシで目視確認推奨');
 }
