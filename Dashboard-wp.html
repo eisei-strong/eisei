@@ -1512,6 +1512,84 @@
       color: #E11D48;
     }
     .detail-table tfoot .col-revenue { color: #E11D48; }
+
+    /* ===== 5月以降: 引っ張る演出 ===== */
+    .pulling-section {
+      background: linear-gradient(135deg, #FFF7ED 0%, #FED7AA 100%);
+      border: 2px solid #F97316;
+      border-radius: 14px;
+      padding: 14px 12px;
+      margin-bottom: 12px;
+      box-shadow: 0 4px 16px rgba(249,115,22,0.18);
+    }
+    .pulling-title {
+      font-size: 14px;
+      font-weight: 800;
+      color: #C2410C;
+      margin-bottom: 10px;
+      text-align: center;
+      letter-spacing: 1px;
+    }
+    .pulling-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
+    }
+    .pulling-pair {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: white;
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid #FED7AA;
+      overflow: hidden;
+    }
+    .pulling-puller, .pulling-pulled {
+      width: 38px; height: 38px;
+      border-radius: 50%;
+      border: 2px solid #FB923C;
+      flex-shrink: 0;
+      background-size: cover;
+      background-position: center;
+      background-color: #FED7AA;
+    }
+    .pulling-puller {
+      animation: pullerSway 1.4s ease-in-out infinite;
+    }
+    .pulling-hand {
+      font-size: 22px;
+      display: inline-block;
+      animation: pullHand 1.4s ease-in-out infinite;
+      transform-origin: center;
+    }
+    .pulling-pulled {
+      animation: pulledMove 1.4s ease-in-out infinite;
+    }
+    @keyframes pullHand {
+      0%, 100% { transform: translateX(0) rotate(0deg); }
+      50% { transform: translateX(-6px) rotate(-12deg); }
+    }
+    @keyframes pulledMove {
+      0%, 100% { transform: translateX(0); }
+      50% { transform: translateX(-10px); }
+    }
+    @keyframes pullerSway {
+      0%, 100% { transform: translateX(0); }
+      50% { transform: translateX(2px); }
+    }
+    .pulling-pair-label {
+      font-size: 10px;
+      color: #9A3412;
+      font-weight: 700;
+      margin-left: auto;
+      white-space: nowrap;
+      letter-spacing: -0.3px;
+    }
+    @media (max-width: 768px) {
+      .pulling-grid { grid-template-columns: 1fr; }
+      .pulling-pair-label { font-size: 9px; }
+    }
   </style>
 </head>
 
