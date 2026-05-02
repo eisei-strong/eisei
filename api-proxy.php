@@ -207,6 +207,8 @@ $REAL_NAME_MAP_MAY2026 = [
     '吉田' => '信',
     '吉田羚虹' => '信',
     '信' => '信',
+    // 押切（商談には出ない、ダッシュボード表示のみ）
+    '押切' => '押切',
     // 「鍋嶋(L)」「佐々木/佐々木心雪(スマイル)」は意図的に削除 → 集計対象外
 ];
 
@@ -227,6 +229,7 @@ $ICON_MAP_MAY2026 = [
     '司波' => 'https://giver.work/sales-dashboard/icons/shiba.png',
     '信' => 'https://giver.work/sales-dashboard/icons/shin.png',
     '悟空' => 'https://giver.work/sales-dashboard/icons/goku.png',
+    '押切' => 'https://giver.work/sales-dashboard/icons/oshikiri.png',  // 商談には出ない・ダッシュボード表示のみ・意思決定のメンター
     // 'L', 'スマイル' は意図的に削除
 ];
 
