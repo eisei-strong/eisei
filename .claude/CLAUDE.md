@@ -328,9 +328,9 @@ ssh xserver "ls /home/kodaidai/giver.work/public_html/sales-dashboard/"  # Xserv
 ### 主要デプロイID
 | 用途 | デプロイID（末尾） | 備考 |
 |---|---|---|
-| 営業ダッシュボード + PostApp API | `...qg` (AKfycby6qaai...) | メインのexec URL |
+| 営業ダッシュボード + PostApp API + 経費API + ガーディアン | `...qg` (AKfycby6qaai...) | メインのexec URL（本番フロントは全てこれを叩く） |
 | 万バズ台本API | `...J-` (AKfycbzZedrv...) | @200固定 |
-| 経費API | `...Hw` (AKfycbw75mQ4...) | @513 |
+| 経費API（旧・冗長系） | `...Hw` (AKfycbw75mQ4...) | @513 ※過去に経費専用として立てたデプロイ。現在は本番フロント (giver.work/expense-dashboard/) は `...qg` を叩いている。撤去保留・障害時の切り戻し先として残置 |
 
 ### 注意事項
 - `clasp deploy` で新バージョンを作ると**Webアプリの再認可が必要**になる場合がある
