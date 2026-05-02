@@ -461,7 +461,7 @@ function doGet(e) {
 
   if (params.action === 'postGet') {
     try {
-      var pgResult = postAppGet_(params.token);
+      var pgResult = postAppGet_(params.token, params.year, params.month);
       return ContentService.createTextOutput(JSON.stringify(pgResult))
         .setMimeType(ContentService.MimeType.JSON);
     } catch (err) {
@@ -494,7 +494,7 @@ function doGet(e) {
 
   if (params.action === 'postSave') {
     try {
-      var psResult = postAppSave_(params.token, params.value, params.col);
+      var psResult = postAppSave_(params.token, params.value, params.col, params.year, params.month);
       return ContentService.createTextOutput(JSON.stringify(psResult))
         .setMimeType(ContentService.MimeType.JSON);
     } catch (err) {
