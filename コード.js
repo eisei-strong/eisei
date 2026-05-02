@@ -549,7 +549,7 @@ function doGet(e) {
 
   if (params.action === 'postGetHope') {
     try {
-      var pghResult = postAppGetHope_(params.token);
+      var pghResult = postAppGetHope_(params.token, params.year, params.month);
       return ContentService.createTextOutput(JSON.stringify(pghResult))
         .setMimeType(ContentService.MimeType.JSON);
     } catch (err) {

@@ -94,6 +94,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif;bac
 .cal-nav{background:none;border:none;font-size:24px;color:#1CB0F6;cursor:pointer;padding:4px 12px;font-weight:700;-webkit-tap-highlight-color:transparent}
 .cal-nav:disabled{color:#E0E0E0;cursor:not-allowed}
 .cal-nav:active{transform:scale(0.9)}
+.hope-month-switcher{display:flex;align-items:center;justify-content:center;gap:16px;margin-top:8px}
+.hope-month-display{font-size:14px;font-weight:700;color:#3C3C3C;min-width:36px;text-align:center}
+.hope-nav{background:none;border:none;font-size:24px;color:#1CB0F6;cursor:pointer;padding:4px 12px;font-weight:700;-webkit-tap-highlight-color:transparent}
+.hope-nav:disabled{color:#E0E0E0;cursor:not-allowed}
+.hope-nav:active{transform:scale(0.9)}
 .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-bottom:16px}
 .cal-dow{text-align:center;font-size:11px;color:#AFAFAF;padding:4px 0;font-weight:700}
 .cal-day{aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:14px;cursor:pointer;transition:all .12s;font-size:14px;font-weight:700;border:2px solid transparent;position:relative;-webkit-user-select:none;user-select:none}
@@ -490,7 +495,12 @@ a{color:#1CB0F6;font-weight:600}
   <div class="hope-hero">
     <div class="hope-hero-icon">📋</div>
     <div class="hope-hero-num" id="hopeTotalNum">0</div>
-    <div class="hope-hero-label">今月の合計リスト数</div>
+    <div class="hope-hero-label" id="hopeTotalLabel">今月の合計リスト数</div>
+    <div class="hope-month-switcher">
+      <button class="hope-nav prev" onclick="changeHopeMonth(-1)">‹</button>
+      <span class="hope-month-display" id="hopeMonthDisplay">5月</span>
+      <button class="hope-nav next" onclick="changeHopeMonth(1)">›</button>
+    </div>
   </div>
   <div class="hope-stats">
     <div class="hope-stat"><div class="hope-stat-num yt" id="hopeYtTotal">0</div><div class="hope-stat-label">YouTube</div></div>
@@ -680,9 +690,12 @@ var currentTab='post';
 // 月切替UI用
 var currentYear=new Date().getFullYear();
 var currentMonth=new Date().getMonth()+1;
+var hopeYear=new Date().getFullYear();
+var hopeMonth=new Date().getMonth()+1;
 var RUN_START_YEAR=2026;
 var RUN_START_MONTH=4;
 function getMonthCacheKey(y,m){return 'pa_month_'+y+'_'+(m<10?'0'+m:m)}
+function getHopeCacheKey(y,m){return 'pa_hope_'+y+'_'+(m<10?'0'+m:m)}
 var prevCharaIdx=-1; // レベルアップ検出用
 var streak=0; // 連続投稿日数（renderEvoTableからも参照）
 var hopeData=null; // リスト数データ（権限ある人のみ）
@@ -1265,6 +1278,8 @@ function doLoginWith(pw){
     // ログイン時は当月にリセット
     currentYear=new Date().getFullYear();
     currentMonth=new Date().getMonth()+1;
+    hopeYear=currentYear;
+    hopeMonth=currentMonth;
     localStorage.setItem('pa_t',token);
     localStorage.setItem('pa_id',userId);
     localStorage.setItem('pa_name',userName);
@@ -1859,17 +1874,52 @@ function forceRegister(){
   document.getElementById('regPw1').focus();
 }
 
-// ---- リスト数（ホープ数）読み込み ----
+// ---- リスト数（ホープ数）読み込み（月切替対応） ----
 function loadHope(){
   if(!token)return;
-  api('action=postGetHope&token='+encodeURIComponent(token)).then(function(d){
+  // キャッシュあれば即表示
+  var cacheKey=getHopeCacheKey(hopeYear,hopeMonth);
+  var cached=localStorage.getItem(cacheKey);
+  if(cached){try{hopeData=JSON.parse(cached);document.getElementById('tabHope').style.display='';updateHopeMonthDisplay();if(currentTab==='hope')renderHope()}catch(e){}}
+  api('action=postGetHope&token='+encodeURIComponent(token)+'&year='+hopeYear+'&month='+hopeMonth).then(function(d){
     if(d.error||!d.allowed){hopeData=null;document.getElementById('tabHope').style.display='none';return}
-    if(d.noData){hopeData={total:0,days:[]};document.getElementById('tabHope').style.display='';return}
+    if(d.noData){hopeData={total:0,days:[]};document.getElementById('tabHope').style.display='';updateHopeMonthDisplay();return}
     hopeData=d;
-    localStorage.setItem('pa_hope',JSON.stringify(hopeData));
+    localStorage.setItem(cacheKey,JSON.stringify(hopeData));
+    localStorage.setItem('pa_hope',JSON.stringify(hopeData)); // 後方互換
     document.getElementById('tabHope').style.display='';
+    updateHopeMonthDisplay();
     if(currentTab==='hope')renderHope();
   }).catch(function(){});
+}
+
+// 月切替（前月⇔次月）
+function changeHopeMonth(delta){
+  if(!token)return;
+  var ym=hopeYear*12+(hopeMonth-1)+delta;
+  var startYm=RUN_START_YEAR*12+(RUN_START_MONTH-1);
+  var n=new Date();
+  var nowYm=n.getFullYear()*12+n.getMonth();
+  if(ym<startYm||ym>nowYm)return;
+  hopeYear=Math.floor(ym/12);
+  hopeMonth=(ym%12)+1;
+  loadHope();
+}
+
+// 月表示+ナビボタン状態を更新
+function updateHopeMonthDisplay(){
+  var d=document.getElementById('hopeMonthDisplay');
+  if(d)d.textContent=hopeMonth+'月';
+  var l=document.getElementById('hopeTotalLabel');
+  if(l)l.textContent=hopeMonth+'月の合計リスト数';
+  var ym=hopeYear*12+(hopeMonth-1);
+  var startYm=RUN_START_YEAR*12+(RUN_START_MONTH-1);
+  var n=new Date();
+  var nowYm=n.getFullYear()*12+n.getMonth();
+  var p=document.querySelector('.hope-nav.prev');
+  var nx=document.querySelector('.hope-nav.next');
+  if(p)p.disabled=(ym<=startYm);
+  if(nx)nx.disabled=(ym>=nowYm);
 }
 
 function renderHope(){
@@ -1893,15 +1943,17 @@ function renderHope(){
   var html='';
   var today=new Date();
   var todayDay=today.getDate();
+  // 当月閲覧時は今日までしか表示しない、過去月は全日表示
+  var isCurrentMonthHope=(hopeYear===today.getFullYear()&&hopeMonth===(today.getMonth()+1));
   for(var d=0;d<days.length;d++){
-    if(days[d].day>todayDay)break; // 未来日はスキップ
+    if(isCurrentMonthHope&&days[d].day>todayDay)break; // 当月は未来日スキップ
     if(days[d].sum===0)continue; // 0の日はスキップ
     var day=days[d];
     var ytPct=maxDay>0?(day.yt/maxDay*100):0;
     var igPct=maxDay>0?(day.ig/maxDay*100):0;
     var ttPct=maxDay>0?(day.tt/maxDay*100):0;
     html+='<div class="hope-bar-row">';
-    html+='<div class="hope-bar-day">4/'+day.day+'</div>';
+    html+='<div class="hope-bar-day">'+hopeMonth+'/'+day.day+'</div>';
     html+='<div class="hope-bar-wrap">';
     if(day.yt>0)html+='<div class="hope-bar-seg yt" style="width:'+ytPct+'%" title="YT:'+day.yt+'"></div>';
     if(day.ig>0)html+='<div class="hope-bar-seg ig" style="width:'+igPct+'%" title="IG:'+day.ig+'"></div>';
