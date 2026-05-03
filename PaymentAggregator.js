@@ -393,7 +393,7 @@ function upsertSheet_(ss, tabName, aggregated, processedDates) {
   var now = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd HH:mm:ss');
 
   if (!sheet) {
-    sheet = ss.insertSheet(PA_TAB_AGG);
+    sheet = ss.insertSheet(tabName);
   }
 
   // ヘッダー＆A列の書式を毎回保証
