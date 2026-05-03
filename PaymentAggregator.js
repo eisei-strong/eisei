@@ -98,8 +98,8 @@ function aggregatePrimaryData(targetMonth) {
   Logger.log('過去商談日: ' + pastDates.length + '件');
 
   // 各タブに upsert
-  upsertSheet_(ss, PA_TAB_AGG, split.current, currentDates);
-  upsertSheet_(ss, PA_TAB_PAST, split.past, pastDates);
+  writeSheet_(ss, PA_TAB_AGG, split.current, currentDates);
+  writeSheet_(ss, PA_TAB_PAST, split.past, pastDates);
 
   Logger.log('=== aggregatePrimaryData 完了');
   return {
@@ -410,17 +410,20 @@ function aggregateBySalesAndPushDate_(univaTxs, liftyTxs, bankTxs, idx) {
 }
 
 /**
- * 指定タブに upsert（汎用版、当月/過去 両方で使う）
- * - 既存タブの履歴は保持
- * - processedDates（今回計算した商談日）の行のみ削除して再書き込み
- * - 処理対象外の商談日はそのまま残る
+ * 指定タブに書き込み（毎回全クリア→指定範囲のみ書き戻し）
+ *
+ * - 集計済みタブには「当月商談分のみ」、過去分割タブには「当月以外のみ」を
+ *   呼び出し側で振り分けて渡す
+ * - 各タブは毎回全クリアして書き込むため、過去の旧フォーマット行や
+ *   想定外の行は残らない
+ * - 経理が直近6ヶ月分のCSVを毎日貼る運用なら、その期間のデータは毎日再計算される
  *
  * 商談日列(A列)は強制テキスト型で書き込み（"2026-04-13" がDate型に自動変換されると
- * 比較ロジックが破綻し、重複行が発生するため）
+ * 比較ロジックが破綻するため）
  *
  * 金額は万円単位・小数1位に丸めて書き込み（ダッシュボードの単位に合わせる）
  */
-function upsertSheet_(ss, tabName, aggregated, processedDates) {
+function writeSheet_(ss, tabName, aggregated, processedDates) {
   var sheet = ss.getSheetByName(tabName);
   var headerRow = ['商談日', '商談者', '着金額', 'ユニヴァ', 'ライフティ', '銀振', '件数', '更新日時'];
   var now = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd HH:mm:ss');
@@ -429,34 +432,16 @@ function upsertSheet_(ss, tabName, aggregated, processedDates) {
     sheet = ss.insertSheet(tabName);
   }
 
-  // ヘッダー＆A列の書式を毎回保証
+  // タブを全クリア
+  sheet.clearContents();
+
+  // ヘッダー書き込み
   sheet.getRange(1, 1, 1, headerRow.length).setValues([headerRow]);
   sheet.setFrozenRows(1);
   sheet.getRange('A:A').setNumberFormat('@');
 
-  // 既存データ読み込み（ヘッダー除く）
-  var lastRow = sheet.getLastRow();
-  var existingRows = [];
-  if (lastRow >= 2) {
-    existingRows = sheet.getRange(2, 1, lastRow - 1, headerRow.length).getValues();
-  }
-
-  // 今回処理する商談日以外の既存行を残す（Date型を YYYY-MM-DD に正規化）
-  var keepRows = [];
-  var processedSet = {};
-  for (var i = 0; i < processedDates.length; i++) processedSet[processedDates[i]] = true;
-  for (var i = 0; i < existingRows.length; i++) {
-    var r = existingRows[i];
-    var d = pushDateKey_(r[0]);
-    if (!d) continue;
-    if (!processedSet[d]) {
-      r[0] = d;
-      keepRows.push(r);
-    }
-  }
-
-  // 今回計算分を生成（金額は万円・小数1位に丸め）
-  var newRows = [];
+  // 新規データ生成（金額は万円・小数1位に丸め）
+  var rows = [];
   for (var i = 0; i < processedDates.length; i++) {
     var d = processedDates[i];
     var salesList = [];
@@ -471,7 +456,7 @@ function upsertSheet_(ss, tabName, aggregated, processedDates) {
     for (var j = 0; j < salesList.length; j++) {
       var sales = salesList[j];
       var b = aggregated[sales][d];
-      newRows.push([
+      rows.push([
         d,
         sales,
         toMan_(b.total),
@@ -484,21 +469,16 @@ function upsertSheet_(ss, tabName, aggregated, processedDates) {
     }
   }
 
-  // 全データ：keepRows + newRows。商談日（新→旧）→ 着金額（多→少）
-  var allRows = keepRows.concat(newRows);
-  allRows.sort(function(a, b) {
+  // 商談日（新→旧）→ 着金額（多→少）でソート
+  rows.sort(function(a, b) {
     if (a[0] !== b[0]) return String(b[0]).localeCompare(String(a[0]));
     return Number(b[2]) - Number(a[2]);
   });
 
-  // 既存行（ヘッダー除く）をクリアして書き込み
-  if (lastRow >= 2) {
-    sheet.getRange(2, 1, lastRow - 1, headerRow.length).clearContent();
-  }
-  if (allRows.length > 0) {
-    sheet.getRange(2, 1, allRows.length, headerRow.length).setValues(allRows);
-    // 書き込み後もA列の書式をテキストに維持
-    sheet.getRange(2, 1, allRows.length, 1).setNumberFormat('@');
+  // 書き込み
+  if (rows.length > 0) {
+    sheet.getRange(2, 1, rows.length, headerRow.length).setValues(rows);
+    sheet.getRange(2, 1, rows.length, 1).setNumberFormat('@');
   }
 }
 
