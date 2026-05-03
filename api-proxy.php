@@ -789,7 +789,7 @@ function fetchFromMasterCSV($month, $year) {
         'members' => $members,
         'teamNames' => $TEAM_NAMES,
         'totalRevenue' => round($totalRevenue, 1),
-        'teamGoal' => 15000,
+        'teamGoal' => 20000,
         'remaining' => 0,
         'progressRate' => 0,
         'dailyTarget' => 0,
@@ -904,7 +904,7 @@ function applyGoalSettings(&$data, $month, $year) {
 // ===== 派生値再計算 =====
 
 function recalculate(&$data) {
-    $teamGoal = $data['teamGoal'] ?? 15000;
+    $teamGoal = $data['teamGoal'] ?? 20000;
     $totalRevenue = $data['totalRevenue'] ?? 0;
     $remaining = max(0, round($teamGoal - $totalRevenue, 1));
     $daysLeft = $data['daysLeft'] ?? 1;

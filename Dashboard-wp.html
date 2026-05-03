@@ -2107,7 +2107,7 @@
       var settings = getGoalSettings();
       var monthGoal = settings[gk] || {};
       document.getElementById('goalModalMonth').textContent = (currentViewYear || '') + '年' + (currentViewMonth || '') + '月のゴール設定';
-      document.getElementById('goalTeamInput').value = monthGoal.teamGoal || 2000;
+      document.getElementById('goalTeamInput').value = monthGoal.teamGoal || 20000;
 
       // 個人KGI入力フィールドを生成
       var container = document.getElementById('goalMemberInputs');
@@ -2141,7 +2141,7 @@
         var val = parseInt(inputs[i].value);
         if (name && val > 0) memberKgi[name] = val;
       }
-      var goalData = { teamGoal: teamVal || 2000, memberKgi: memberKgi };
+      var goalData = { teamGoal: teamVal || 20000, memberKgi: memberKgi };
       // サーバーに保存（全端末共有）
       serverGoals[gk] = goalData;
       // localStorageにもフォールバック保存
@@ -2623,7 +2623,7 @@
       var gk = goalKey();
       var settings = getGoalSettings();
       var monthGoal = settings[gk] || {};
-      var teamGoal = (monthGoal.teamGoal > 0) ? monthGoal.teamGoal : 2000;
+      var teamGoal = (monthGoal.teamGoal > 0) ? monthGoal.teamGoal : 20000;
       var remaining = Math.max(0, teamGoal - data.totalRevenue);
       var pct = teamGoal > 0 ? Math.round((data.totalRevenue / teamGoal) * 100) : 0;
       var remainPct = Math.max(0, 100 - pct);
