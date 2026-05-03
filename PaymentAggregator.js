@@ -13,7 +13,8 @@ var PA_TAB_MASTER = '👑商談マスターデータ';
 var PA_TAB_UNIVA  = 'ユニヴァ';
 var PA_TAB_LIFTY  = 'ライフティ';
 var PA_TAB_BANK   = '銀振';
-var PA_TAB_AGG    = '集計済み';
+var PA_TAB_AGG    = '集計済み';      // 当月商談分
+var PA_TAB_PAST   = '過去分割';      // 過去成約者の今月入金分
 
 // マスター本体カラム（0-based）
 var PA_COL_PUSH    = 2;   // プッシュ日時
@@ -50,12 +51,18 @@ var PA_BANK_PROCESSOR_KW = [
  * 動作仕様：
  * - 一次データタブ（ユニヴァ・ライフティ・銀振）には経理が直近データを毎朝貼り付け
  * - 各取引を商談者にマッチ → その商談者の「商談日」に着金として計上
- * - 集計済みタブは (商談者, 商談日) 単位で upsert（履歴保持）
- * - 一次データに現れた商談日の行のみ更新、それ以外は触らず履歴維持
+ * - 対象月の商談日 → 「集計済み」タブ
+ * - 対象月以外の商談日 → 「過去分割」タブ（過去成約者の今月入金など）
+ * - 両タブとも (商談者, 商談日) 単位で upsert（履歴保持）
+ *
+ * @param {string} [targetMonth] - 'YYYY-MM' 形式。省略時は実行時の当月（JST）
  */
-function aggregatePrimaryData() {
+function aggregatePrimaryData(targetMonth) {
   var ss = SpreadsheetApp.openById(PA_MASTER_ID);
-  Logger.log('=== aggregatePrimaryData 開始: ' + new Date().toISOString());
+  if (!targetMonth) {
+    targetMonth = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM');
+  }
+  Logger.log('=== aggregatePrimaryData 開始: ' + new Date().toISOString() + ' / 対象月: ' + targetMonth);
 
   // マスター本体から商談済み顧客リスト（テスト除く全件）
   var seiyaku = readSeiyakuFromMaster_(ss);
@@ -70,16 +77,44 @@ function aggregatePrimaryData() {
   // インデックス作成
   var indexes = buildSeiyakuIndexes_(seiyaku);
 
-  // 商談者×商談日で集計
+  // 商談者×商談日で全件集計（フィルタなし）
   var aggregated = aggregateBySalesAndPushDate_(univaTxs, liftyTxs, bankTxs, indexes);
-  var processedDates = collectPushDates_(aggregated);
-  Logger.log('処理対象商談日: ' + processedDates.length + '件 (' + processedDates.slice(0, 3).join(', ') + (processedDates.length > 3 ? ' ...' : '') + ')');
 
-  // 集計済みタブに upsert
-  upsertAggregatedSheet_(ss, aggregated, processedDates);
+  // 当月商談と過去商談に振り分け
+  var split = splitByTargetMonth_(aggregated, targetMonth);
+  var currentDates = collectPushDates_(split.current);
+  var pastDates = collectPushDates_(split.past);
+  Logger.log('当月(' + targetMonth + ')商談日: ' + currentDates.length + '件');
+  Logger.log('過去商談日: ' + pastDates.length + '件');
+
+  // 各タブに upsert
+  upsertSheet_(ss, PA_TAB_AGG, split.current, currentDates);
+  upsertSheet_(ss, PA_TAB_PAST, split.past, pastDates);
 
   Logger.log('=== aggregatePrimaryData 完了');
-  return { ok: true, dateCount: processedDates.length, salesCount: countSales_(aggregated) };
+  return {
+    ok: true,
+    targetMonth: targetMonth,
+    currentDateCount: currentDates.length,
+    pastDateCount: pastDates.length,
+    salesCount: countSales_(aggregated)
+  };
+}
+
+/**
+ * 集計結果を当月（targetMonth で始まる商談日）と過去に振り分け
+ */
+function splitByTargetMonth_(aggregated, targetMonth) {
+  var current = {};
+  var past = {};
+  for (var sales in aggregated) {
+    for (var d in aggregated[sales]) {
+      var bucket = (d.indexOf(targetMonth) === 0) ? current : past;
+      if (!bucket[sales]) bucket[sales] = {};
+      bucket[sales][d] = aggregated[sales][d];
+    }
+  }
+  return { current: current, past: past };
 }
 
 function collectPushDates_(aggregated) {
@@ -342,18 +377,18 @@ function aggregateBySalesAndPushDate_(univaTxs, liftyTxs, bankTxs, idx) {
 }
 
 /**
- * 集計済みタブに upsert
+ * 指定タブに upsert（汎用版、当月/過去 両方で使う）
  * - 既存タブの履歴は保持
- * - processedDates（今回の一次データに現れた商談日）の行のみ削除して再書き込み
- * - 処理対象外の商談日（一次データに無い）はそのまま残る
+ * - processedDates（今回計算した商談日）の行のみ削除して再書き込み
+ * - 処理対象外の商談日はそのまま残る
  *
  * 商談日列(A列)は強制テキスト型で書き込み（"2026-04-13" がDate型に自動変換されると
  * 比較ロジックが破綻し、重複行が発生するため）
  *
  * 金額は万円単位・小数1位に丸めて書き込み（ダッシュボードの単位に合わせる）
  */
-function upsertAggregatedSheet_(ss, aggregated, processedDates) {
-  var sheet = ss.getSheetByName(PA_TAB_AGG);
+function upsertSheet_(ss, tabName, aggregated, processedDates) {
+  var sheet = ss.getSheetByName(tabName);
   var headerRow = ['商談日', '商談者', '着金額', 'ユニヴァ', 'ライフティ', '銀振', '件数', '更新日時'];
   var now = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd HH:mm:ss');
 
@@ -529,7 +564,7 @@ function matchUnivaSeiyaku_(tx, idx) {
   var nl = tx.name.toLowerCase().replace(/\s+/g, '');
   for (var k in idx.line) {
     if (k.length >= 4 && (nl.indexOf(k) !== -1 || k.indexOf(nl) !== -1)) {
-      return idx.line[k][0];
+      return latestEntry_(idx.line[k]);
     }
   }
   return null;
@@ -537,13 +572,29 @@ function matchUnivaSeiyaku_(tx, idx) {
 
 function matchLiftySeiyaku_(tx, idx) {
   var n = normalizeName_(tx.name);
-  if (idx.name[n]) return idx.name[n][0];
+  if (idx.name[n]) return latestEntry_(idx.name[n]);
   for (var k in idx.name) {
     if (n.length >= 3 && (n.indexOf(k) !== -1 || k.indexOf(n) !== -1)) {
-      return idx.name[k][0];
+      return latestEntry_(idx.name[k]);
     }
   }
   return null;
+}
+
+/**
+ * 同名顧客の複数商談行から、pushDate が最新のものを選ぶ
+ * 過去同名顧客がいる場合に「最古商談」が選ばれて4月商談が漏れる問題を防止
+ */
+function latestEntry_(entries) {
+  if (!entries || entries.length === 0) return null;
+  if (entries.length === 1) return entries[0];
+  var latest = entries[0];
+  for (var i = 1; i < entries.length; i++) {
+    if (entries[i].pushDate && entries[i].pushDate > (latest.pushDate || '')) {
+      latest = entries[i];
+    }
+  }
+  return latest;
 }
 
 /**
@@ -600,7 +651,7 @@ function matchBankSeiyaku_(tx, idx) {
     for (var h = 0; h < hints.length; h++) {
       if (k.indexOf(hints[h].toLowerCase()) === -1) { allMatch = false; break; }
     }
-    if (allMatch) return idx.name[k][0];
+    if (allMatch) return latestEntry_(idx.name[k]);
   }
   return null;
 }
