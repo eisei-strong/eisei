@@ -731,3 +731,12 @@ function setupPaymentAggregatorTrigger() {
     .create();
   Logger.log('aggregatePrimaryData トリガー設定完了: 毎日朝8時');
 }
+
+// =========== 過去月集計用ヘルパー ===========
+// GASエディタの関数ドロップダウンから引数なしで実行できるよう、
+// よく使う過去月をハードコード関数として用意する
+
+function aggregateApril2026()    { return aggregatePrimaryData('2026-04'); }
+function aggregateMarch2026()    { return aggregatePrimaryData('2026-03'); }
+function aggregateFebruary2026() { return aggregatePrimaryData('2026-02'); }
+function aggregateJanuary2026()  { return aggregatePrimaryData('2026-01'); }
