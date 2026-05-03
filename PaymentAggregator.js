@@ -1,0 +1,605 @@
+// ============================================
+// PaymentAggregator.js
+// 経理が貼り付けた一次データ（ユニヴァ・ライフティ・銀振）から
+// 商談者別の月次着金額を集計し、「集計済み」タブに書き出す
+// ============================================
+
+var PA_MASTER_ID = '1KxHeLmrpdaw1IUhBaQ46UWSHu-8SCRZqcrHOE2hMwDo';
+var PA_TAB_MASTER = '👑商談マスターデータ';
+var PA_TAB_UNIVA  = 'ユニヴァ';
+var PA_TAB_LIFTY  = 'ライフティ';
+var PA_TAB_BANK   = '銀振';
+var PA_TAB_AGG    = '集計済み';
+
+// マスター本体カラム（0-based）
+var PA_COL_PUSH    = 2;   // プッシュ日時
+var PA_COL_SALES   = 3;   // 商談者名
+var PA_COL_LINE    = 4;   // LINE名
+var PA_COL_STATUS  = 11;  // 成約状況
+var PA_COL_REVENUE = 16;  // 売上（万円）
+var PA_COL_NAME    = 17;  // 顧客名（漢字フルネーム）
+var PA_COL_EMAIL   = 34;  // 契約アドレス
+
+// 手数料率
+var PA_FEE_RATE = {
+  'ユニバペイ':  0.042,
+  'ユニヴァペイ': 0.042,
+  'ユニヴァ':    0.042,
+  'ライフテイ':  0.05,
+  'ライフティ':  0.05,
+  'MOSH':       0.06,
+  'CBS':        0.05,
+  '銀振':       0,
+  '銀行振込':   0
+};
+
+// 銀振の決済代行・除外キーワード（顧客直接振込以外）
+var PA_BANK_PROCESSOR_KW = [
+  'ユニヴアペイ', 'ユニバペイ', 'ライフテイ', 'ジ－エムオ－', 'シ－ビ－エス',
+  'ＧＭＯアオゾラ', 'GMO', 'MOSH', '振込手数料', 'Visaデビット', 'ｾｿﾞﾝ',
+  '振込資金返却'
+];
+
+/**
+ * メインエントリ：トリガーから1日1回呼ばれる
+ *
+ * 動作仕様：
+ * - 一次データタブ（ユニヴァ・ライフティ・銀振）には経理が当月分を毎朝貼り付け
+ * - 月初に旧月分を別タブにアーカイブし、当月分だけが残っている前提
+ * - GASは「現在貼られているデータの月」を集計し、集計済みタブの該当月行を更新
+ * - 過去月（既に集計済みタブにあるが、一次データには無い）は触らず追記式で履歴維持
+ */
+function aggregatePrimaryData() {
+  var ss = SpreadsheetApp.openById(PA_MASTER_ID);
+  Logger.log('=== aggregatePrimaryData 開始: ' + new Date().toISOString());
+
+  // マスター本体から成約者リスト
+  var seiyaku = readSeiyakuFromMaster_(ss);
+  Logger.log('成約者数（CO・失注除外）: ' + seiyaku.length);
+
+  // 一次データ読み込み
+  var univaTxs = readUnivaTab_(ss);
+  var liftyTxs = readLiftyTab_(ss);
+  var bankTxs  = readBankTab_(ss);
+  Logger.log('一次データ: ユニヴァ' + univaTxs.length + '件 / ライフティ' + liftyTxs.length + '件 / 銀振' + bankTxs.length + '件');
+
+  // インデックス作成
+  var indexes = buildSeiyakuIndexes_(seiyaku);
+
+  // 商談者×月別に集計（一次データに含まれる月だけ）
+  var aggregated = aggregateBySalesAndMonth_(univaTxs, liftyTxs, bankTxs, indexes);
+  var processedMonths = collectMonths_(aggregated);
+  Logger.log('処理対象月: ' + processedMonths.join(', '));
+
+  // 集計済みタブに upsert（既存履歴は保持、対象月のみ上書き）
+  upsertAggregatedSheet_(ss, aggregated, processedMonths);
+
+  Logger.log('=== aggregatePrimaryData 完了');
+  return { ok: true, monthCount: processedMonths.length, salesCount: countSales_(aggregated) };
+}
+
+function collectMonths_(aggregated) {
+  var set = {};
+  for (var sales in aggregated) {
+    for (var ym in aggregated[sales]) set[ym] = true;
+  }
+  var arr = [];
+  for (var ym in set) arr.push(ym);
+  arr.sort();
+  arr.reverse();
+  return arr;
+}
+
+/**
+ * マスター本体から成約者リストを読み取る
+ * - 「成約」を含む
+ * - 「失注」「CO」を含まない
+ * - 「テスト」「継続」単独は除外
+ */
+function readSeiyakuFromMaster_(ss) {
+  var sheet = ss.getSheetByName(PA_TAB_MASTER);
+  if (!sheet) throw new Error('マスター本体タブが見つかりません: ' + PA_TAB_MASTER);
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  var lastCol = Math.max(sheet.getLastColumn(), PA_COL_EMAIL + 1);
+  var data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+
+  var out = [];
+  for (var i = 0; i < data.length; i++) {
+    var row = data[i];
+    var status = String(row[PA_COL_STATUS] || '').trim();
+    if (status.indexOf('成約') === -1) continue;
+    if (status.indexOf('失注') !== -1) continue;
+    if (status.indexOf('CO') !== -1) continue;
+    if (status === 'テスト' || status === '継続') continue;
+
+    var sales = String(row[PA_COL_SALES] || '').trim();
+    var name = String(row[PA_COL_NAME] || '').trim();
+    if (!sales || !name) continue;
+
+    out.push({
+      push: String(row[PA_COL_PUSH] || '').trim(),
+      sales: sales,
+      name: name,
+      line: String(row[PA_COL_LINE] || '').trim(),
+      email: String(row[PA_COL_EMAIL] || '').toLowerCase().trim()
+    });
+  }
+  return out;
+}
+
+/**
+ * 「ユニヴァ」タブ読み取り
+ * 期待カラム: ID, 日付, 店舗, 支払い詳細, 金額, タイプ, モード, ステータス
+ */
+function readUnivaTab_(ss) {
+  var sheet = ss.getSheetByName(PA_TAB_UNIVA);
+  if (!sheet) { Logger.log('ユニヴァタブなし'); return []; }
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  var data = sheet.getRange(2, 1, lastRow - 1, 8).getValues();
+
+  var out = [];
+  for (var i = 0; i < data.length; i++) {
+    var r = data[i];
+    var status = String(r[7] || '').trim();
+    if (status && status !== '成功') continue;
+    var typ = String(r[5] || '').trim();
+    var amt = parsePAAmount_(r[4]);
+    if (amt === null) continue;
+    if (typ === '返金') amt = -Math.abs(amt);
+    var detail = String(r[3] || '').trim();
+    var parsed = parsePAUnivaDetail_(detail);
+    var dateStr = parsePAUnivaDate_(r[1]);
+    if (!dateStr) continue;
+    out.push({
+      date: dateStr,
+      name: parsed.name,
+      email: parsed.email,
+      amt: amt,
+      type: typ
+    });
+  }
+  return out;
+}
+
+/**
+ * 「ライフティ」タブ読み取り
+ * 期待カラム: 申込ID, 申込日時, 加盟店名, 加盟店支店名, 担当者, 加盟店顧客ID,
+ *           申込者氏名, 金額, 回数, 承認番号, お客様ﾀﾞｳﾝﾛｰﾄﾞ日時, 受付ｽﾃｰﾀｽ, ...
+ */
+function readLiftyTab_(ss) {
+  var sheet = ss.getSheetByName(PA_TAB_LIFTY);
+  if (!sheet) { Logger.log('ライフティタブなし'); return []; }
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  var data = sheet.getRange(2, 1, lastRow - 1, 17).getValues();
+
+  var out = [];
+  for (var i = 0; i < data.length; i++) {
+    var r = data[i];
+    var receipt = String(r[11] || '').trim();
+    if (receipt && receipt !== '完了') continue;
+    var amt = parsePAAmount_(r[7]);
+    if (amt === null || amt <= 0) continue;
+    var name = String(r[6] || '').trim();
+    if (!name) continue;
+    var applyDate = parsePALiftyDate_(r[1]);
+    var completeDate = parsePALiftyDate_(r[10]);
+    if (!completeDate) continue;
+    out.push({
+      apply_date: applyDate,
+      complete_date: completeDate,
+      name: name,
+      amt: amt,
+      sales: String(r[4] || '').trim()
+    });
+  }
+  return out;
+}
+
+/**
+ * 「銀振」タブ読み取り
+ * 期待カラム: 日付, 摘要, 入金金額, 出金金額, 残高, メモ
+ * - 入金金額があるレコードのみ
+ * - 摘要に「振込」を含む
+ * - 決済代行・手数料は除外
+ */
+function readBankTab_(ss) {
+  var sheet = ss.getSheetByName(PA_TAB_BANK);
+  if (!sheet) { Logger.log('銀振タブなし'); return []; }
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  var data = sheet.getRange(2, 1, lastRow - 1, 6).getValues();
+
+  var out = [];
+  for (var i = 0; i < data.length; i++) {
+    var r = data[i];
+    var inAmt = parsePAAmount_(r[2]);
+    if (inAmt === null || inAmt <= 0) continue;
+    var desc = String(r[1] || '').trim();
+    if (desc.indexOf('振込') === -1) continue;
+    if (desc.indexOf('手数料') !== -1) continue;
+    var isProcessor = false;
+    for (var k = 0; k < PA_BANK_PROCESSOR_KW.length; k++) {
+      if (desc.indexOf(PA_BANK_PROCESSOR_KW[k]) !== -1) { isProcessor = true; break; }
+    }
+    if (isProcessor) continue;
+    var dateStr = parsePABankDate_(r[0]);
+    if (!dateStr) continue;
+    var nameKana = desc.replace(/^振込\s+/, '').replace(/^入金\s+/, '').trim();
+    out.push({
+      date: dateStr,
+      name_kana: nameKana,
+      amt: inAmt
+    });
+  }
+  return out;
+}
+
+/**
+ * 成約者リストからマッチング用インデックスを構築
+ */
+function buildSeiyakuIndexes_(seiyaku) {
+  var emailIdx = {};
+  var nameIdx = {};
+  var lineIdx = {};
+  for (var i = 0; i < seiyaku.length; i++) {
+    var s = seiyaku[i];
+    if (s.email) emailIdx[s.email] = s;
+    var n = normalizeName_(s.name);
+    if (n) {
+      if (!nameIdx[n]) nameIdx[n] = [];
+      nameIdx[n].push(s);
+    }
+    if (s.name.indexOf('/') !== -1) {
+      var parts = s.name.split('/');
+      for (var p = 0; p < parts.length; p++) {
+        var np = normalizeName_(parts[p]);
+        if (np) {
+          if (!nameIdx[np]) nameIdx[np] = [];
+          nameIdx[np].push(s);
+        }
+      }
+    }
+    var l = normalizeName_(s.line);
+    if (l) {
+      if (!lineIdx[l]) lineIdx[l] = [];
+      lineIdx[l].push(s);
+    }
+  }
+  return { email: emailIdx, name: nameIdx, line: lineIdx };
+}
+
+/**
+ * 商談者×月別の着金額集計（一次データに現れる月をすべて集計）
+ */
+function aggregateBySalesAndMonth_(univaTxs, liftyTxs, bankTxs, idx) {
+  var result = {};
+  function ensure(sales, ym) {
+    if (!result[sales]) result[sales] = {};
+    if (!result[sales][ym]) result[sales][ym] = { univa: 0, lifty: 0, bank: 0, total: 0, count: 0 };
+    return result[sales][ym];
+  }
+
+  // ユニヴァ：管理画面の決済日(=日付列)の月で計上（実銀行入金タイミングは無視）
+  for (var i = 0; i < univaTxs.length; i++) {
+    var tx = univaTxs[i];
+    var ym = tx.date.substring(0, 7);
+    var s = matchUnivaSeiyaku_(tx, idx);
+    if (!s) continue;
+    var bucket = ensure(shortSales_(s.sales), ym);
+    bucket.univa += tx.amt;
+    bucket.total += tx.amt;
+    bucket.count += 1;
+  }
+
+  // ライフティ：完了日(=お客様ﾀﾞｳﾝﾛｰﾄﾞ日時)の月で計上
+  for (var i = 0; i < liftyTxs.length; i++) {
+    var tx = liftyTxs[i];
+    var ym = tx.complete_date.substring(0, 7);
+    var s = matchLiftySeiyaku_(tx, idx);
+    if (!s) continue;
+    var bucket = ensure(shortSales_(s.sales), ym);
+    bucket.lifty += tx.amt;
+    bucket.total += tx.amt;
+    bucket.count += 1;
+  }
+
+  // 銀振：入金日の月で計上
+  for (var i = 0; i < bankTxs.length; i++) {
+    var tx = bankTxs[i];
+    var ym = tx.date.substring(0, 7);
+    var s = matchBankSeiyaku_(tx, idx);
+    if (!s) continue;
+    var bucket = ensure(shortSales_(s.sales), ym);
+    bucket.bank += tx.amt;
+    bucket.total += tx.amt;
+    bucket.count += 1;
+  }
+
+  return result;
+}
+
+/**
+ * 集計済みタブに upsert
+ * - 既存タブの履歴は保持
+ * - processedMonths（今回の一次データに現れた月）の行のみ削除して再書き込み
+ * - 過去月（一次データに無い）はそのまま残る
+ */
+function upsertAggregatedSheet_(ss, aggregated, processedMonths) {
+  var sheet = ss.getSheetByName(PA_TAB_AGG);
+  var headerRow = ['月', '商談者', '着金額', 'ユニヴァ', 'ライフティ', '銀振', '件数', '更新日時'];
+  var now = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd HH:mm:ss');
+
+  if (!sheet) {
+    sheet = ss.insertSheet(PA_TAB_AGG);
+    sheet.getRange(1, 1, 1, headerRow.length).setValues([headerRow]);
+    sheet.setFrozenRows(1);
+  }
+
+  // 既存データ読み込み（ヘッダー除く）
+  var lastRow = sheet.getLastRow();
+  var existingRows = [];
+  if (lastRow >= 2) {
+    existingRows = sheet.getRange(2, 1, lastRow - 1, headerRow.length).getValues();
+  }
+  // ヘッダーが欠けてる場合は仮設置
+  if (lastRow === 0) {
+    sheet.getRange(1, 1, 1, headerRow.length).setValues([headerRow]);
+    sheet.setFrozenRows(1);
+  }
+
+  // 今回処理する月以外の既存行を残す
+  var keepRows = [];
+  var processedSet = {};
+  for (var i = 0; i < processedMonths.length; i++) processedSet[processedMonths[i]] = true;
+  for (var i = 0; i < existingRows.length; i++) {
+    var r = existingRows[i];
+    var ym = String(r[0] || '').trim();
+    if (!ym) continue;
+    if (!processedSet[ym]) keepRows.push(r);
+  }
+
+  // 今回計算分を月（新→旧）×着金額（多→少）順で生成
+  var newRows = [];
+  for (var i = 0; i < processedMonths.length; i++) {
+    var ym = processedMonths[i];
+    var salesList = [];
+    for (var sales in aggregated) {
+      if (aggregated[sales][ym] && aggregated[sales][ym].total !== 0) {
+        salesList.push(sales);
+      }
+    }
+    salesList.sort(function(a, b) {
+      return aggregated[b][ym].total - aggregated[a][ym].total;
+    });
+    for (var j = 0; j < salesList.length; j++) {
+      var sales = salesList[j];
+      var b = aggregated[sales][ym];
+      newRows.push([ym, sales, b.total, b.univa, b.lifty, b.bank, b.count, now]);
+    }
+  }
+
+  // 全データ：既存（保持）+ 新規。月ソート（新→旧）、同月内は着金額（多→少）
+  var allRows = keepRows.concat(newRows);
+  allRows.sort(function(a, b) {
+    if (a[0] !== b[0]) return String(b[0]).localeCompare(String(a[0]));
+    return Number(b[2]) - Number(a[2]);
+  });
+
+  // 既存行（ヘッダー除く）をクリアして書き込み
+  if (lastRow >= 2) {
+    sheet.getRange(2, 1, lastRow - 1, headerRow.length).clearContent();
+  }
+  if (allRows.length > 0) {
+    sheet.getRange(2, 1, allRows.length, headerRow.length).setValues(allRows);
+  }
+}
+
+// =========== ヘルパー関数 ===========
+
+function parsePAAmount_(v) {
+  if (v === null || v === undefined || v === '') return null;
+  if (typeof v === 'number') return v;
+  var s = String(v).replace(/[¥￥,JPY円\s]/g, '').replace(/,/g, '');
+  if (s === '') return null;
+  var n = Number(s);
+  return isNaN(n) ? null : n;
+}
+
+/**
+ * ユニヴァの「支払い詳細」セルから name と email を抽出
+ * 例: "misa kikuchi  manmaru-misakichi@t.vodafone.ne.jp"
+ */
+function parsePAUnivaDetail_(s) {
+  var emailMatch = s.match(/[\w.+-]+@[\w.-]+\.[\w]+/);
+  var email = emailMatch ? emailMatch[0].toLowerCase() : '';
+  var name = email ? s.replace(email, '').trim() : s.trim();
+  // 改行で分かれている場合の処理
+  name = name.replace(/\s+/g, ' ').trim();
+  return { name: name, email: email };
+}
+
+/**
+ * ユニヴァの日付列を YYYY-MM-DD 文字列に変換
+ * 例: "2026-04-30, 21:10:15" or Date オブジェクト
+ */
+function parsePAUnivaDate_(v) {
+  if (v instanceof Date) {
+    return Utilities.formatDate(v, 'Asia/Tokyo', 'yyyy-MM-dd');
+  }
+  var s = String(v || '').trim();
+  var m = s.match(/(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+  if (m) return m[1] + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[3]).slice(-2);
+  return null;
+}
+
+/**
+ * ライフティの日付（"2026年4月30日 21:11:44" 形式）を YYYY-MM-DD 文字列に変換
+ */
+function parsePALiftyDate_(v) {
+  if (v instanceof Date) {
+    return Utilities.formatDate(v, 'Asia/Tokyo', 'yyyy-MM-dd');
+  }
+  var s = String(v || '').trim();
+  var m = s.match(/(\d{4})年(\d{1,2})月(\d{1,2})日/);
+  if (m) return m[1] + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[3]).slice(-2);
+  m = s.match(/(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+  if (m) return m[1] + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[3]).slice(-2);
+  return null;
+}
+
+/**
+ * 銀振の日付（"20260403" 形式）を YYYY-MM-DD 文字列に変換
+ */
+function parsePABankDate_(v) {
+  if (v instanceof Date) {
+    return Utilities.formatDate(v, 'Asia/Tokyo', 'yyyy-MM-dd');
+  }
+  var s = String(v || '').trim();
+  if (/^\d{8}$/.test(s)) {
+    return s.substring(0, 4) + '-' + s.substring(4, 6) + '-' + s.substring(6, 8);
+  }
+  var m = s.match(/(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+  if (m) return m[1] + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[3]).slice(-2);
+  return null;
+}
+
+/**
+ * 名前正規化：カッコ・/・スペース・全角半角を除去、小文字化
+ */
+function normalizeName_(s) {
+  if (!s) return '';
+  var x = String(s);
+  x = x.replace(/\([^)]*\)/g, '');
+  x = x.replace(/（[^）]*）/g, '');
+  x = x.replace(/\//g, '');
+  x = x.replace(/\s+/g, '');
+  x = x.replace(/　/g, '');
+  return x.toLowerCase().trim();
+}
+
+function matchUnivaSeiyaku_(tx, idx) {
+  if (tx.email && idx.email[tx.email]) return idx.email[tx.email];
+  var nl = tx.name.toLowerCase().replace(/\s+/g, '');
+  for (var k in idx.line) {
+    if (k.length >= 4 && (nl.indexOf(k) !== -1 || k.indexOf(nl) !== -1)) {
+      return idx.line[k][0];
+    }
+  }
+  return null;
+}
+
+function matchLiftySeiyaku_(tx, idx) {
+  var n = normalizeName_(tx.name);
+  if (idx.name[n]) return idx.name[n][0];
+  for (var k in idx.name) {
+    if (n.length >= 3 && (n.indexOf(k) !== -1 || k.indexOf(n) !== -1)) {
+      return idx.name[k][0];
+    }
+  }
+  return null;
+}
+
+/**
+ * 銀振：カナ→漢字のヒントマップ（手動メンテ）
+ */
+var PA_KANA_HINTS = {
+  'ヒラカタ ヒデキ': ['平方'],
+  'アダチ サオリ': ['安達'],
+  'ノジリ クミコ': ['野尻'],
+  'コクブ アケミ': ['国分'],
+  'キムラ カオリ': ['木村'],
+  'カ） カノメイド': ['Kanomade'],
+  'ナカノ ヨウイチ': ['中野'],
+  'ミナガワ タケヒロ': ['皆川'],
+  'ヤマシタ カオリ': ['山下'],
+  'コイケ クミコ': ['小池'],
+  'オクムラ リエ': ['奥村'],
+  'ヤギ ユウコ': ['八木', '裕子'],
+  'オクムラコウイチ': ['奥村', '公一'],
+  'ナカガワ サユミ': ['中川'],
+  'タナカヨシカズ': ['田中', '吉一'],
+  'フルタ サチコ': ['古田'],
+  'イトウ ユリカ': ['伊藤'],
+  'フルカワ サトシ': ['古川'],
+  'アリマ シホ': ['有馬'],
+  'イワシマ ユミ': ['岩島'],
+  'ナメリカワ タケシ': ['滑川'],
+  'クスヤ ユミ': ['楠谷'],
+  'タチオカ シンゴ': ['立岡'],
+  'ヨシカワ サトシ': ['吉川'],
+  'ハセガワ リヨウ': ['長谷川'],
+  'アオキ ユウマ': ['青木'],
+  'タナカ エツヨ': ['田中', '悦代'],
+  'ハシモト フミコ': ['橋本', '布美子'],
+  'ヤマイシ ミホ': ['山石'],
+  'ウエノ ユウイチ': ['上野'],
+  'オオミナト メグミ': ['大湊'],
+  'マツカワ ヒロヤ': ['松川'],
+  'マツモト シズカ': ['松本', '静香'],
+  'オオオカ ヒロカズ': ['大岡'],
+  'スギサワ ダイスケ': ['杉澤'],
+  'イイダ マサノリ': ['飯田'],
+  'イシイ エリコ': ['石井'],
+  'オノデラカナ': ['小野寺'],
+  'ヒラヤマ ユウスケ': ['平山'],
+  'モリ タカアキ': ['森', '貴明']
+};
+
+function matchBankSeiyaku_(tx, idx) {
+  var hints = PA_KANA_HINTS[tx.name_kana];
+  if (!hints || hints.length === 0) return null;
+  for (var k in idx.name) {
+    var allMatch = true;
+    for (var h = 0; h < hints.length; h++) {
+      if (k.indexOf(hints[h].toLowerCase()) === -1) { allMatch = false; break; }
+    }
+    if (allMatch) return idx.name[k][0];
+  }
+  return null;
+}
+
+/**
+ * 商談者名の正規化（フルネーム→姓のみ）
+ */
+function shortSales_(s) {
+  var prefixes = ['阿部', '大久保', '新居', '伊東', '中市', '辻阪', '辻坂',
+                  '吉崎', '五十嵐', '鍋嶋', '森本', '久保田', '福島', '佐々木',
+                  '矢吹', '川合', '大内', '前村', 'スズカ', 'セナ', '関', '奥'];
+  for (var i = 0; i < prefixes.length; i++) {
+    if (s.indexOf(prefixes[i]) === 0) {
+      return prefixes[i] === '辻坂' ? '辻阪' : prefixes[i];
+    }
+  }
+  return s;
+}
+
+function countSales_(aggregated) {
+  var c = 0;
+  for (var k in aggregated) c++;
+  return c;
+}
+
+// =========== トリガー設定（手動で1回だけ実行）===========
+
+/**
+ * 毎日朝8時にaggregatePrimaryDataを実行するトリガーを設定
+ * GASエディタから手動で1回だけ実行する
+ * 経理が朝7時に貼付け→8時にGAS実行
+ */
+function setupPaymentAggregatorTrigger() {
+  var triggers = ScriptApp.getProjectTriggers();
+  for (var i = 0; i < triggers.length; i++) {
+    if (triggers[i].getHandlerFunction() === 'aggregatePrimaryData') {
+      ScriptApp.deleteTrigger(triggers[i]);
+    }
+  }
+  ScriptApp.newTrigger('aggregatePrimaryData')
+    .timeBased()
+    .atHour(8)
+    .everyDays(1)
+    .create();
+  Logger.log('aggregatePrimaryData トリガー設定完了: 毎日朝8時');
+}
