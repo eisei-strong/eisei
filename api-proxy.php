@@ -9,7 +9,7 @@ header('Cache-Control: public, max-age=60');
 // ===== 設定 =====
 // 注意: GAS exec URLは今後使わない（トリガー＝clasp pushのみ、デプロイ不要）
 // フォールバック用に残すが、主要データはMaster CSVから直接取得
-$GAS_URL = 'https://script.google.com/macros/s/AKfycby6qaaiUoadCBnxHlUNKd-RkHxarE0WBGiitkdV0IbzL6ninM-df0FFx4SYRYVfdwcxqg/exec';
+$GAS_URL = 'https://script.google.com/macros/s/AKfycbw2tvPqcuJttb09OuuCDKvi5mQMwcCDqJLFRPJk3pc4w0IIAOyDPEPTRnUKPrMDPgGE4A/exec';
 $MASTER_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1KxHeLmrpdaw1IUhBaQ46UWSHu-8SCRZqcrHOE2hMwDo/export?format=csv&gid=326094286';
 $CACHE_DIR = __DIR__ . '/cache';
 $CACHE_TTL_LIVE = 180;
