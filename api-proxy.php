@@ -11,6 +11,8 @@ header('Cache-Control: public, max-age=60');
 // フォールバック用に残すが、主要データはMaster CSVから直接取得
 $GAS_URL = 'https://script.google.com/macros/s/AKfycbw2tvPqcuJttb09OuuCDKvi5mQMwcCDqJLFRPJk3pc4w0IIAOyDPEPTRnUKPrMDPgGE4A/exec';
 $MASTER_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1KxHeLmrpdaw1IUhBaQ46UWSHu-8SCRZqcrHOE2hMwDo/export?format=csv&gid=326094286';
+// 集計済みタブ（GASのPaymentAggregatorが生成、一次データから計算した着金額）
+$AGG_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1KxHeLmrpdaw1IUhBaQ46UWSHu-8SCRZqcrHOE2hMwDo/export?format=csv&gid=821922438';
 $CACHE_DIR = __DIR__ . '/cache';
 $CACHE_TTL_LIVE = 180;
 $CACHE_TTL_ARCHIVE = 3600;
@@ -844,6 +846,9 @@ function fillPrevMonthData(&$data) {
     $prevData = fetchFromMasterCSV($prevMonth, $prevYear);
     if (!$prevData || empty($prevData['members'])) return;
 
+    // 前月の着金額も集計済みタブで上書き（前月比をapples-to-applesにする）
+    applyAggregatedRevenue($prevData, $prevMonth, $prevYear);
+
     $prevMap = [];
     foreach ($prevData['members'] as $pm) {
         $prevMap[$pm['name']] = $pm;
@@ -953,6 +958,82 @@ function fetchHolidayData($month, $year) {
     ];
 }
 
+// ===== 集計済みタブ（一次データベースの着金額）取得 =====
+
+function getAggregatedSheetRows() {
+    global $AGG_SHEET_URL;
+    static $cached = null;
+    if ($cached !== null) return $cached;
+
+    $csv = gasRequest($AGG_SHEET_URL);
+    if (!$csv) { $cached = []; return $cached; }
+    $cached = parseCsv($csv);
+    if (empty($cached)) $cached = [];
+    return $cached;
+}
+
+// 商談月でフィルタした[本名 => 着金額(万円)]を返す
+function fetchFromAggregatedSheet($month, $year) {
+    $rows = getAggregatedSheetRows();
+    if (empty($rows)) return [];
+
+    $monthPrefix = sprintf('%04d-%02d', $year, $month);
+
+    // ヘッダー: 商談日,商談者,顧客,着金額,ユニヴァ,ライフティ,銀振,件数,更新日時
+    $byRawName = [];
+    foreach ($rows as $idx => $row) {
+        if ($idx === 0) continue;
+        if (count($row) < 4) continue;
+        $dateStr = trim($row[0]);
+        $rawName = trim($row[1]);
+        if (!$dateStr || strpos($dateStr, $monthPrefix) !== 0) continue;
+        if (!$rawName) continue;
+        $byRawName[$rawName] = ($byRawName[$rawName] ?? 0) + floatval($row[3]);
+    }
+    return $byRawName;
+}
+
+// 集計済みタブの値で $data の revenue / totalRevenue / ランキングを上書き
+function applyAggregatedRevenue(&$data, $month, $year) {
+    if (empty($data['members'])) return;
+
+    $aggByRaw = fetchFromAggregatedSheet($month, $year);
+    if (empty($aggByRaw)) return; // フォールバック: マスター値のまま
+
+    list($nameMap, , ) = getMapsForMonth($month, $year);
+
+    // 本名 → 表示名 へ集約
+    $aggByDisplay = [];
+    foreach ($aggByRaw as $rawName => $amount) {
+        $displayName = resolveV2Name($rawName, $nameMap);
+        if (!$displayName) continue;
+        $aggByDisplay[$displayName] = ($aggByDisplay[$displayName] ?? 0) + $amount;
+    }
+
+    // メンバー毎に revenue 上書き
+    $totalRevenue = 0;
+    foreach ($data['members'] as &$m) {
+        $newRev = round($aggByDisplay[$m['name']] ?? 0, 1);
+        $m['revenue'] = $newRev;
+        $totalRevenue += $newRev;
+    }
+    unset($m);
+
+    // ランキング再計算
+    usort($data['members'], function($a, $b) { return $b['revenue'] <=> $a['revenue']; });
+    $lastRev = -1; $lastRank = 0;
+    $topRev = !empty($data['members']) ? $data['members'][0]['revenue'] : 0;
+    foreach ($data['members'] as $i => &$m) {
+        $m['rank'] = ($m['revenue'] == $lastRev) ? $lastRank : $i + 1;
+        $lastRev = $m['revenue'];
+        $lastRank = $m['rank'];
+        $m['gapToTop'] = round($topRev - $m['revenue'], 1);
+    }
+    unset($m);
+
+    $data['totalRevenue'] = round($totalRevenue, 1);
+}
+
 // ===== メインダッシュボードデータ取得 =====
 
 function fetchDashboardData() {
@@ -963,6 +1044,9 @@ function fetchDashboardData() {
     // 1. マスターCSVから全データ取得
     $data = fetchFromMasterCSV($currentMonth, $currentYear);
     if (!$data) return null;
+
+    // 1.5 着金額のみ集計済みタブ（一次データ）で上書き
+    applyAggregatedRevenue($data, $currentMonth, $currentYear);
 
     // 2. 着金速報はマスターCSVから生成済み（fetchFromMasterCSV内で収集）
 
@@ -1001,6 +1085,9 @@ function fetchArchiveData($month, $year) {
     // マスターCSVから過去月データを取得（GAS API廃止）
     $data = fetchFromMasterCSV(intval($month), intval($year));
     if (!$data) return null;
+
+    // 着金額を集計済みタブ（一次データ）で上書き
+    applyAggregatedRevenue($data, intval($month), intval($year));
 
     applyGoalSettings($data, $month, $year);
     recalculate($data);
