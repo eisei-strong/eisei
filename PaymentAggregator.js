@@ -589,13 +589,47 @@ function normalizeName_(s) {
 }
 
 function matchUnivaSeiyaku_(tx, idx) {
+  // 1. email完全一致
   if (tx.email && idx.email[tx.email]) return idx.email[tx.email];
+
+  // 2. email の local part 共通プレフィックス（5文字以上一致）
+  //    例: hitomi10e ⇔ hitomin12yuki31 → 'hitomi' 6文字共通 → match
+  if (tx.email) {
+    var txLocal = tx.email.split('@')[0].toLowerCase();
+    if (txLocal.length >= 5) {
+      for (var key in idx.email) {
+        var keyLocal = key.split('@')[0].toLowerCase();
+        if (commonPrefixLen_(txLocal, keyLocal) >= 5) {
+          return idx.email[key];
+        }
+      }
+    }
+  }
+
+  // 3. ローマ字 name → line_idx 部分一致（既存）
   var nl = tx.name.toLowerCase().replace(/\s+/g, '');
   for (var k in idx.line) {
     if (k.length >= 4 && (nl.indexOf(k) !== -1 || k.indexOf(nl) !== -1)) {
       return latestEntry_(idx.line[k]);
     }
   }
+
+  // 4. ローマ字 → カナ変換 → line_idx / name_idx 部分一致
+  //    例: fumiyo fukazawa → フミヨフカザワ → マスターLINE「フミヨ」と一致
+  var kana = romajiToKatakana_(tx.name);
+  if (kana && kana.length >= 4) {
+    for (var k2 in idx.line) {
+      if (k2.length >= 3 && (kana.indexOf(k2) !== -1 || k2.indexOf(kana) !== -1)) {
+        return latestEntry_(idx.line[k2]);
+      }
+    }
+    for (var k3 in idx.name) {
+      if (k3.length >= 3 && (kana.indexOf(k3) !== -1 || k3.indexOf(kana) !== -1)) {
+        return latestEntry_(idx.name[k3]);
+      }
+    }
+  }
+
   return null;
 }
 
@@ -608,6 +642,95 @@ function matchLiftySeiyaku_(tx, idx) {
     }
   }
   return null;
+}
+
+/**
+ * 2 つの文字列の共通プレフィックス長
+ */
+function commonPrefixLen_(a, b) {
+  var n = Math.min(a.length, b.length);
+  for (var i = 0; i < n; i++) {
+    if (a.charAt(i) !== b.charAt(i)) return i;
+  }
+  return n;
+}
+
+/**
+ * 簡易ヘボン式ローマ字→カタカナ変換
+ * 商談者のマスター LINE 名が「フミヨ」のようにカナで登録されている時、
+ * ユニヴァのローマ字 name 「fumiyo fukazawa」と紐付けるために使う
+ */
+function romajiToKatakana_(s) {
+  if (!s) return '';
+  s = String(s).toLowerCase().replace(/[\s_\-\.]+/g, '');
+  var conv = [
+    ['kya','キャ'],['kyu','キュ'],['kyo','キョ'],
+    ['sha','シャ'],['shu','シュ'],['sho','ショ'],['shi','シ'],
+    ['cha','チャ'],['chu','チュ'],['cho','チョ'],['chi','チ'],['tsu','ツ'],
+    ['nya','ニャ'],['nyu','ニュ'],['nyo','ニョ'],
+    ['hya','ヒャ'],['hyu','ヒュ'],['hyo','ヒョ'],
+    ['mya','ミャ'],['myu','ミュ'],['myo','ミョ'],
+    ['rya','リャ'],['ryu','リュ'],['ryo','リョ'],
+    ['gya','ギャ'],['gyu','ギュ'],['gyo','ギョ'],
+    ['jya','ジャ'],['jyu','ジュ'],['jyo','ジョ'],
+    ['bya','ビャ'],['byu','ビュ'],['byo','ビョ'],
+    ['pya','ピャ'],['pyu','ピュ'],['pyo','ピョ'],
+    ['ka','カ'],['ki','キ'],['ku','ク'],['ke','ケ'],['ko','コ'],
+    ['sa','サ'],['su','ス'],['se','セ'],['so','ソ'],
+    ['ta','タ'],['te','テ'],['to','ト'],['ti','チ'],
+    ['na','ナ'],['ni','ニ'],['nu','ヌ'],['ne','ネ'],['no','ノ'],
+    ['ha','ハ'],['hi','ヒ'],['hu','フ'],['he','ヘ'],['ho','ホ'],
+    ['fa','ファ'],['fi','フィ'],['fu','フ'],['fe','フェ'],['fo','フォ'],
+    ['ma','マ'],['mi','ミ'],['mu','ム'],['me','メ'],['mo','モ'],
+    ['ya','ヤ'],['yu','ユ'],['yo','ヨ'],
+    ['ra','ラ'],['ri','リ'],['ru','ル'],['re','レ'],['ro','ロ'],
+    ['wa','ワ'],['wo','ヲ'],
+    ['ga','ガ'],['gi','ギ'],['gu','グ'],['ge','ゲ'],['go','ゴ'],
+    ['za','ザ'],['zi','ジ'],['zu','ズ'],['ze','ゼ'],['zo','ゾ'],
+    ['ja','ジャ'],['ji','ジ'],['ju','ジュ'],['je','ジェ'],['jo','ジョ'],
+    ['da','ダ'],['di','ジ'],['du','ヅ'],['de','デ'],['do','ド'],
+    ['ba','バ'],['bi','ビ'],['bu','ブ'],['be','ベ'],['bo','ボ'],
+    ['pa','パ'],['pi','ピ'],['pu','プ'],['pe','ペ'],['po','ポ'],
+    ['vu','ヴ'],
+    ['a','ア'],['i','イ'],['u','ウ'],['e','エ'],['o','オ'],
+    ['n','ン']
+  ];
+  var result = '';
+  while (s.length > 0) {
+    var matched = false;
+    for (var i = 0; i < conv.length; i++) {
+      if (s.indexOf(conv[i][0]) === 0) {
+        result += conv[i][1];
+        s = s.substring(conv[i][0].length);
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) {
+      s = s.substring(1);
+    }
+  }
+  return result;
+}
+
+/**
+ * デバッグ用: マスター内で query を含む顧客行を全て出す
+ */
+function debugCustomer(query) {
+  var ss = SpreadsheetApp.openById(PA_MASTER_ID);
+  var seiyaku = readSeiyakuFromMaster_(ss);
+  Logger.log('=== マスター内 「' + query + '」を含む顧客 ===');
+  var hits = 0;
+  var q = String(query).toLowerCase();
+  for (var i = 0; i < seiyaku.length; i++) {
+    var s = seiyaku[i];
+    var hay = (s.name + ' ' + s.line + ' ' + s.email).toLowerCase();
+    if (hay.indexOf(q) !== -1) {
+      hits++;
+      Logger.log('  ' + s.pushDate + ' / 商談者=' + s.sales + ' / 名:' + s.name + ' / line:' + s.line + ' / email:' + s.email + ' / status:' + s.status);
+    }
+  }
+  Logger.log('合計: ' + hits + '件');
 }
 
 /**
