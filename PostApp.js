@@ -14,8 +14,9 @@ var POST_APP_PUSH_SHEET_NAME = 'プッシュ数';
 var POST_APP_AUTH_SHEET = '認証';
 var POST_APP_ID_COL = 1;      // A列: ID
 var POST_APP_NAME_COL = 4;    // D列: 名前 (背景色=リスト数権限判定)
-var POST_APP_TOTAL_COL = 5;   // E列: 当月合計
-var POST_APP_DATE_START_COL = 6;  // F列: 運用開始月の1日
+var POST_APP_TOTAL_COL = 5;   // E列: 全期間合計（月別合計列追加後 2026-05-04）
+var POST_APP_MONTHLY_TOTAL_START_COL = 6;  // F列: 4月合計（月別合計の起点）
+var POST_APP_DATE_START_COL = 15;  // O列: 運用開始月の1日（月別合計列9個分シフト後）
 
 // 運用開始年月（この月の1日からF列に記録開始）
 var POST_APP_RUN_START_YEAR = 2026;
@@ -62,7 +63,8 @@ function getCurrentMonthColRange_() {
  * 月別合計列追加（2026-05-03）後はホープ数もL列起点に統一。
  */
 function getCurrentMonthHopeColRange_(sheetName, year, month) {
-  var dataStartCol = 12; // ホープ数・プッシュ数とも L列起点に統一
+  // ホープ数: 全期間合計列追加後 M列(13)起点 / プッシュ数: L列(12)起点
+  var dataStartCol = (sheetName === POST_APP_PUSH_SHEET_NAME) ? 12 : 13;
   var COLS_PER_DAY = 3;
   var now = new Date();
   if (!year) year = now.getFullYear();
@@ -1900,4 +1902,177 @@ function migrateHopeAddMonthlyTotals() {
   Logger.log('=== マイグレーション完了 ===');
   Logger.log('スプシで目視確認: C列〜K列が月別合計、L列以降が4月〜のデータ');
   Logger.log('注意: GAS本番デプロイ更新後でないと、サーバーが古い列位置で読み続けます');
+}
+
+// ============================================
+// 全期間合計列追加 + 投稿数の月別合計列追加（2026-05-04）
+// ============================================
+
+/**
+ * 読み取り専用：投稿数シートの構造確認
+ */
+function inspectPostStructureBeforeMigration() {
+  var ss = SpreadsheetApp.openById(POST_APP_SS_ID);
+  var sheet = ss.getSheetByName(POST_APP_SHEET_NAME);
+  if (!sheet) { Logger.log('❌ 投稿数シートなし'); return; }
+
+  var lastRow = sheet.getLastRow();
+  var lastCol = sheet.getLastColumn();
+  Logger.log('=== 投稿数シート構造 ===');
+  Logger.log('lastRow: ' + lastRow + ', lastCol: ' + lastCol + ' (' + postAppColToLetter_(lastCol) + ')');
+  Logger.log('凍結列: ' + sheet.getFrozenColumns() + ', 凍結行: ' + sheet.getFrozenRows());
+
+  Logger.log('--- 1〜2行目のメタ列（A〜H）---');
+  var meta = sheet.getRange(1, 1, 2, 8).getValues();
+  for (var i = 0; i < 2; i++) {
+    Logger.log('  行' + (i + 1) + ': A=' + meta[i][0] + ' B=' + meta[i][1] + ' C=' + meta[i][2] + ' D=' + meta[i][3] + ' E=' + meta[i][4] + ' F=' + meta[i][5] + ' G=' + meta[i][6] + ' H=' + meta[i][7]);
+  }
+
+  Logger.log('--- E列（合計）の数式・値（先頭3メンバー）---');
+  if (lastRow >= 2) {
+    var fs = sheet.getRange(2, 5, 3, 1).getFormulas();
+    var vs = sheet.getRange(2, 5, 3, 1).getValues();
+    for (var n = 0; n < fs.length; n++) {
+      Logger.log('  row=' + (n + 2) + ' E列 数式=' + fs[n][0] + ' 値=' + vs[n][0]);
+    }
+  }
+
+  Logger.log('--- F列（4/1） の中身先頭5行 ---');
+  if (lastRow >= 2) {
+    var fcol = sheet.getRange(2, 6, Math.min(5, lastRow - 1), 1).getValues();
+    for (var k = 0; k < fcol.length; k++) {
+      Logger.log('  row=' + (k + 2) + ' F列=' + fcol[k][0]);
+    }
+  }
+
+  Logger.log('=== 判定 ===');
+  Logger.log('F1が「4月合計」なら既に新構造');
+  Logger.log('F1が日付/空欄、E列がCOUNTIF(F:AI...) → 旧構造、migrate必要');
+  Logger.log('=== inspect 完了 ===');
+}
+
+/**
+ * 投稿数 + ホープ数 両方の実体確認
+ */
+function inspectAllSheetsBeforeMigration() {
+  inspectPostStructureBeforeMigration();
+  Logger.log('');
+  inspectHopeStructureBeforeMigration();
+}
+
+/**
+ * ホープ数: C列の左に「全期間合計」列を1列追加
+ * 既存: A=ID, B=名前, C=4月合計, D=5月合計, ..., K=12月合計, L〜=データ
+ * 新規: A=ID, B=名前, C=全期間合計, D=4月合計, ..., L=12月合計, M〜=データ
+ */
+function migrateAddPeriodTotalToHope() {
+  var ss = SpreadsheetApp.openById(POST_APP_SS_ID);
+  var sheet = ss.getSheetByName(POST_APP_HOPE_SHEET_NAME);
+  if (!sheet) { Logger.log('❌ ホープ数シートなし'); return; }
+
+  var lastRow = sheet.getLastRow();
+  Logger.log('=== ホープ数: 全期間合計列追加 開始 ===');
+
+  if (lastRow >= 2) {
+    var c2 = sheet.getRange(2, 3).getValue();
+    if (typeof c2 === 'string' && c2.indexOf('全期間') >= 0) {
+      Logger.log('⚠️ C2="' + c2 + '" → 既に追加済み、中止');
+      return;
+    }
+  }
+
+  sheet.insertColumnsAfter(2, 1);
+  Logger.log('✅ B列の右に1列挿入');
+
+  sheet.getRange(1, 3).setValue('全期間合計').setHorizontalAlignment('center').setFontWeight('bold').setBackground('#FFD600');
+  sheet.getRange(2, 3).setValue('全期間合計').setHorizontalAlignment('center').setFontWeight('bold').setBackground('#FFE082');
+  Logger.log('✅ C1〜C2 ヘッダー設定');
+
+  if (lastRow >= 3) {
+    var formulas = [];
+    for (var r = 3; r <= lastRow; r++) {
+      formulas.push(['=SUM(D' + r + ':L' + r + ')']);
+    }
+    sheet.getRange(3, 3, lastRow - 2, 1).setFormulas(formulas);
+    Logger.log('✅ C3〜C' + lastRow + ' に SUM(D:L)');
+  }
+
+  Logger.log('=== ホープ数 完了 ===');
+}
+
+/**
+ * 投稿数: E列の右に「月別合計」列を9列追加
+ * 既存: A=ID, B=契約日, C=CW_ID, D=名前, E=合計, F〜=データ
+ * 新規: A=ID, B=契約日, C=CW_ID, D=名前, E=全期間合計, F=4月合計, ..., N=12月合計, O〜=データ
+ */
+function migrateAddMonthlyTotalsToPost() {
+  var ss = SpreadsheetApp.openById(POST_APP_SS_ID);
+  var sheet = ss.getSheetByName(POST_APP_SHEET_NAME);
+  if (!sheet) { Logger.log('❌ 投稿数シートなし'); return; }
+
+  var lastRow = sheet.getLastRow();
+  Logger.log('=== 投稿数: 月別合計列追加 開始 ===');
+
+  if (lastRow >= 1) {
+    var f1 = sheet.getRange(1, 6).getValue();
+    if (typeof f1 === 'string' && f1.indexOf('月合計') >= 0) {
+      Logger.log('⚠️ F1="' + f1 + '" → 既に追加済み、中止');
+      return;
+    }
+  }
+
+  sheet.insertColumnsAfter(5, 9);
+  Logger.log('✅ E列の右に9列挿入（旧F〜が O〜にシフト）');
+
+  sheet.getRange(1, 5).setValue('全期間合計').setHorizontalAlignment('center').setFontWeight('bold').setBackground('#FFD600');
+  var monthLabels = ['4月合計', '5月合計', '6月合計', '7月合計', '8月合計', '9月合計', '10月合計', '11月合計', '12月合計'];
+  sheet.getRange(1, 6, 1, 9).setValues([monthLabels]).setHorizontalAlignment('center').setFontWeight('bold').setBackground('#E8F0FE');
+  Logger.log('✅ E1=全期間合計, F1〜N1=月別ヘッダー');
+
+  // 各月のデータ列範囲（投稿数: 1日1列、データ起点 O列(15)）
+  var dataStartCol = 15;
+  var monthRanges = [];
+  var col = dataStartCol;
+  for (var m = 4; m <= 12; m++) {
+    var monthDays = new Date(2026, m, 0).getDate();
+    monthRanges.push({ start: postAppColToLetter_(col), end: postAppColToLetter_(col + monthDays - 1) });
+    col += monthDays;
+  }
+
+  if (lastRow >= 2) {
+    // E列（全期間合計）
+    var eFormulas = [];
+    for (var r = 2; r <= lastRow; r++) {
+      eFormulas.push(['=SUM(F' + r + ':N' + r + ')']);
+    }
+    sheet.getRange(2, 5, lastRow - 1, 1).setFormulas(eFormulas);
+    Logger.log('✅ E列（全期間合計）= SUM(F:N)');
+
+    // F〜N列（各月COUNTIF合計）
+    var formulas = [];
+    for (var r2 = 2; r2 <= lastRow; r2++) {
+      var row = [];
+      for (var mi = 0; mi < monthRanges.length; mi++) {
+        var s = monthRanges[mi].start, e = monthRanges[mi].end;
+        var f = '=COUNTIF(' + s + r2 + ':' + e + r2 + ',"1本")' +
+                '+COUNTIF(' + s + r2 + ':' + e + r2 + ',"2本")*2' +
+                '+COUNTIF(' + s + r2 + ':' + e + r2 + ',"3本")*3' +
+                '+COUNTIF(' + s + r2 + ':' + e + r2 + ',"4本")*4' +
+                '+COUNTIF(' + s + r2 + ':' + e + r2 + ',"5本")*5' +
+                '+COUNTIF(' + s + r2 + ':' + e + r2 + ',"6本")*6' +
+                '+COUNTIF(' + s + r2 + ':' + e + r2 + ',"7本")*7' +
+                '+COUNTIF(' + s + r2 + ':' + e + r2 + ',"8本")*8' +
+                '+COUNTIF(' + s + r2 + ':' + e + r2 + ',"9本")*9' +
+                '+COUNTIF(' + s + r2 + ':' + e + r2 + ',"10本")*10';
+        row.push(f);
+      }
+      formulas.push(row);
+    }
+    sheet.getRange(2, 6, lastRow - 1, 9).setFormulas(formulas);
+    Logger.log('✅ F〜N列 月別COUNTIF式設定');
+    Logger.log('  範囲例（4月）: F2 = COUNTIF(' + monthRanges[0].start + '2:' + monthRanges[0].end + '2, ...)');
+    Logger.log('  範囲例（5月）: G2 = COUNTIF(' + monthRanges[1].start + '2:' + monthRanges[1].end + '2, ...)');
+  }
+
+  Logger.log('=== 投稿数 完了 ===');
 }
