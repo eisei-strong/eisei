@@ -1174,3 +1174,5 @@ function debugOhkuma()     { return debugCustomer('大熊'); }
 function debugIshidaAoik() { return debugCustomer('aoi'); }
 function debugKotaki()     { return debugCustomer('小滝'); }
 function debugIimura()     { return debugCustomer('iimura'); }
+
+function debugApril28() { return debugByPushDate('2026-04-28'); }
