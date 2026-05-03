@@ -23,8 +23,9 @@ var PA_COL_SALES   = 3;   // 商談者名
 var PA_COL_LINE    = 4;   // LINE名
 var PA_COL_STATUS  = 11;  // 成約状況
 var PA_COL_REVENUE = 16;  // 売上（万円）
-var PA_COL_NAME    = 17;  // 顧客名（漢字フルネーム）
-var PA_COL_EMAIL   = 34;  // 契約アドレス（マスター本体）
+var PA_COL_NAME       = 17;  // 顧客名（漢字フルネーム）
+var PA_COL_SUPPLEMENT = 23;  // 支払い予定の補足（X列、契約者別人時の備考）
+var PA_COL_EMAIL      = 34;  // 契約アドレス（マスター本体）
 
 // フォーム回答シートのカラム（CLAUDE.md「フォーム→マスター列マッピング」より）
 // フォーム[0-23] → マスター[0-23] 直接コピー、フォーム[32] → マスター[34]（契約アドレス）
@@ -182,8 +183,38 @@ function readSeiyakuFromMaster_(ss) {
       email: String(row[PA_COL_EMAIL] || '').toLowerCase().trim(),
       status: status
     });
+
+    // X列補足に「契約者は○○」がある場合、契約者を別エントリ（エイリアス）として追加
+    var contractor = extractContractor_(row[PA_COL_SUPPLEMENT]);
+    if (contractor) {
+      out.push({
+        push: String(row[PA_COL_PUSH] || '').trim(),
+        pushDate: pushDateKey_(row[PA_COL_PUSH]),
+        sales: sales,
+        name: contractor,
+        line: contractor,
+        email: '',
+        status: status,
+        _source: 'contractor_alias',
+        _origName: name
+      });
+    }
   }
   return out;
+}
+
+/**
+ * 「支払い予定の補足」セルから「契約者：○○」のような契約者名を抽出
+ * 例: '⚠️補足：契約者は「石田　葵花」様 ...' → '石田　葵花'
+ */
+function extractContractor_(supplement) {
+  if (!supplement) return null;
+  var s = String(supplement);
+  var m = s.match(/契約者[はは:：]\s*[「『]([^」』]+)[」』]/);
+  if (m) return m[1].trim();
+  m = s.match(/契約者[はは:：]\s*([^。、，,\n]{2,20}?)[様氏]/);
+  if (m) return m[1].trim();
+  return null;
 }
 
 /**
@@ -222,6 +253,21 @@ function readSeiyakuFromFormAnswers_(ss) {
       status: status,
       _source: 'form'
     });
+
+    var contractor = extractContractor_(row[PA_COL_SUPPLEMENT]);
+    if (contractor) {
+      out.push({
+        push: String(row[PA_COL_PUSH] || '').trim(),
+        pushDate: pushDateKey_(row[PA_COL_PUSH]),
+        sales: sales,
+        name: contractor,
+        line: contractor,
+        email: '',
+        status: status,
+        _source: 'form_contractor_alias',
+        _origName: name
+      });
+    }
   }
   return out;
 }
