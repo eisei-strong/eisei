@@ -991,3 +991,14 @@ function debugUnmatched() {
     }
   }
 }
+
+// =========== debugCustomer 用ラッパー（GASエディタの関数ドロップダウンから実行できるよう） ===========
+
+function debugFukazawa()   { return debugCustomer('深澤'); }
+function debugFumiyo()     { return debugCustomer('fumiyo'); }
+function debugIshidaAoi()  { return debugCustomer('石田葵'); }
+function debugAoiIshida()  { return debugCustomer('aoi ishida'); }
+function debugOhkuma()     { return debugCustomer('大熊'); }
+function debugIshidaAoik() { return debugCustomer('aoi'); }
+function debugKotaki()     { return debugCustomer('小滝'); }
+function debugIimura()     { return debugCustomer('iimura'); }
