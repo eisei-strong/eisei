@@ -720,3 +720,77 @@ function aggregateApril2026()    { return aggregatePrimaryData('2026-04'); }
 function aggregateMarch2026()    { return aggregatePrimaryData('2026-03'); }
 function aggregateFebruary2026() { return aggregatePrimaryData('2026-02'); }
 function aggregateJanuary2026()  { return aggregatePrimaryData('2026-01'); }
+
+// =========== デバッグ用関数 ===========
+
+/**
+ * 指定日に商談したマスター行を全件ログに出し、一次データから
+ * その商談者にマッチした取引を可視化する
+ *
+ * 例: debugByPushDate('2026-04-30')
+ *
+ * GASエディタでは引数なしで実行する関数として
+ * debugApril30() を用意。
+ */
+function debugByPushDate(targetDate) {
+  var ss = SpreadsheetApp.openById(PA_MASTER_ID);
+  var sheet = ss.getSheetByName(PA_TAB_MASTER);
+  var lastRow = sheet.getLastRow();
+  var lastCol = Math.max(sheet.getLastColumn(), PA_COL_EMAIL + 1);
+  var data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+
+  Logger.log('=== マスター内 ' + targetDate + ' 商談行 ===');
+  var hits = 0;
+  for (var i = 0; i < data.length; i++) {
+    var row = data[i];
+    var pd = pushDateKey_(row[PA_COL_PUSH]);
+    if (pd === targetDate) {
+      hits++;
+      Logger.log('  row=' + (i + 2)
+        + ' / 商談者=' + row[PA_COL_SALES]
+        + ' / 顧客=' + row[PA_COL_NAME]
+        + ' / line=' + row[PA_COL_LINE]
+        + ' / status=' + row[PA_COL_STATUS]
+        + ' / email=' + row[PA_COL_EMAIL]);
+    }
+  }
+  Logger.log('合計: ' + hits + '件');
+  Logger.log('');
+
+  // 一次データを読み、targetDate商談者にマッチするか確認
+  var seiyaku = readSeiyakuFromMaster_(ss);
+  var indexes = buildSeiyakuIndexes_(seiyaku);
+  var liftyTxs = readLiftyTab_(ss);
+  var univaTxs = readUnivaTab_(ss);
+  var bankTxs = readBankTab_(ss);
+
+  Logger.log('=== 一次データ → ' + targetDate + ' 商談者へのマッチ ===');
+  var matchCount = 0;
+  for (var i = 0; i < liftyTxs.length; i++) {
+    var tx = liftyTxs[i];
+    var s = matchLiftySeiyaku_(tx, indexes);
+    if (s && s.pushDate === targetDate) {
+      matchCount++;
+      Logger.log('  ライフティ: 顧客=' + tx.name + ' ¥' + tx.amt + ' → matched: ' + s.name + ' (商談者:' + s.sales + ')');
+    }
+  }
+  for (var i = 0; i < univaTxs.length; i++) {
+    var tx = univaTxs[i];
+    var s = matchUnivaSeiyaku_(tx, indexes);
+    if (s && s.pushDate === targetDate) {
+      matchCount++;
+      Logger.log('  ユニヴァ: 顧客=' + tx.name + ' / ' + tx.email + ' ¥' + tx.amt + ' → matched: ' + s.name + ' (商談者:' + s.sales + ')');
+    }
+  }
+  for (var i = 0; i < bankTxs.length; i++) {
+    var tx = bankTxs[i];
+    var s = matchBankSeiyaku_(tx, indexes);
+    if (s && s.pushDate === targetDate) {
+      matchCount++;
+      Logger.log('  銀振: 顧客=' + tx.name_kana + ' ¥' + tx.amt + ' → matched: ' + s.name + ' (商談者:' + s.sales + ')');
+    }
+  }
+  Logger.log('マッチ合計: ' + matchCount + '件');
+}
+
+function debugApril30() { return debugByPushDate('2026-04-30'); }
