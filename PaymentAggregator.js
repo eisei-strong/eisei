@@ -993,7 +993,7 @@ function debugByPushDate(targetDate) {
   Logger.log('');
 
   // 一次データを読み、targetDate商談者にマッチするか確認
-  var seiyaku = readSeiyakuFromMaster_(ss);
+  var seiyaku = readAllSeiyaku_(ss);
   var indexes = buildSeiyakuIndexes_(seiyaku);
   var liftyTxs = readLiftyTab_(ss);
   var univaTxs = readUnivaTab_(ss);
@@ -1036,7 +1036,7 @@ function debugApril30() { return debugByPushDate('2026-04-30'); }
  */
 function debugUnmatched() {
   var ss = SpreadsheetApp.openById(PA_MASTER_ID);
-  var seiyaku = readSeiyakuFromMaster_(ss);
+  var seiyaku = readAllSeiyaku_(ss);
   var indexes = buildSeiyakuIndexes_(seiyaku);
 
   var univaTxs = readUnivaTab_(ss);
