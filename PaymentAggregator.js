@@ -589,14 +589,118 @@ function normalizeName_(s) {
 }
 
 function matchUnivaSeiyaku_(tx, idx) {
+  // 1. email完全一致
   if (tx.email && idx.email[tx.email]) return idx.email[tx.email];
+
+  // 2. email の local part 部分一致（メアドのドメインや末尾数字違いを許容）
+  //    例: hitomi10e@gmail.com ⇔ hitomin12yuki31@icloud.com → 'hitomi' 共通
+  if (tx.email) {
+    var txLocal = tx.email.split('@')[0].toLowerCase();
+    if (txLocal.length >= 4) {
+      for (var key in idx.email) {
+        var keyLocal = key.split('@')[0].toLowerCase();
+        if (keyLocal.length >= 4 &&
+            (txLocal.indexOf(keyLocal) !== -1 || keyLocal.indexOf(txLocal) !== -1)) {
+          return idx.email[key];
+        }
+      }
+    }
+  }
+
+  // 3. ローマ字 name → line_idx 部分一致（既存）
   var nl = tx.name.toLowerCase().replace(/\s+/g, '');
   for (var k in idx.line) {
     if (k.length >= 4 && (nl.indexOf(k) !== -1 || k.indexOf(nl) !== -1)) {
       return latestEntry_(idx.line[k]);
     }
   }
+
+  // 4. ローマ字 → カナ変換 → line_idx / name_idx 部分一致
+  //    例: fumiyo fukazawa → フミヨフカザワ → マスターLINE「フミヨ」と一致
+  var kana = romajiToKatakana_(tx.name);
+  if (kana && kana.length >= 4) {
+    for (var k2 in idx.line) {
+      if (k2.length >= 3 && (kana.indexOf(k2) !== -1 || k2.indexOf(kana) !== -1)) {
+        return latestEntry_(idx.line[k2]);
+      }
+    }
+    for (var k3 in idx.name) {
+      if (k3.length >= 3 && (kana.indexOf(k3) !== -1 || k3.indexOf(kana) !== -1)) {
+        return latestEntry_(idx.name[k3]);
+      }
+    }
+  }
+
   return null;
+}
+
+/**
+ * 簡易ヘボン式ローマ字→カタカナ変換
+ * 商談者のマスター LINE 名が「フミヨ」のようにカナで登録されている時、
+ * ユニヴァのローマ字 name 「fumiyo fukazawa」と紐付けるために使う
+ */
+function romajiToKatakana_(s) {
+  if (!s) return '';
+  s = String(s).toLowerCase().replace(/[\s_\-\.]+/g, '');
+  var conv = [
+    // 3文字
+    ['kya','キャ'],['kyu','キュ'],['kyo','キョ'],
+    ['sha','シャ'],['shu','シュ'],['sho','ショ'],['shi','シ'],
+    ['cha','チャ'],['chu','チュ'],['cho','チョ'],['chi','チ'],['tsu','ツ'],
+    ['nya','ニャ'],['nyu','ニュ'],['nyo','ニョ'],
+    ['hya','ヒャ'],['hyu','ヒュ'],['hyo','ヒョ'],
+    ['mya','ミャ'],['myu','ミュ'],['myo','ミョ'],
+    ['rya','リャ'],['ryu','リュ'],['ryo','リョ'],
+    ['gya','ギャ'],['gyu','ギュ'],['gyo','ギョ'],
+    ['jya','ジャ'],['jyu','ジュ'],['jyo','ジョ'],
+    ['bya','ビャ'],['byu','ビュ'],['byo','ビョ'],
+    ['pya','ピャ'],['pyu','ピュ'],['pyo','ピョ'],
+    // 促音 (kk, ss, tt, pp 等)
+    ['kk','ッk'],['ss','ッs'],['tt','ッt'],['pp','ッp'],
+    // 2文字
+    ['ka','カ'],['ki','キ'],['ku','ク'],['ke','ケ'],['ko','コ'],
+    ['sa','サ'],['su','ス'],['se','セ'],['so','ソ'],
+    ['ta','タ'],['te','テ'],['to','ト'],['ti','チ'],
+    ['na','ナ'],['ni','ニ'],['nu','ヌ'],['ne','ネ'],['no','ノ'],
+    ['ha','ハ'],['hi','ヒ'],['hu','フ'],['he','ヘ'],['ho','ホ'],
+    ['fa','ファ'],['fi','フィ'],['fu','フ'],['fe','フェ'],['fo','フォ'],
+    ['ma','マ'],['mi','ミ'],['mu','ム'],['me','メ'],['mo','モ'],
+    ['ya','ヤ'],['yu','ユ'],['yo','ヨ'],
+    ['ra','ラ'],['ri','リ'],['ru','ル'],['re','レ'],['ro','ロ'],
+    ['wa','ワ'],['wi','ウィ'],['we','ウェ'],['wo','ヲ'],
+    ['ga','ガ'],['gi','ギ'],['gu','グ'],['ge','ゲ'],['go','ゴ'],
+    ['za','ザ'],['zi','ジ'],['zu','ズ'],['ze','ゼ'],['zo','ゾ'],
+    ['ja','ジャ'],['ji','ジ'],['ju','ジュ'],['je','ジェ'],['jo','ジョ'],
+    ['da','ダ'],['di','ジ'],['du','ヅ'],['de','デ'],['do','ド'],
+    ['ba','バ'],['bi','ビ'],['bu','ブ'],['be','ベ'],['bo','ボ'],
+    ['pa','パ'],['pi','ピ'],['pu','プ'],['pe','ペ'],['po','ポ'],
+    ['vu','ヴ'],
+    // 1文字
+    ['a','ア'],['i','イ'],['u','ウ'],['e','エ'],['o','オ'],
+    ['n','ン']
+  ];
+  var result = '';
+  while (s.length > 0) {
+    var matched = false;
+    for (var i = 0; i < conv.length; i++) {
+      if (s.indexOf(conv[i][0]) === 0) {
+        result += conv[i][1];
+        s = s.substring(conv[i][0].length);
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) {
+      s = s.substring(1);  // 不明文字スキップ
+    }
+  }
+  // 促音マーカーを正規ッに置換
+  result = result.replace(/ッ[a-z]/g, function(m) {
+    var c = m.charAt(1);
+    var map = {k:'カ',s:'サ',t:'タ',p:'パ'};
+    return 'ッ' + (map[c] || '');
+  });
+  return result;
 }
 
 function matchLiftySeiyaku_(tx, idx) {
