@@ -1680,3 +1680,89 @@ function setupSheetsThroughDecember() {
   Logger.log('==========================================');
   Logger.log('スプシで目視確認推奨');
 }
+
+/**
+ * ホープ数シート読み取り専用デバッグ（破壊なし）
+ * GASエディタから手動実行 → ログを俺(Claude)に貼ってもらう
+ *
+ * 確認内容:
+ * 1. ホープ数シートのlastCol・列範囲計算結果
+ * 2. ヘッダー行（1行目）の4月終端〜5月開始付近の値
+ * 3. 任意ID(ナマカくん想定: 0000)の4月・5月の生データ + 合計計算結果
+ */
+function debugHopeSheet() {
+  var ss = SpreadsheetApp.openById(POST_APP_SS_ID);
+  var sheet = ss.getSheetByName(POST_APP_HOPE_SHEET_NAME);
+  if (!sheet) {
+    Logger.log('❌ ホープ数シートが見つからない');
+    return;
+  }
+
+  var lastCol = sheet.getLastColumn();
+  var lastRow = sheet.getLastRow();
+  Logger.log('=== ホープ数シート全体 ===');
+  Logger.log('lastRow: ' + lastRow + ', lastCol: ' + lastCol + ' (' + postAppColToLetter_(lastCol) + ')');
+
+  // 4月分・5月分の列範囲計算
+  var aprRange = getCurrentMonthHopeColRange_(POST_APP_HOPE_SHEET_NAME, 2026, 4);
+  var mayRange = getCurrentMonthHopeColRange_(POST_APP_HOPE_SHEET_NAME, 2026, 5);
+  Logger.log('--- 列範囲計算結果 ---');
+  Logger.log('4月: startCol=' + aprRange.startCol + ' (' + postAppColToLetter_(aprRange.startCol) + '), endCol=' + aprRange.endCol + ' (' + postAppColToLetter_(aprRange.endCol) + '), monthDays=' + aprRange.monthDays);
+  Logger.log('5月: startCol=' + mayRange.startCol + ' (' + postAppColToLetter_(mayRange.startCol) + '), endCol=' + mayRange.endCol + ' (' + postAppColToLetter_(mayRange.endCol) + '), monthDays=' + mayRange.monthDays);
+
+  // ヘッダー行の境界付近確認
+  Logger.log('--- ヘッダー1行目の境界（4月最終3列+5月最初3列）---');
+  var checkStart = aprRange.endCol - 2;
+  var checkLen = 6;
+  if (checkStart + checkLen - 1 <= lastCol) {
+    var headerVals = sheet.getRange(1, checkStart, 1, checkLen).getValues()[0];
+    var header2Vals = sheet.getRange(2, checkStart, 1, checkLen).getValues()[0];
+    for (var i = 0; i < checkLen; i++) {
+      var col = checkStart + i;
+      Logger.log('  ' + postAppColToLetter_(col) + ' (col=' + col + ') 1行目="' + headerVals[i] + '" 2行目="' + header2Vals[i] + '"');
+    }
+  }
+
+  // 全メンバー列挙（先頭5人）
+  Logger.log('--- メンバー一覧（先頭10人）---');
+  if (lastRow >= 3) {
+    var ids = sheet.getRange(3, 1, Math.min(10, lastRow - 2), 3).getValues();
+    for (var k = 0; k < ids.length; k++) {
+      Logger.log('  row=' + (k + 3) + ' A=' + ids[k][0] + ' B=' + ids[k][1] + ' C(合計)=' + ids[k][2]);
+    }
+  }
+
+  // 1人だけ詳細チェック（先頭メンバー）
+  if (lastRow >= 3) {
+    var firstId = String(sheet.getRange(3, 1).getValue()).trim();
+    var firstName = sheet.getRange(3, 2).getValue();
+    Logger.log('--- 詳細チェック: ' + firstName + ' (ID=' + firstId + ', row=3) ---');
+
+    var aprValues = sheet.getRange(3, aprRange.startCol, 1, aprRange.totalCols).getValues()[0];
+    var mayValues = (mayRange.endCol <= lastCol) ? sheet.getRange(3, mayRange.startCol, 1, mayRange.totalCols).getValues()[0] : null;
+
+    var aprTotal = 0, aprSumDays = 0;
+    for (var d = 0; d < aprRange.monthDays; d++) {
+      var sum = (parseInt(aprValues[d * 3] || 0) || 0) + (parseInt(aprValues[d * 3 + 1] || 0) || 0) + (parseInt(aprValues[d * 3 + 2] || 0) || 0);
+      aprTotal += sum;
+      if (sum > 0) aprSumDays++;
+    }
+    Logger.log('  4月合計: ' + aprTotal + ' (データある日数: ' + aprSumDays + ')');
+
+    if (mayValues) {
+      var mayTotal = 0, maySumDays = 0;
+      for (var d2 = 0; d2 < mayRange.monthDays; d2++) {
+        var sum2 = (parseInt(mayValues[d2 * 3] || 0) || 0) + (parseInt(mayValues[d2 * 3 + 1] || 0) || 0) + (parseInt(mayValues[d2 * 3 + 2] || 0) || 0);
+        mayTotal += sum2;
+        if (sum2 > 0) maySumDays++;
+      }
+      Logger.log('  5月合計: ' + mayTotal + ' (データある日数: ' + maySumDays + ')');
+    } else {
+      Logger.log('  5月: 列範囲がlastColを超えてるためデータなし');
+    }
+
+    Logger.log('  C列(合計セル)の値: ' + sheet.getRange(3, 3).getValue());
+  }
+
+  Logger.log('=== デバッグ完了 ===');
+}
