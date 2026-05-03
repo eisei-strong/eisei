@@ -565,7 +565,11 @@ function parsePABankDate_(v) {
 }
 
 /**
- * 名前正規化：カッコ・/・スペース・全角半角を除去、小文字化
+ * 名前正規化：カッコ・/・スペース・全角半角を除去、装飾記号削除、小文字化
+ *
+ * LINE名に紛れ込んでいる装飾記号 (®️ ⭐︎ ☆ ★ 等) があると
+ * normalize 結果がローマ字決済名 (rikuo shimizu 等) と一致せず
+ * matching 漏れの原因になるため、特殊文字を吸収する
  */
 function normalizeName_(s) {
   if (!s) return '';
@@ -573,6 +577,12 @@ function normalizeName_(s) {
   x = x.replace(/\([^)]*\)/g, '');
   x = x.replace(/（[^）]*）/g, '');
   x = x.replace(/\//g, '');
+  // 装飾記号削除（清水陸雄の "®️ikuo SHIMIZU" 問題対策）
+  // 「®」を「r」に変換、その他の装飾記号は削除
+  x = x.replace(/®️|®/g, 'r');
+  x = x.replace(/[⭐⭐︎☆★♪♡♥◎◯○●◆◇■□▲△▼▽✨💫🌟]/g, '');
+  // 異体字セレクタ・結合用記号
+  x = x.replace(/[​-‏︀-️‪-‮]/g, '');
   x = x.replace(/\s+/g, '');
   x = x.replace(/　/g, '');
   return x.toLowerCase().trim();
@@ -606,11 +616,14 @@ function matchLiftySeiyaku_(tx, idx) {
  */
 function latestEntry_(entries) {
   if (!entries || entries.length === 0) return null;
-  if (entries.length === 1) return entries[0];
-  var latest = entries[0];
-  for (var i = 1; i < entries.length; i++) {
-    if (entries[i].pushDate && entries[i].pushDate > (latest.pushDate || '')) {
-      latest = entries[i];
+  // pushDate が空でないものを優先（空だと aggregate で除外されて取りこぼす）
+  var withDate = entries.filter(function(e) { return !!e.pushDate; });
+  var pool = withDate.length > 0 ? withDate : entries;
+  if (pool.length === 1) return pool[0];
+  var latest = pool[0];
+  for (var i = 1; i < pool.length; i++) {
+    if (pool[i].pushDate > (latest.pushDate || '')) {
+      latest = pool[i];
     }
   }
   return latest;
