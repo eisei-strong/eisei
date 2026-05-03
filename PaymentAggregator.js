@@ -15,6 +15,7 @@ var PA_TAB_LIFTY  = 'ライフティ';
 var PA_TAB_BANK   = '銀振';
 var PA_TAB_AGG    = '集計済み';      // 当月商談分
 var PA_TAB_PAST   = '過去分割';      // 過去成約者の今月入金分
+var PA_FORM_GID   = 260080737;       // フォーム回答シートのGID（マスター本体未転記の商談記録）
 
 // マスター本体カラム（0-based）
 var PA_COL_PUSH    = 2;   // プッシュ日時
@@ -23,7 +24,11 @@ var PA_COL_LINE    = 4;   // LINE名
 var PA_COL_STATUS  = 11;  // 成約状況
 var PA_COL_REVENUE = 16;  // 売上（万円）
 var PA_COL_NAME    = 17;  // 顧客名（漢字フルネーム）
-var PA_COL_EMAIL   = 34;  // 契約アドレス
+var PA_COL_EMAIL   = 34;  // 契約アドレス（マスター本体）
+
+// フォーム回答シートのカラム（CLAUDE.md「フォーム→マスター列マッピング」より）
+// フォーム[0-23] → マスター[0-23] 直接コピー、フォーム[32] → マスター[34]（契約アドレス）
+var PA_FORM_COL_EMAIL = 32;  // フォーム上の契約アドレス
 
 // 手数料率
 var PA_FEE_RATE = {
@@ -64,9 +69,9 @@ function aggregatePrimaryData(targetMonth) {
   }
   Logger.log('=== aggregatePrimaryData 開始: ' + new Date().toISOString() + ' / 対象月: ' + targetMonth);
 
-  // マスター本体から商談済み顧客リスト（テスト除く全件）
-  var seiyaku = readSeiyakuFromMaster_(ss);
-  Logger.log('商談者数（マスター登録、テスト除外）: ' + seiyaku.length);
+  // マスター本体 + フォーム回答シート から商談済み顧客リスト（テスト除く、重複排除）
+  var seiyaku = readAllSeiyaku_(ss);
+  Logger.log('商談者数（マスター本体+フォーム回答、テスト除外）: ' + seiyaku.length);
 
   // 一次データ読み込み
   var univaTxs = readUnivaTab_(ss);
@@ -179,6 +184,82 @@ function readSeiyakuFromMaster_(ss) {
     });
   }
   return out;
+}
+
+/**
+ * フォーム回答シート（gid=260080737）から商談記録を読み取る
+ * 商談者がフォーム送信したがマスター本体に未転記の商談を拾う
+ *
+ * フォーム→マスター 列マッピング (CLAUDE.md)：
+ * - col[0-23] 直接コピー
+ * - col[32] → マスター[34]（契約アドレス）
+ */
+function readSeiyakuFromFormAnswers_(ss) {
+  var sheet = getSheetByGid_(ss, PA_FORM_GID);
+  if (!sheet) { Logger.log('フォーム回答シート(gid=' + PA_FORM_GID + ')が見つかりません'); return []; }
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  var lastCol = Math.max(sheet.getLastColumn(), PA_FORM_COL_EMAIL + 1);
+  var data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+
+  var out = [];
+  for (var i = 0; i < data.length; i++) {
+    var row = data[i];
+    var status = String(row[PA_COL_STATUS] || '').trim();
+    if (status === 'テスト') continue;
+
+    var sales = String(row[PA_COL_SALES] || '').trim();
+    var name = String(row[PA_COL_NAME] || '').trim();
+    if (!sales || !name) continue;
+
+    out.push({
+      push: String(row[PA_COL_PUSH] || '').trim(),
+      pushDate: pushDateKey_(row[PA_COL_PUSH]),
+      sales: sales,
+      name: name,
+      line: String(row[PA_COL_LINE] || '').trim(),
+      email: String(row[PA_FORM_COL_EMAIL] || '').toLowerCase().trim(),
+      status: status,
+      _source: 'form'
+    });
+  }
+  return out;
+}
+
+/**
+ * マスター本体 + フォーム回答 を統合して商談者リストを返す
+ * 重複は (pushDate + 顧客名) で排除（マスター優先）
+ */
+function readAllSeiyaku_(ss) {
+  var master = readSeiyakuFromMaster_(ss);
+  var form = readSeiyakuFromFormAnswers_(ss);
+  var seen = {};
+  master.forEach(function(s) {
+    var key = (s.pushDate || '') + '|' + normalizeName_(s.name);
+    seen[key] = true;
+  });
+  var added = 0;
+  form.forEach(function(s) {
+    var key = (s.pushDate || '') + '|' + normalizeName_(s.name);
+    if (!seen[key]) {
+      master.push(s);
+      seen[key] = true;
+      added++;
+    }
+  });
+  Logger.log('  内訳: マスター本体=' + (master.length - added) + '件 / フォーム回答(未転記)=' + added + '件');
+  return master;
+}
+
+/**
+ * GID指定でシートを取得
+ */
+function getSheetByGid_(ss, gid) {
+  var sheets = ss.getSheets();
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].getSheetId() === gid) return sheets[i];
+  }
+  return null;
 }
 
 /**
@@ -650,8 +731,8 @@ function commonPrefixLen_(a, b) {
  */
 function debugCustomer(query) {
   var ss = SpreadsheetApp.openById(PA_MASTER_ID);
-  var seiyaku = readSeiyakuFromMaster_(ss);
-  Logger.log('=== マスター内 「' + query + '」を含む顧客 ===');
+  var seiyaku = readAllSeiyaku_(ss);
+  Logger.log('=== マスター本体+フォーム回答 内 「' + query + '」を含む顧客 ===');
   var hits = 0;
   var q = String(query).toLowerCase();
   for (var i = 0; i < seiyaku.length; i++) {
