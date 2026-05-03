@@ -592,15 +592,15 @@ function matchUnivaSeiyaku_(tx, idx) {
   // 1. email完全一致
   if (tx.email && idx.email[tx.email]) return idx.email[tx.email];
 
-  // 2. email の local part 部分一致（メアドのドメインや末尾数字違いを許容）
-  //    例: hitomi10e@gmail.com ⇔ hitomin12yuki31@icloud.com → 'hitomi' 共通
+  // 2. email の local part 共通プレフィックス（5文字以上一致）
+  //    例: hitomi10e ⇔ hitomin12yuki31 → 'hitomi' 6文字共通 → match
+  //    indexOf ではお互いがサブストリングでないと拾えないため、共通プレフィックスで照合
   if (tx.email) {
     var txLocal = tx.email.split('@')[0].toLowerCase();
-    if (txLocal.length >= 4) {
+    if (txLocal.length >= 5) {
       for (var key in idx.email) {
         var keyLocal = key.split('@')[0].toLowerCase();
-        if (keyLocal.length >= 4 &&
-            (txLocal.indexOf(keyLocal) !== -1 || keyLocal.indexOf(txLocal) !== -1)) {
+        if (commonPrefixLen_(txLocal, keyLocal) >= 5) {
           return idx.email[key];
         }
       }
@@ -632,6 +632,37 @@ function matchUnivaSeiyaku_(tx, idx) {
   }
 
   return null;
+}
+
+/**
+ * 2 つの文字列の共通プレフィックス長
+ */
+function commonPrefixLen_(a, b) {
+  var n = Math.min(a.length, b.length);
+  for (var i = 0; i < n; i++) {
+    if (a.charAt(i) !== b.charAt(i)) return i;
+  }
+  return n;
+}
+
+/**
+ * デバッグ用: マスター内で query を含む顧客行を全て出す
+ */
+function debugCustomer(query) {
+  var ss = SpreadsheetApp.openById(PA_MASTER_ID);
+  var seiyaku = readSeiyakuFromMaster_(ss);
+  Logger.log('=== マスター内 「' + query + '」を含む顧客 ===');
+  var hits = 0;
+  var q = String(query).toLowerCase();
+  for (var i = 0; i < seiyaku.length; i++) {
+    var s = seiyaku[i];
+    var hay = (s.name + ' ' + s.line + ' ' + s.email).toLowerCase();
+    if (hay.indexOf(q) !== -1) {
+      hits++;
+      Logger.log('  ' + s.pushDate + ' / 商談者=' + s.sales + ' / 名:' + s.name + ' / line:' + s.line + ' / email:' + s.email + ' / status:' + s.status);
+    }
+  }
+  Logger.log('合計: ' + hits + '件');
 }
 
 /**
