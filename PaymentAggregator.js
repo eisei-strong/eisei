@@ -792,3 +792,46 @@ function debugByPushDate(targetDate) {
 }
 
 function debugApril30() { return debugByPushDate('2026-04-30'); }
+
+/**
+ * 不一致取引（一次データに出てるがマスター商談者にマッチしない取引）を全件ログ出し
+ * これらが「マスター未掲載だけど事業の取引」候補
+ */
+function debugUnmatched() {
+  var ss = SpreadsheetApp.openById(PA_MASTER_ID);
+  var seiyaku = readSeiyakuFromMaster_(ss);
+  var indexes = buildSeiyakuIndexes_(seiyaku);
+
+  var univaTxs = readUnivaTab_(ss);
+  var liftyTxs = readLiftyTab_(ss);
+  var bankTxs = readBankTab_(ss);
+
+  Logger.log('=== ユニヴァ不一致 ===');
+  for (var i = 0; i < univaTxs.length; i++) {
+    var tx = univaTxs[i];
+    var s = matchUnivaSeiyaku_(tx, indexes);
+    if (!s || !s.pushDate) {
+      Logger.log('  ' + tx.date + ' / ' + tx.name + ' / ' + tx.email + ' ¥' + tx.amt);
+    }
+  }
+
+  Logger.log('');
+  Logger.log('=== ライフティ不一致 ===');
+  for (var i = 0; i < liftyTxs.length; i++) {
+    var tx = liftyTxs[i];
+    var s = matchLiftySeiyaku_(tx, indexes);
+    if (!s || !s.pushDate) {
+      Logger.log('  申込=' + tx.apply_date + ' 完了=' + tx.complete_date + ' / ' + tx.name + ' ¥' + tx.amt);
+    }
+  }
+
+  Logger.log('');
+  Logger.log('=== 銀振不一致（事業外候補多数なので決済代行除外後の純粋な不一致）===');
+  for (var i = 0; i < bankTxs.length; i++) {
+    var tx = bankTxs[i];
+    var s = matchBankSeiyaku_(tx, indexes);
+    if (!s || !s.pushDate) {
+      Logger.log('  ' + tx.date + ' / ' + tx.name_kana + ' ¥' + tx.amt);
+    }
+  }
+}
