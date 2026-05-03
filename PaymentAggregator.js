@@ -91,10 +91,15 @@ function collectMonths_(aggregated) {
 }
 
 /**
- * マスター本体から成約者リストを読み取る
- * - 「成約」を含む
- * - 「失注」「CO」を含まない
- * - 「テスト」「継続」単独は除外
+ * マスター本体から商談済み顧客リストを読み取る
+ * - 商談者・顧客名が両方ある全行を対象（成約/CO/失注/継続すべて含む）
+ * - 「テスト」のみ除外
+ * - status は保持（後段で必要に応じて使用）
+ *
+ * 失注やCOも対象にする理由：
+ * 失注後の返金や、デポジット課金の途中で離脱したケースでも
+ * 一次データには取引が現れる。商談記録としてマスター登録があるなら
+ * 紐付けて事業内取引として扱う
  */
 function readSeiyakuFromMaster_(ss) {
   var sheet = ss.getSheetByName(PA_TAB_MASTER);
@@ -108,10 +113,7 @@ function readSeiyakuFromMaster_(ss) {
   for (var i = 0; i < data.length; i++) {
     var row = data[i];
     var status = String(row[PA_COL_STATUS] || '').trim();
-    if (status.indexOf('成約') === -1) continue;
-    if (status.indexOf('失注') !== -1) continue;
-    if (status.indexOf('CO') !== -1) continue;
-    if (status === 'テスト' || status === '継続') continue;
+    if (status === 'テスト') continue;
 
     var sales = String(row[PA_COL_SALES] || '').trim();
     var name = String(row[PA_COL_NAME] || '').trim();
@@ -122,7 +124,8 @@ function readSeiyakuFromMaster_(ss) {
       sales: sales,
       name: name,
       line: String(row[PA_COL_LINE] || '').trim(),
-      email: String(row[PA_COL_EMAIL] || '').toLowerCase().trim()
+      email: String(row[PA_COL_EMAIL] || '').toLowerCase().trim(),
+      status: status
     });
   }
   return out;
@@ -326,6 +329,9 @@ function aggregateBySalesAndMonth_(univaTxs, liftyTxs, bankTxs, idx) {
  * - 既存タブの履歴は保持
  * - processedMonths（今回の一次データに現れた月）の行のみ削除して再書き込み
  * - 過去月（一次データに無い）はそのまま残る
+ *
+ * 月列(A列)は強制テキスト型で書き込み（"2026-04" がDate型に自動変換されると
+ * 比較ロジックが破綻し、重複行が発生するため）
  */
 function upsertAggregatedSheet_(ss, aggregated, processedMonths) {
   var sheet = ss.getSheetByName(PA_TAB_AGG);
@@ -334,9 +340,12 @@ function upsertAggregatedSheet_(ss, aggregated, processedMonths) {
 
   if (!sheet) {
     sheet = ss.insertSheet(PA_TAB_AGG);
-    sheet.getRange(1, 1, 1, headerRow.length).setValues([headerRow]);
-    sheet.setFrozenRows(1);
   }
+
+  // ヘッダー＆A列の書式を毎回保証
+  sheet.getRange(1, 1, 1, headerRow.length).setValues([headerRow]);
+  sheet.setFrozenRows(1);
+  sheet.getRange('A:A').setNumberFormat('@');
 
   // 既存データ読み込み（ヘッダー除く）
   var lastRow = sheet.getLastRow();
@@ -344,24 +353,22 @@ function upsertAggregatedSheet_(ss, aggregated, processedMonths) {
   if (lastRow >= 2) {
     existingRows = sheet.getRange(2, 1, lastRow - 1, headerRow.length).getValues();
   }
-  // ヘッダーが欠けてる場合は仮設置
-  if (lastRow === 0) {
-    sheet.getRange(1, 1, 1, headerRow.length).setValues([headerRow]);
-    sheet.setFrozenRows(1);
-  }
 
-  // 今回処理する月以外の既存行を残す
+  // 今回処理する月以外の既存行を残す（Date型を YYYY-MM に正規化）
   var keepRows = [];
   var processedSet = {};
   for (var i = 0; i < processedMonths.length; i++) processedSet[processedMonths[i]] = true;
   for (var i = 0; i < existingRows.length; i++) {
     var r = existingRows[i];
-    var ym = String(r[0] || '').trim();
+    var ym = ymKeyOf_(r[0]);
     if (!ym) continue;
-    if (!processedSet[ym]) keepRows.push(r);
+    if (!processedSet[ym]) {
+      r[0] = ym;
+      keepRows.push(r);
+    }
   }
 
-  // 今回計算分を月（新→旧）×着金額（多→少）順で生成
+  // 今回計算分を生成
   var newRows = [];
   for (var i = 0; i < processedMonths.length; i++) {
     var ym = processedMonths[i];
@@ -381,7 +388,7 @@ function upsertAggregatedSheet_(ss, aggregated, processedMonths) {
     }
   }
 
-  // 全データ：既存（保持）+ 新規。月ソート（新→旧）、同月内は着金額（多→少）
+  // 全データ：keepRows + newRows。月（新→旧）→ 着金額（多→少）
   var allRows = keepRows.concat(newRows);
   allRows.sort(function(a, b) {
     if (a[0] !== b[0]) return String(b[0]).localeCompare(String(a[0]));
@@ -394,7 +401,23 @@ function upsertAggregatedSheet_(ss, aggregated, processedMonths) {
   }
   if (allRows.length > 0) {
     sheet.getRange(2, 1, allRows.length, headerRow.length).setValues(allRows);
+    // 書き込み後もA列の書式をテキストに維持
+    sheet.getRange(2, 1, allRows.length, 1).setNumberFormat('@');
   }
+}
+
+/**
+ * セル値（Date or 文字列）から "YYYY-MM" を抽出
+ */
+function ymKeyOf_(v) {
+  if (v instanceof Date) {
+    return Utilities.formatDate(v, 'Asia/Tokyo', 'yyyy-MM');
+  }
+  var s = String(v || '').trim();
+  if (/^\d{4}-\d{2}$/.test(s)) return s;
+  var m = s.match(/^(\d{4})[-/](\d{1,2})/);
+  if (m) return m[1] + '-' + ('0' + m[2]).slice(-2);
+  return '';
 }
 
 // =========== ヘルパー関数 ===========
