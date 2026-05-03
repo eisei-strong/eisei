@@ -56,16 +56,13 @@ function getCurrentMonthColRange_() {
 /**
  * ホープ数/プッシュ数シートの当月列範囲を返す（1日3列 = YT/IG/TT）
  * シート種別ごとにデータ起点列が違う（重要）：
- *   ホープ数: D列(4) - メタは A=ID, B=名前, C=合計
+ *   ホープ数: L列(12) - メタは A=ID, B=名前, C=4月合計, D=5月合計, ..., K=12月合計
  *   プッシュ数: L列(12) - メタは A=ID, B〜J=名前(マージ等), K=合計
  *
- * 引数なしで呼ばれた場合は後方互換のためホープ数として扱う。
+ * 月別合計列追加（2026-05-03）後はホープ数もL列起点に統一。
  */
 function getCurrentMonthHopeColRange_(sheetName, year, month) {
-  var dataStartCol = 4; // デフォルト: ホープ数(D列)
-  if (sheetName === POST_APP_PUSH_SHEET_NAME) {
-    dataStartCol = 12; // プッシュ数: L列
-  }
+  var dataStartCol = 12; // ホープ数・プッシュ数とも L列起点に統一
   var COLS_PER_DAY = 3;
   var now = new Date();
   if (!year) year = now.getFullYear();
@@ -1765,4 +1762,142 @@ function debugHopeSheet() {
   }
 
   Logger.log('=== デバッグ完了 ===');
+}
+
+// ===========================================
+// ホープ数: 月別合計列を C列の右に追加するマイグレーション
+// 旧構造: A=ID, B=名前, C=合計, D〜=データ
+// 新構造: A=ID, B=名前, C=4月合計, D=5月合計, ..., K=12月合計, L〜=データ
+// ===========================================
+
+/**
+ * 読み取り専用：ホープ数シートの構造を確認（マイグレーション前）
+ * GASエディタから手動実行 → ログを俺(Claude)に貼ってもらう
+ */
+function inspectHopeStructureBeforeMigration() {
+  var ss = SpreadsheetApp.openById(POST_APP_SS_ID);
+  var sheet = ss.getSheetByName(POST_APP_HOPE_SHEET_NAME);
+  if (!sheet) {
+    Logger.log('❌ ホープ数シート見つからず');
+    return;
+  }
+
+  var lastRow = sheet.getLastRow();
+  var lastCol = sheet.getLastColumn();
+  Logger.log('=== ホープ数シート構造 ===');
+  Logger.log('lastRow: ' + lastRow + ', lastCol: ' + lastCol + ' (' + postAppColToLetter_(lastCol) + ')');
+  Logger.log('凍結列: ' + sheet.getFrozenColumns());
+  Logger.log('凍結行: ' + sheet.getFrozenRows());
+
+  // メタ列確認（A〜D）
+  Logger.log('--- 1〜2行目のメタ列（A〜E）---');
+  var metaHeader = sheet.getRange(1, 1, 2, 5).getValues();
+  for (var i = 0; i < 2; i++) {
+    Logger.log('  行' + (i + 1) + ': A=' + metaHeader[i][0] + ' B=' + metaHeader[i][1] + ' C=' + metaHeader[i][2] + ' D=' + metaHeader[i][3] + ' E=' + metaHeader[i][4]);
+  }
+
+  // データ起点（D列）の中身を確認 → これが日付ヘッダーなら旧構造、合計っぽい数字なら既に新構造
+  Logger.log('--- D列〜の中身先頭5行 ---');
+  if (lastRow >= 3) {
+    var dCol = sheet.getRange(3, 4, Math.min(5, lastRow - 2), 1).getValues();
+    for (var k = 0; k < dCol.length; k++) {
+      Logger.log('  row=' + (k + 3) + ' D列=' + dCol[k][0]);
+    }
+  }
+
+  // C列に何が入ってるか（合計式 or 値）
+  Logger.log('--- C列の数式・値（先頭3メンバー）---');
+  if (lastRow >= 3) {
+    var cFormulas = sheet.getRange(3, 3, 3, 1).getFormulas();
+    var cValues = sheet.getRange(3, 3, 3, 1).getValues();
+    for (var n = 0; n < cFormulas.length; n++) {
+      Logger.log('  row=' + (n + 3) + ' C列 数式=' + cFormulas[n][0] + ' 値=' + cValues[n][0]);
+    }
+  }
+
+  Logger.log('=== 判定 ===');
+  Logger.log('D列に「日付（4/1, 4/2など）」または「YT/IG/TT」が入ってる → 旧構造、マイグレーション必要');
+  Logger.log('D列に「数字（合計値）」が入ってる → 既に新構造（5月合計列）、マイグレーション不要');
+  Logger.log('=== inspect 完了 ===');
+}
+
+/**
+ * ホープ数シートに月別合計列（D〜K）を追加する
+ * 既存D〜のデータは右に8列シフトされる
+ *
+ * 処理内容:
+ *   1. C列の右に8列挿入 → 既存4月分データ(D〜CO)が L〜DA にシフト
+ *   2. C2セルを「4月合計」とリネーム（C列既存数式の対象列はずれないので維持）
+ *   3. D2〜K2 に「5月合計」〜「12月合計」のラベル
+ *   4. C3〜K{lastRow} に SUM 数式を入れる
+ *
+ * GASエディタから手動実行（一回限り）
+ */
+function migrateHopeAddMonthlyTotals() {
+  var ss = SpreadsheetApp.openById(POST_APP_SS_ID);
+  var sheet = ss.getSheetByName(POST_APP_HOPE_SHEET_NAME);
+  if (!sheet) {
+    Logger.log('❌ ホープ数シート見つからず');
+    return;
+  }
+
+  var lastRow = sheet.getLastRow();
+  var lastCol = sheet.getLastColumn();
+  Logger.log('=== マイグレーション開始 ===');
+  Logger.log('lastRow=' + lastRow + ', lastCol=' + lastCol + ' (' + postAppColToLetter_(lastCol) + ')');
+
+  // 二重実行防止: D列の値が数字（既に合計列になってる）ならスキップ
+  if (lastRow >= 3) {
+    var d3Value = sheet.getRange(3, 4).getValue();
+    var d3Formula = sheet.getRange(3, 4).getFormula();
+    Logger.log('D3 値=' + d3Value + ' 数式=' + d3Formula);
+    if (d3Formula && d3Formula.indexOf('SUM') >= 0) {
+      Logger.log('⚠️ D列が既にSUM式 → 既にマイグレーション済み、中止');
+      return;
+    }
+  }
+
+  // Step 1: C列の右に8列挿入 → 既存D〜が L〜にシフト
+  sheet.insertColumnsAfter(3, 8);
+  Logger.log('✅ C列の右に8列挿入');
+
+  // Step 2: メタヘッダー設定（C2〜K2 = 4月〜12月合計）
+  var monthLabels = ['4月合計', '5月合計', '6月合計', '7月合計', '8月合計', '9月合計', '10月合計', '11月合計', '12月合計'];
+  sheet.getRange(2, 3, 1, 9).setValues([monthLabels]).setHorizontalAlignment('center').setFontWeight('bold').setBackground('#E8F0FE');
+  // 1行目（マージ）も埋める
+  sheet.getRange(1, 3, 1, 9).setValue('月別合計').merge().setHorizontalAlignment('center').setFontWeight('bold').setBackground('#4A90D9').setFontColor('#FFFFFF');
+  Logger.log('✅ メタヘッダー設定（C2〜K2）');
+
+  // Step 3: 各行に SUM 数式（4月〜12月）
+  if (lastRow >= 3) {
+    // 各月のデータ列範囲を計算（4月: L〜DA, 5月: DB〜GS, ...）
+    var dataStartCol = 12; // L列
+    var monthRanges = [];
+    var col = dataStartCol;
+    for (var m = 4; m <= 12; m++) {
+      var monthDays = new Date(2026, m, 0).getDate();
+      var totalCols = monthDays * 3;
+      var startLetter = postAppColToLetter_(col);
+      var endLetter = postAppColToLetter_(col + totalCols - 1);
+      monthRanges.push({ start: startLetter, end: endLetter });
+      col += totalCols;
+    }
+
+    var formulas = [];
+    for (var r = 3; r <= lastRow; r++) {
+      var row = [];
+      for (var mi = 0; mi < monthRanges.length; mi++) {
+        row.push('=SUM(' + monthRanges[mi].start + r + ':' + monthRanges[mi].end + r + ')');
+      }
+      formulas.push(row);
+    }
+    sheet.getRange(3, 3, lastRow - 2, 9).setFormulas(formulas);
+    Logger.log('✅ ' + (lastRow - 2) + '行に月別合計式を設定');
+    Logger.log('  範囲例（4月）: C3 = SUM(' + monthRanges[0].start + '3:' + monthRanges[0].end + '3)');
+    Logger.log('  範囲例（5月）: D3 = SUM(' + monthRanges[1].start + '3:' + monthRanges[1].end + '3)');
+  }
+
+  Logger.log('=== マイグレーション完了 ===');
+  Logger.log('スプシで目視確認: C列〜K列が月別合計、L列以降が4月〜のデータ');
+  Logger.log('注意: GAS本番デプロイ更新後でないと、サーバーが古い列位置で読み続けます');
 }
