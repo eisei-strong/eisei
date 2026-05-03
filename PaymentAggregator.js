@@ -1,7 +1,11 @@
 // ============================================
 // PaymentAggregator.js
 // 経理が貼り付けた一次データ（ユニヴァ・ライフティ・銀振）から
-// 商談者別の月次着金額を集計し、「集計済み」タブに書き出す
+// 商談者別 × 商談日 の着金額を集計し、「集計済み」タブに書き出す
+//
+// 着金の起点は「商談日（マスターのプッシュ日時）」：
+// - 4月商談 → 5月着金でも「4月の着金」として計上
+// - 取引日（決済日/完了日/入金日）ではなく、商談日で集計
 // ============================================
 
 var PA_MASTER_ID = '1KxHeLmrpdaw1IUhBaQ46UWSHu-8SCRZqcrHOE2hMwDo';
@@ -44,18 +48,18 @@ var PA_BANK_PROCESSOR_KW = [
  * メインエントリ：トリガーから1日1回呼ばれる
  *
  * 動作仕様：
- * - 一次データタブ（ユニヴァ・ライフティ・銀振）には経理が当月分を毎朝貼り付け
- * - 月初に旧月分を別タブにアーカイブし、当月分だけが残っている前提
- * - GASは「現在貼られているデータの月」を集計し、集計済みタブの該当月行を更新
- * - 過去月（既に集計済みタブにあるが、一次データには無い）は触らず追記式で履歴維持
+ * - 一次データタブ（ユニヴァ・ライフティ・銀振）には経理が直近データを毎朝貼り付け
+ * - 各取引を商談者にマッチ → その商談者の「商談日」に着金として計上
+ * - 集計済みタブは (商談者, 商談日) 単位で upsert（履歴保持）
+ * - 一次データに現れた商談日の行のみ更新、それ以外は触らず履歴維持
  */
 function aggregatePrimaryData() {
   var ss = SpreadsheetApp.openById(PA_MASTER_ID);
   Logger.log('=== aggregatePrimaryData 開始: ' + new Date().toISOString());
 
-  // マスター本体から成約者リスト
+  // マスター本体から商談済み顧客リスト（テスト除く全件）
   var seiyaku = readSeiyakuFromMaster_(ss);
-  Logger.log('成約者数（CO・失注除外）: ' + seiyaku.length);
+  Logger.log('商談者数（マスター登録、テスト除外）: ' + seiyaku.length);
 
   // 一次データ読み込み
   var univaTxs = readUnivaTab_(ss);
@@ -66,25 +70,25 @@ function aggregatePrimaryData() {
   // インデックス作成
   var indexes = buildSeiyakuIndexes_(seiyaku);
 
-  // 商談者×月別に集計（一次データに含まれる月だけ）
-  var aggregated = aggregateBySalesAndMonth_(univaTxs, liftyTxs, bankTxs, indexes);
-  var processedMonths = collectMonths_(aggregated);
-  Logger.log('処理対象月: ' + processedMonths.join(', '));
+  // 商談者×商談日で集計
+  var aggregated = aggregateBySalesAndPushDate_(univaTxs, liftyTxs, bankTxs, indexes);
+  var processedDates = collectPushDates_(aggregated);
+  Logger.log('処理対象商談日: ' + processedDates.length + '件 (' + processedDates.slice(0, 3).join(', ') + (processedDates.length > 3 ? ' ...' : '') + ')');
 
-  // 集計済みタブに upsert（既存履歴は保持、対象月のみ上書き）
-  upsertAggregatedSheet_(ss, aggregated, processedMonths);
+  // 集計済みタブに upsert
+  upsertAggregatedSheet_(ss, aggregated, processedDates);
 
   Logger.log('=== aggregatePrimaryData 完了');
-  return { ok: true, monthCount: processedMonths.length, salesCount: countSales_(aggregated) };
+  return { ok: true, dateCount: processedDates.length, salesCount: countSales_(aggregated) };
 }
 
-function collectMonths_(aggregated) {
+function collectPushDates_(aggregated) {
   var set = {};
   for (var sales in aggregated) {
-    for (var ym in aggregated[sales]) set[ym] = true;
+    for (var d in aggregated[sales]) set[d] = true;
   }
   var arr = [];
-  for (var ym in set) arr.push(ym);
+  for (var d in set) arr.push(d);
   arr.sort();
   arr.reverse();
   return arr;
@@ -121,6 +125,7 @@ function readSeiyakuFromMaster_(ss) {
 
     out.push({
       push: String(row[PA_COL_PUSH] || '').trim(),
+      pushDate: pushDateKey_(row[PA_COL_PUSH]),  // YYYY-MM-DD
       sales: sales,
       name: name,
       line: String(row[PA_COL_LINE] || '').trim(),
@@ -129,6 +134,19 @@ function readSeiyakuFromMaster_(ss) {
     });
   }
   return out;
+}
+
+/**
+ * セル値（Date or 文字列）から "YYYY-MM-DD" を抽出
+ */
+function pushDateKey_(v) {
+  if (v instanceof Date) {
+    return Utilities.formatDate(v, 'Asia/Tokyo', 'yyyy-MM-dd');
+  }
+  var s = String(v || '').trim();
+  var m = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+  if (m) return m[1] + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[3]).slice(-2);
+  return '';
 }
 
 /**
@@ -275,47 +293,46 @@ function buildSeiyakuIndexes_(seiyaku) {
 }
 
 /**
- * 商談者×月別の着金額集計（一次データに現れる月をすべて集計）
+ * 商談者×商談日別の着金額集計
+ * - 各取引を商談者にマッチ → その商談者の商談日に紐付けて計上
+ * - 取引日（決済日/完了日/入金日）は使用しない（商談日が起点）
  */
-function aggregateBySalesAndMonth_(univaTxs, liftyTxs, bankTxs, idx) {
+function aggregateBySalesAndPushDate_(univaTxs, liftyTxs, bankTxs, idx) {
   var result = {};
-  function ensure(sales, ym) {
+  function ensure(sales, pushDate) {
     if (!result[sales]) result[sales] = {};
-    if (!result[sales][ym]) result[sales][ym] = { univa: 0, lifty: 0, bank: 0, total: 0, count: 0 };
-    return result[sales][ym];
+    if (!result[sales][pushDate]) result[sales][pushDate] = { univa: 0, lifty: 0, bank: 0, total: 0, count: 0 };
+    return result[sales][pushDate];
   }
 
-  // ユニヴァ：管理画面の決済日(=日付列)の月で計上（実銀行入金タイミングは無視）
+  // ユニヴァ
   for (var i = 0; i < univaTxs.length; i++) {
     var tx = univaTxs[i];
-    var ym = tx.date.substring(0, 7);
     var s = matchUnivaSeiyaku_(tx, idx);
-    if (!s) continue;
-    var bucket = ensure(shortSales_(s.sales), ym);
+    if (!s || !s.pushDate) continue;
+    var bucket = ensure(shortSales_(s.sales), s.pushDate);
     bucket.univa += tx.amt;
     bucket.total += tx.amt;
     bucket.count += 1;
   }
 
-  // ライフティ：完了日(=お客様ﾀﾞｳﾝﾛｰﾄﾞ日時)の月で計上
+  // ライフティ
   for (var i = 0; i < liftyTxs.length; i++) {
     var tx = liftyTxs[i];
-    var ym = tx.complete_date.substring(0, 7);
     var s = matchLiftySeiyaku_(tx, idx);
-    if (!s) continue;
-    var bucket = ensure(shortSales_(s.sales), ym);
+    if (!s || !s.pushDate) continue;
+    var bucket = ensure(shortSales_(s.sales), s.pushDate);
     bucket.lifty += tx.amt;
     bucket.total += tx.amt;
     bucket.count += 1;
   }
 
-  // 銀振：入金日の月で計上
+  // 銀振
   for (var i = 0; i < bankTxs.length; i++) {
     var tx = bankTxs[i];
-    var ym = tx.date.substring(0, 7);
     var s = matchBankSeiyaku_(tx, idx);
-    if (!s) continue;
-    var bucket = ensure(shortSales_(s.sales), ym);
+    if (!s || !s.pushDate) continue;
+    var bucket = ensure(shortSales_(s.sales), s.pushDate);
     bucket.bank += tx.amt;
     bucket.total += tx.amt;
     bucket.count += 1;
@@ -327,15 +344,17 @@ function aggregateBySalesAndMonth_(univaTxs, liftyTxs, bankTxs, idx) {
 /**
  * 集計済みタブに upsert
  * - 既存タブの履歴は保持
- * - processedMonths（今回の一次データに現れた月）の行のみ削除して再書き込み
- * - 過去月（一次データに無い）はそのまま残る
+ * - processedDates（今回の一次データに現れた商談日）の行のみ削除して再書き込み
+ * - 処理対象外の商談日（一次データに無い）はそのまま残る
  *
- * 月列(A列)は強制テキスト型で書き込み（"2026-04" がDate型に自動変換されると
+ * 商談日列(A列)は強制テキスト型で書き込み（"2026-04-13" がDate型に自動変換されると
  * 比較ロジックが破綻し、重複行が発生するため）
+ *
+ * 金額は万円単位・小数1位に丸めて書き込み（ダッシュボードの単位に合わせる）
  */
-function upsertAggregatedSheet_(ss, aggregated, processedMonths) {
+function upsertAggregatedSheet_(ss, aggregated, processedDates) {
   var sheet = ss.getSheetByName(PA_TAB_AGG);
-  var headerRow = ['月', '商談者', '着金額', 'ユニヴァ', 'ライフティ', '銀振', '件数', '更新日時'];
+  var headerRow = ['商談日', '商談者', '着金額', 'ユニヴァ', 'ライフティ', '銀振', '件数', '更新日時'];
   var now = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd HH:mm:ss');
 
   if (!sheet) {
@@ -354,41 +373,50 @@ function upsertAggregatedSheet_(ss, aggregated, processedMonths) {
     existingRows = sheet.getRange(2, 1, lastRow - 1, headerRow.length).getValues();
   }
 
-  // 今回処理する月以外の既存行を残す（Date型を YYYY-MM に正規化）
+  // 今回処理する商談日以外の既存行を残す（Date型を YYYY-MM-DD に正規化）
   var keepRows = [];
   var processedSet = {};
-  for (var i = 0; i < processedMonths.length; i++) processedSet[processedMonths[i]] = true;
+  for (var i = 0; i < processedDates.length; i++) processedSet[processedDates[i]] = true;
   for (var i = 0; i < existingRows.length; i++) {
     var r = existingRows[i];
-    var ym = ymKeyOf_(r[0]);
-    if (!ym) continue;
-    if (!processedSet[ym]) {
-      r[0] = ym;
+    var d = pushDateKey_(r[0]);
+    if (!d) continue;
+    if (!processedSet[d]) {
+      r[0] = d;
       keepRows.push(r);
     }
   }
 
-  // 今回計算分を生成
+  // 今回計算分を生成（金額は万円・小数1位に丸め）
   var newRows = [];
-  for (var i = 0; i < processedMonths.length; i++) {
-    var ym = processedMonths[i];
+  for (var i = 0; i < processedDates.length; i++) {
+    var d = processedDates[i];
     var salesList = [];
     for (var sales in aggregated) {
-      if (aggregated[sales][ym] && aggregated[sales][ym].total !== 0) {
+      if (aggregated[sales][d] && aggregated[sales][d].total !== 0) {
         salesList.push(sales);
       }
     }
     salesList.sort(function(a, b) {
-      return aggregated[b][ym].total - aggregated[a][ym].total;
+      return aggregated[b][d].total - aggregated[a][d].total;
     });
     for (var j = 0; j < salesList.length; j++) {
       var sales = salesList[j];
-      var b = aggregated[sales][ym];
-      newRows.push([ym, sales, b.total, b.univa, b.lifty, b.bank, b.count, now]);
+      var b = aggregated[sales][d];
+      newRows.push([
+        d,
+        sales,
+        toMan_(b.total),
+        toMan_(b.univa),
+        toMan_(b.lifty),
+        toMan_(b.bank),
+        b.count,
+        now
+      ]);
     }
   }
 
-  // 全データ：keepRows + newRows。月（新→旧）→ 着金額（多→少）
+  // 全データ：keepRows + newRows。商談日（新→旧）→ 着金額（多→少）
   var allRows = keepRows.concat(newRows);
   allRows.sort(function(a, b) {
     if (a[0] !== b[0]) return String(b[0]).localeCompare(String(a[0]));
@@ -407,17 +435,10 @@ function upsertAggregatedSheet_(ss, aggregated, processedMonths) {
 }
 
 /**
- * セル値（Date or 文字列）から "YYYY-MM" を抽出
+ * 円 → 万円（小数1位、四捨五入）
  */
-function ymKeyOf_(v) {
-  if (v instanceof Date) {
-    return Utilities.formatDate(v, 'Asia/Tokyo', 'yyyy-MM');
-  }
-  var s = String(v || '').trim();
-  if (/^\d{4}-\d{2}$/.test(s)) return s;
-  var m = s.match(/^(\d{4})[-/](\d{1,2})/);
-  if (m) return m[1] + '-' + ('0' + m[2]).slice(-2);
-  return '';
+function toMan_(yen) {
+  return Math.round(yen / 1000) / 10;
 }
 
 // =========== ヘルパー関数 ===========
