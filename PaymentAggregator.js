@@ -349,10 +349,12 @@ function aggregateBySalesAndPushDate_(univaTxs, liftyTxs, bankTxs, idx) {
     lifty: { total: liftyTxs.length, match: 0, matchAmt: 0, miss: 0, missAmt: 0 },
     bank:  { total: bankTxs.length,  match: 0, matchAmt: 0, miss: 0, missAmt: 0 }
   };
-  function ensure(sales, pushDate) {
+  // 3層ネスト: result[sales][pushDate][customerName] = bucket
+  function ensure(sales, pushDate, name) {
     if (!result[sales]) result[sales] = {};
-    if (!result[sales][pushDate]) result[sales][pushDate] = { univa: 0, lifty: 0, bank: 0, total: 0, count: 0 };
-    return result[sales][pushDate];
+    if (!result[sales][pushDate]) result[sales][pushDate] = {};
+    if (!result[sales][pushDate][name]) result[sales][pushDate][name] = { univa: 0, lifty: 0, bank: 0, total: 0, count: 0 };
+    return result[sales][pushDate][name];
   }
 
   // ユニヴァ
@@ -366,7 +368,7 @@ function aggregateBySalesAndPushDate_(univaTxs, liftyTxs, bankTxs, idx) {
     }
     stats.univa.match++;
     stats.univa.matchAmt += tx.amt;
-    var bucket = ensure(shortSales_(s.sales), s.pushDate);
+    var bucket = ensure(shortSales_(s.sales), s.pushDate, s.name);
     bucket.univa += tx.amt;
     bucket.total += tx.amt;
     bucket.count += 1;
@@ -383,7 +385,7 @@ function aggregateBySalesAndPushDate_(univaTxs, liftyTxs, bankTxs, idx) {
     }
     stats.lifty.match++;
     stats.lifty.matchAmt += tx.amt;
-    var bucket = ensure(shortSales_(s.sales), s.pushDate);
+    var bucket = ensure(shortSales_(s.sales), s.pushDate, s.name);
     bucket.lifty += tx.amt;
     bucket.total += tx.amt;
     bucket.count += 1;
@@ -400,7 +402,7 @@ function aggregateBySalesAndPushDate_(univaTxs, liftyTxs, bankTxs, idx) {
     }
     stats.bank.match++;
     stats.bank.matchAmt += tx.amt;
-    var bucket = ensure(shortSales_(s.sales), s.pushDate);
+    var bucket = ensure(shortSales_(s.sales), s.pushDate, s.name);
     bucket.bank += tx.amt;
     bucket.total += tx.amt;
     bucket.count += 1;
@@ -425,7 +427,7 @@ function aggregateBySalesAndPushDate_(univaTxs, liftyTxs, bankTxs, idx) {
  */
 function writeSheet_(ss, tabName, aggregated, processedDates) {
   var sheet = ss.getSheetByName(tabName);
-  var headerRow = ['商談日', '商談者', '着金額', 'ユニヴァ', 'ライフティ', '銀振', '件数', '更新日時'];
+  var headerRow = ['商談日', '商談者', '顧客', '着金額', 'ユニヴァ', 'ライフティ', '銀振', '件数', '更新日時'];
   var now = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd HH:mm:ss');
 
   if (!sheet) {
@@ -440,39 +442,35 @@ function writeSheet_(ss, tabName, aggregated, processedDates) {
   sheet.setFrozenRows(1);
   sheet.getRange('A:A').setNumberFormat('@');
 
-  // 新規データ生成（金額は万円・小数1位に丸め）
+  // 新規データ生成（金額は万円・小数1位に丸め、顧客ごとに行を作る）
   var rows = [];
   for (var i = 0; i < processedDates.length; i++) {
     var d = processedDates[i];
-    var salesList = [];
     for (var sales in aggregated) {
-      if (aggregated[sales][d] && aggregated[sales][d].total !== 0) {
-        salesList.push(sales);
+      if (!aggregated[sales][d]) continue;
+      var byName = aggregated[sales][d];
+      for (var name in byName) {
+        var b = byName[name];
+        if (b.total === 0) continue;
+        rows.push([
+          d,
+          sales,
+          name,
+          toMan_(b.total),
+          toMan_(b.univa),
+          toMan_(b.lifty),
+          toMan_(b.bank),
+          b.count,
+          now
+        ]);
       }
-    }
-    salesList.sort(function(a, b) {
-      return aggregated[b][d].total - aggregated[a][d].total;
-    });
-    for (var j = 0; j < salesList.length; j++) {
-      var sales = salesList[j];
-      var b = aggregated[sales][d];
-      rows.push([
-        d,
-        sales,
-        toMan_(b.total),
-        toMan_(b.univa),
-        toMan_(b.lifty),
-        toMan_(b.bank),
-        b.count,
-        now
-      ]);
     }
   }
 
   // 商談日（新→旧）→ 着金額（多→少）でソート
   rows.sort(function(a, b) {
     if (a[0] !== b[0]) return String(b[0]).localeCompare(String(a[0]));
-    return Number(b[2]) - Number(a[2]);
+    return Number(b[3]) - Number(a[3]);  // C列が顧客、D列(index 3)が着金額
   });
 
   // 書き込み
