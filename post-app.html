@@ -1877,16 +1877,24 @@ function forceRegister(){
 // ---- リスト数（ホープ数）読み込み（月切替対応） ----
 function loadHope(){
   if(!token)return;
-  // キャッシュあれば即表示
+  // 旧キャッシュ削除（pa_hope は4月の合計が残ってる可能性）
+  localStorage.removeItem('pa_hope');
+  // キャッシュあれば即表示（再合算済みデータのみ）
   var cacheKey=getHopeCacheKey(hopeYear,hopeMonth);
   var cached=localStorage.getItem(cacheKey);
   if(cached){try{hopeData=JSON.parse(cached);document.getElementById('tabHope').style.display='';updateHopeMonthDisplay();if(currentTab==='hope')renderHope()}catch(e){}}
   api('action=postGetHope&token='+encodeURIComponent(token)+'&year='+hopeYear+'&month='+hopeMonth).then(function(d){
     if(d.error||!d.allowed){hopeData=null;document.getElementById('tabHope').style.display='none';return}
     if(d.noData){hopeData={total:0,days:[]};document.getElementById('tabHope').style.display='';updateHopeMonthDisplay();return}
+    // 応急処置: GAS本番が旧コード(C列読み)の場合、API応答の total が前月の値の可能性
+    // → days[].sum を信じて再合算する
+    if(d.days){
+      var actualTotal=0;
+      for(var i=0;i<d.days.length;i++)actualTotal+=(d.days[i].sum||0);
+      d.total=actualTotal;
+    }
     hopeData=d;
     localStorage.setItem(cacheKey,JSON.stringify(hopeData));
-    localStorage.setItem('pa_hope',JSON.stringify(hopeData)); // 後方互換
     document.getElementById('tabHope').style.display='';
     updateHopeMonthDisplay();
     if(currentTab==='hope')renderHope();
