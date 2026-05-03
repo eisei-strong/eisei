@@ -199,6 +199,21 @@ function readSeiyakuFromMaster_(ss) {
         _origName: name
       });
     }
+    // X列補足のローマ字決済名義も追加（ユニヴァ name とのmatching用）
+    var romaji = extractRomajiName_(row[PA_COL_SUPPLEMENT]);
+    if (romaji) {
+      out.push({
+        push: String(row[PA_COL_PUSH] || '').trim(),
+        pushDate: pushDateKey_(row[PA_COL_PUSH]),
+        sales: sales,
+        name: romaji,
+        line: romaji,
+        email: '',
+        status: status,
+        _source: 'romaji_alias',
+        _origName: name
+      });
+    }
   }
   return out;
 }
@@ -214,6 +229,22 @@ function extractContractor_(supplement) {
   if (m) return m[1].trim();
   m = s.match(/契約者[はは:：]\s*([^。、，,\n]{2,20}?)[様氏]/);
   if (m) return m[1].trim();
+  return null;
+}
+
+/**
+ * 「支払い予定の補足」セルからローマ字名を抽出（決済名義）
+ * 例: '15万ユニバペイ着金（AOI ISHIDA名義）' → 'aoi ishida'
+ *
+ * ユニヴァ管理画面の name はローマ字なので、X列補足にローマ字決済名義が
+ * あれば matching用エイリアスとして登録できる
+ */
+function extractRomajiName_(supplement) {
+  if (!supplement) return null;
+  var s = String(supplement);
+  // 「○○ ○○名義」パターン（ローマ字大文字、全角/半角スペース許容）
+  var m = s.match(/([A-Z]{2,}[\s　]+[A-Z]{2,})[\s　]*名義/);
+  if (m) return m[1].toLowerCase().replace(/[\s　]+/g, ' ').trim();
   return null;
 }
 
@@ -265,6 +296,20 @@ function readSeiyakuFromFormAnswers_(ss) {
         email: '',
         status: status,
         _source: 'form_contractor_alias',
+        _origName: name
+      });
+    }
+    var romaji = extractRomajiName_(row[PA_COL_SUPPLEMENT]);
+    if (romaji) {
+      out.push({
+        push: String(row[PA_COL_PUSH] || '').trim(),
+        pushDate: pushDateKey_(row[PA_COL_PUSH]),
+        sales: sales,
+        name: romaji,
+        line: romaji,
+        email: '',
+        status: status,
+        _source: 'form_romaji_alias',
         _origName: name
       });
     }
