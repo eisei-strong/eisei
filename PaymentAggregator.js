@@ -473,10 +473,18 @@ function writeSheet_(ss, tabName, aggregated, processedDates) {
     return Number(b[3]) - Number(a[3]);  // C列が顧客、D列(index 3)が着金額
   });
 
-  // 書き込み
+  // 書き込み（書式も明示的にリセット）
   if (rows.length > 0) {
-    sheet.getRange(2, 1, rows.length, headerRow.length).setValues(rows);
+    var range = sheet.getRange(2, 1, rows.length, headerRow.length);
+    // 全列の書式を一旦リセット
+    range.setNumberFormat('General');
+    range.setValues(rows);
+    // A列（商談日）は強制テキスト
     sheet.getRange(2, 1, rows.length, 1).setNumberFormat('@');
+    // 数値列（着金額〜件数）は数値書式を明示
+    sheet.getRange(2, 4, rows.length, 4).setNumberFormat('0.0');  // D-G: 着金額/ユニヴァ/ライフティ/銀振
+    sheet.getRange(2, 8, rows.length, 1).setNumberFormat('0');    // H: 件数（整数）
+    sheet.getRange(2, 9, rows.length, 1).setNumberFormat('@');    // I: 更新日時（テキスト）
   }
 }
 
