@@ -78,7 +78,17 @@ function aggregatePrimaryData(targetMonth) {
   var indexes = buildSeiyakuIndexes_(seiyaku);
 
   // 商談者×商談日で全件集計（フィルタなし）
-  var aggregated = aggregateBySalesAndPushDate_(univaTxs, liftyTxs, bankTxs, indexes);
+  var aggResult = aggregateBySalesAndPushDate_(univaTxs, liftyTxs, bankTxs, indexes);
+  var aggregated = aggResult.result;
+  var stats = aggResult.stats;
+
+  // マッチ統計をログ出力
+  Logger.log('--- マッチ統計 ---');
+  ['univa', 'lifty', 'bank'].forEach(function(k) {
+    var s = stats[k];
+    var label = (k === 'univa' ? 'ユニヴァ' : k === 'lifty' ? 'ライフティ' : '銀振');
+    Logger.log('  ' + label + ': ' + s.total + '件 → マッチ ' + s.match + '件 ¥' + Math.round(s.matchAmt).toLocaleString() + ' / 不一致 ' + s.miss + '件 ¥' + Math.round(s.missAmt).toLocaleString());
+  });
 
   // 当月商談と過去商談に振り分け
   var split = splitByTargetMonth_(aggregated, targetMonth);
@@ -334,6 +344,11 @@ function buildSeiyakuIndexes_(seiyaku) {
  */
 function aggregateBySalesAndPushDate_(univaTxs, liftyTxs, bankTxs, idx) {
   var result = {};
+  var stats = {
+    univa: { total: univaTxs.length, match: 0, matchAmt: 0, miss: 0, missAmt: 0 },
+    lifty: { total: liftyTxs.length, match: 0, matchAmt: 0, miss: 0, missAmt: 0 },
+    bank:  { total: bankTxs.length,  match: 0, matchAmt: 0, miss: 0, missAmt: 0 }
+  };
   function ensure(sales, pushDate) {
     if (!result[sales]) result[sales] = {};
     if (!result[sales][pushDate]) result[sales][pushDate] = { univa: 0, lifty: 0, bank: 0, total: 0, count: 0 };
@@ -344,7 +359,13 @@ function aggregateBySalesAndPushDate_(univaTxs, liftyTxs, bankTxs, idx) {
   for (var i = 0; i < univaTxs.length; i++) {
     var tx = univaTxs[i];
     var s = matchUnivaSeiyaku_(tx, idx);
-    if (!s || !s.pushDate) continue;
+    if (!s || !s.pushDate) {
+      stats.univa.miss++;
+      stats.univa.missAmt += tx.amt;
+      continue;
+    }
+    stats.univa.match++;
+    stats.univa.matchAmt += tx.amt;
     var bucket = ensure(shortSales_(s.sales), s.pushDate);
     bucket.univa += tx.amt;
     bucket.total += tx.amt;
@@ -355,7 +376,13 @@ function aggregateBySalesAndPushDate_(univaTxs, liftyTxs, bankTxs, idx) {
   for (var i = 0; i < liftyTxs.length; i++) {
     var tx = liftyTxs[i];
     var s = matchLiftySeiyaku_(tx, idx);
-    if (!s || !s.pushDate) continue;
+    if (!s || !s.pushDate) {
+      stats.lifty.miss++;
+      stats.lifty.missAmt += tx.amt;
+      continue;
+    }
+    stats.lifty.match++;
+    stats.lifty.matchAmt += tx.amt;
     var bucket = ensure(shortSales_(s.sales), s.pushDate);
     bucket.lifty += tx.amt;
     bucket.total += tx.amt;
@@ -366,14 +393,20 @@ function aggregateBySalesAndPushDate_(univaTxs, liftyTxs, bankTxs, idx) {
   for (var i = 0; i < bankTxs.length; i++) {
     var tx = bankTxs[i];
     var s = matchBankSeiyaku_(tx, idx);
-    if (!s || !s.pushDate) continue;
+    if (!s || !s.pushDate) {
+      stats.bank.miss++;
+      stats.bank.missAmt += tx.amt;
+      continue;
+    }
+    stats.bank.match++;
+    stats.bank.matchAmt += tx.amt;
     var bucket = ensure(shortSales_(s.sales), s.pushDate);
     bucket.bank += tx.amt;
     bucket.total += tx.amt;
     bucket.count += 1;
   }
 
-  return result;
+  return { result: result, stats: stats };
 }
 
 /**
