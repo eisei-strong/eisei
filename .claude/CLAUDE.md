@@ -153,6 +153,50 @@
 - APIテストなしで「直った」と判断
 - ローカルで動いただけで本番OK判定
 
+#### 事故記録
+
+##### 事故1（2026-04-18）: clasp deploy で権限喪失
+- 詳細：上記「絶対ルール」参照
+
+##### 事故2（2026-04-18）: 本番HTML上書きで機能消失
+- 詳細：上記「サーバーHTML反映手順」参照
+
+##### 事故3（2026-04-30）: 本番とGitHubのフォーク
+- メモリ `feedback_postapp_deploy_rules.md` 参照
+
+##### 事故4（2026-05-03）: clasp deploy で本番URL喪失（事故1再発の派生）
+**経緯**:
+1. ホープ数シートのC列が `=SUM(D3:CO3)` で4月分のSUM式固定 → 「今月の合計が33（4月分）」問題発生
+2. PR #52で月別合計列追加（C=4月合計, D=5月合計, ..., K=12月合計, L〜=データ起点）
+3. GAS本番デプロイ更新が必要だが、GASエディタUIで本番デプロイ `...qg` がアーカイブ済みに見えていて、kuta310k 操作が困難に見えた
+4. **Claudeが `clasp deploy --deploymentId AKfycby6qaai...qg` をCLI実行（CLAUDE.md禁止操作）**
+5. → デプロイ実行ユーザーが `namaka.hoshi@gmail.com` に変更
+6. → スプシ書き込み権限喪失 → 「アクセスが拒否されました」
+7. → 全ユーザーログイン不能（Chatwork/post-app/dashboard 全部影響）
+8. 復旧：kuta310k がGASエディタで新規ウェブアプリデプロイ作成 → 新URL取得 → 5ファイル一括書き換え（PR #54）
+
+**旧URL → 新URL（2026-05-03 復旧時）**:
+| 旧URL（事故で権限喪失） | 新URL（kuta310k実行で動作中） |
+|---|---|
+| `AKfycby6qaaiUoadCBnxHlUNKd-RkHxarE0WBGiitkdV0IbzL6ninM-df0FFx4SYRYVfdwcxqg` | `AKfycbw2tvPqcuJttb09OuuCDKvi5mQMwcCDqJLFRPJk3pc4w0IIAOyDPEPTRnUKPrMDPgGE4A` |
+
+**根本原因**: 「UIで本番デプロイが見つからない」を理由にCLI操作（clasp deploy）に逃げた。CLAUDE.md事故1で明文禁止されていた操作。
+
+**今後の対処フロー**（UIで本番デプロイが見つからない時）:
+1. **`clasp deploy` は絶対実行しない**（権限事故の再発）
+2. ナマカくんに以下の順で確認してもらう:
+   - 「デプロイを管理」のアクティブセクションを上から下まで全件スクロール
+   - 見つからなければアーカイブ済みセクションも全件確認
+   - 各デプロイをクリック → 詳細を最後までスクロール → 「ウェブアプリ」セクションのURL確認
+   - URLの末尾が **`qg/exec`** で終わるものが本番（外部参照あり）
+3. **それでも見つからなければ**、新規ウェブアプリデプロイ作成（kuta310k実行で）→ 新URL取得 → 影響ファイル全部書き換えPR
+4. 影響ファイルは `grep -rn "AKfycb" --include="*.html" --include="*.js" --include="*.php"` で全部抽出（5/3時点で5ファイル）
+
+**外部システムからの旧URL参照確認**:
+- 旧URL `AKfycby6qaai...qg` を使ってる**外部システム**（Chatwork webhook 等）があれば壊れたまま
+- 確認方法：本番アクセスログ + Chatworkトリガー一覧
+- 該当あれば順次新URLに更新する必要
+
 ### GAS関数の手動実行をユーザーに案内する場合
 1. Apps Scriptエディタ（https://script.google.com/）を開く
 2. 左のファイル一覧から対象ファイル（例: `コード.js`）をクリック
