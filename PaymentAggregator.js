@@ -591,14 +591,19 @@ function buildSeiyakuIndexes_(seiyaku) {
  * - 取引日（決済日/完了日/入金日）は使用しない（商談日が起点）
  */
 /**
- * マスターステータスが CO（キャンセル）系かどうか
- * 該当パターン: 成約➔CO, 成約→CO, 成約→キャンセル, 成約➔キャンセル 等
- * これらの成約者の一次データ取引は「銀振で返金済み」とみなして集計から除外
+ * マスターステータスが集計除外対象かどうか
+ * 該当パターン:
+ *   - 成約➔CO / 成約→CO （クーリングオフ）
+ *   - 成約➔キャンセル / 成約→キャンセル
+ *   - 成約➔失注 / 成約→失注 / 失注 （成約後失注 or 商談失注）
+ *
+ * これらの成約者の一次データ取引は集計対象外（銀振で返金済み等）
  */
 function isCOStatus_(status) {
   if (!status) return false;
   if (status.indexOf('CO') !== -1) return true;
   if (status.indexOf('キャンセル') !== -1) return true;
+  if (status.indexOf('失注') !== -1) return true;
   return false;
 }
 
