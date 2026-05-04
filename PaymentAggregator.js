@@ -595,15 +595,20 @@ function buildSeiyakuIndexes_(seiyaku) {
  * 該当パターン:
  *   - 成約➔CO / 成約→CO （クーリングオフ）
  *   - 成約➔キャンセル / 成約→キャンセル
- *   - 成約➔失注 / 成約→失注 / 失注 （成約後失注 or 商談失注）
+ *   - 成約➔失注 / 成約→失注 / 失注 / 継続失注 / 継続→失注
+ *   - 継続（商談継続中で成約に至ってない＝着金扱いしない）
  *
- * これらの成約者の一次データ取引は集計対象外（銀振で返金済み等）
+ * 計上対象（誤除外しない）:
+ *   - 成約
+ *   - 継続n→成約（継続商談を経て最終的に成約）
  */
 function isCOStatus_(status) {
   if (!status) return false;
   if (status.indexOf('CO') !== -1) return true;
   if (status.indexOf('キャンセル') !== -1) return true;
   if (status.indexOf('失注') !== -1) return true;
+  // 「継続」を含むが「成約」を含まない場合は除外（継続中で未成約）
+  if (status.indexOf('継続') !== -1 && status.indexOf('成約') === -1) return true;
   return false;
 }
 
