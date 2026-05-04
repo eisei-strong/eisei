@@ -13,8 +13,9 @@ var PA_TAB_MASTER = '👑商談マスターデータ';
 var PA_TAB_UNIVA  = 'ユニヴァ';
 var PA_TAB_LIFTY  = 'ライフティ';
 var PA_TAB_BANK   = '銀振';
-var PA_TAB_AGG    = '集計済み';      // 当月商談分
-var PA_TAB_PAST   = '過去分割';      // 過去成約者の今月入金分
+var PA_TAB_MOSH   = 'MOSH';
+var PA_TAB_AGG    = '集計済み';      // マスター紐付け済み全月
+var PA_TAB_PAST   = '過去分割';      // 廃止（互換のためタブ自体は残す）
 var PA_FORM_GID   = 260080737;       // フォーム回答シートのGID（マスター本体未転記の商談記録）
 
 // マスター本体カラム（0-based）
@@ -65,10 +66,9 @@ var PA_BANK_PROCESSOR_KW = [
  */
 function aggregatePrimaryData(targetMonth) {
   var ss = SpreadsheetApp.openById(PA_MASTER_ID);
-  if (!targetMonth) {
-    targetMonth = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM');
-  }
-  Logger.log('=== aggregatePrimaryData 開始: ' + new Date().toISOString() + ' / 対象月: ' + targetMonth);
+  // targetMonth は互換のため受け取るが、もう絞り込みには使わない
+  // 集計済みタブには全期間（マスターに紐付くもの全部）を書き込む
+  Logger.log('=== aggregatePrimaryData 開始: ' + new Date().toISOString() + (targetMonth ? ' / 旧引数: ' + targetMonth + ' (無視)' : ''));
 
   // マスター本体 + フォーム回答シート から商談済み顧客リスト（テスト除く、重複排除）
   var seiyaku = readAllSeiyaku_(ss);
@@ -78,41 +78,42 @@ function aggregatePrimaryData(targetMonth) {
   var univaTxs = readUnivaTab_(ss);
   var liftyTxs = readLiftyTab_(ss);
   var bankTxs  = readBankTab_(ss);
-  Logger.log('一次データ: ユニヴァ' + univaTxs.length + '件 / ライフティ' + liftyTxs.length + '件 / 銀振' + bankTxs.length + '件');
+  var moshTxs  = readMoshTab_(ss);
+  Logger.log('一次データ: ユニヴァ' + univaTxs.length + '件 / ライフティ' + liftyTxs.length + '件 / 銀振' + bankTxs.length + '件 / MOSH' + moshTxs.length + '件');
 
   // インデックス作成
   var indexes = buildSeiyakuIndexes_(seiyaku);
 
-  // 商談者×商談日で全件集計（フィルタなし）
-  var aggResult = aggregateBySalesAndPushDate_(univaTxs, liftyTxs, bankTxs, indexes);
+  // 商談者×商談日で全件集計
+  var aggResult = aggregateBySalesAndPushDate_(univaTxs, liftyTxs, bankTxs, moshTxs, indexes);
   var aggregated = aggResult.result;
   var stats = aggResult.stats;
 
   // マッチ統計をログ出力
   Logger.log('--- マッチ統計 ---');
-  ['univa', 'lifty', 'bank'].forEach(function(k) {
+  ['univa', 'lifty', 'mosh', 'bank'].forEach(function(k) {
     var s = stats[k];
-    var label = (k === 'univa' ? 'ユニヴァ' : k === 'lifty' ? 'ライフティ' : '銀振');
+    var label = (k === 'univa' ? 'ユニヴァ' : k === 'lifty' ? 'ライフティ' : k === 'mosh' ? 'MOSH' : '銀振');
     Logger.log('  ' + label + ': ' + s.total + '件 → マッチ ' + s.match + '件 ¥' + Math.round(s.matchAmt).toLocaleString() + ' / 不一致 ' + s.miss + '件 ¥' + Math.round(s.missAmt).toLocaleString());
   });
 
-  // 当月商談と過去商談に振り分け
-  var split = splitByTargetMonth_(aggregated, targetMonth);
-  var currentDates = collectPushDates_(split.current);
-  var pastDates = collectPushDates_(split.past);
-  Logger.log('当月(' + targetMonth + ')商談日: ' + currentDates.length + '件');
-  Logger.log('過去商談日: ' + pastDates.length + '件');
+  // 全マッチ商談日を集計済みタブに書き出し
+  var allDates = collectPushDates_(aggregated);
+  Logger.log('マッチ商談日: ' + allDates.length + '件');
 
-  // 各タブに upsert
-  writeSheet_(ss, PA_TAB_AGG, split.current, currentDates);
-  writeSheet_(ss, PA_TAB_PAST, split.past, pastDates);
+  writeSheet_(ss, PA_TAB_AGG, aggregated, allDates);
+
+  // 過去分割タブは廃止（クリアして注記行のみ残す）
+  var pastSheet = ss.getSheetByName(PA_TAB_PAST);
+  if (pastSheet) {
+    pastSheet.clearContents();
+    pastSheet.getRange(1, 1).setValue('（このタブは廃止されました。集計済みタブに全月分が書き込まれています）');
+  }
 
   Logger.log('=== aggregatePrimaryData 完了');
   return {
     ok: true,
-    targetMonth: targetMonth,
-    currentDateCount: currentDates.length,
-    pastDateCount: pastDates.length,
+    matchedDateCount: allDates.length,
     salesCount: countSales_(aggregated)
   };
 }
@@ -476,6 +477,49 @@ function readBankTab_(ss) {
 }
 
 /**
+ * 「MOSH」タブ読み取り
+ * 期待カラム:
+ *   0:サービスID, 1:サービス名, 2:ゲストID, 3:email, 4:ゲスト名,
+ *   5:申し込み日, 6:決済日, 7:支払い方法, 8:支払い種別, 9:クーポン名,
+ *  10:申し込み総額(税込), 11:クーポン割引額, 12:その他費用, 13:特別割引額,
+ *  14:決済額(税込), 15:決済額(税抜), 16:決済消費税, 17:決済ステータス,
+ *  18:総支払い回数, 19:X回目の支払い, 20:分割ステータス, 21:キャンセル日時,
+ *  22:対象期間(サブスク)
+ *
+ * - 決済ステータス === '支払い済み' のみ
+ * - 金額: 決済額(税込) col 14
+ * - 日付: 決済日 col 6
+ * - email + ゲスト名 でマッチ
+ */
+function readMoshTab_(ss) {
+  var sheet = ss.getSheetByName(PA_TAB_MOSH);
+  if (!sheet) { Logger.log('MOSHタブなし'); return []; }
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  var data = sheet.getRange(2, 1, lastRow - 1, 23).getValues();
+
+  var out = [];
+  for (var i = 0; i < data.length; i++) {
+    var r = data[i];
+    var status = String(r[17] || '').trim();
+    if (status !== '支払い済み') continue;
+    var amt = parsePAAmount_(r[14]);
+    if (amt === null || amt <= 0) continue;
+    var dateStr = parsePAUnivaDate_(r[6]); // ISO 形式なのでユニヴァのパーサで OK
+    if (!dateStr) continue;
+    var email = String(r[3] || '').trim().toLowerCase();
+    var name = String(r[4] || '').trim();
+    out.push({
+      date: dateStr,
+      name: name,
+      email: email,
+      amt: amt
+    });
+  }
+  return out;
+}
+
+/**
  * 成約者リストからマッチング用インデックスを構築
  */
 function buildSeiyakuIndexes_(seiyaku) {
@@ -514,18 +558,19 @@ function buildSeiyakuIndexes_(seiyaku) {
  * - 各取引を商談者にマッチ → その商談者の商談日に紐付けて計上
  * - 取引日（決済日/完了日/入金日）は使用しない（商談日が起点）
  */
-function aggregateBySalesAndPushDate_(univaTxs, liftyTxs, bankTxs, idx) {
+function aggregateBySalesAndPushDate_(univaTxs, liftyTxs, bankTxs, moshTxs, idx) {
   var result = {};
   var stats = {
     univa: { total: univaTxs.length, match: 0, matchAmt: 0, miss: 0, missAmt: 0 },
     lifty: { total: liftyTxs.length, match: 0, matchAmt: 0, miss: 0, missAmt: 0 },
-    bank:  { total: bankTxs.length,  match: 0, matchAmt: 0, miss: 0, missAmt: 0 }
+    bank:  { total: bankTxs.length,  match: 0, matchAmt: 0, miss: 0, missAmt: 0 },
+    mosh:  { total: moshTxs.length,  match: 0, matchAmt: 0, miss: 0, missAmt: 0 }
   };
   // 3層ネスト: result[sales][pushDate][customerName] = bucket
   function ensure(sales, pushDate, name) {
     if (!result[sales]) result[sales] = {};
     if (!result[sales][pushDate]) result[sales][pushDate] = {};
-    if (!result[sales][pushDate][name]) result[sales][pushDate][name] = { univa: 0, lifty: 0, bank: 0, total: 0, count: 0 };
+    if (!result[sales][pushDate][name]) result[sales][pushDate][name] = { univa: 0, lifty: 0, mosh: 0, bank: 0, total: 0, count: 0 };
     return result[sales][pushDate][name];
   }
 
@@ -580,6 +625,23 @@ function aggregateBySalesAndPushDate_(univaTxs, liftyTxs, bankTxs, idx) {
     bucket.count += 1;
   }
 
+  // MOSH
+  for (var i = 0; i < moshTxs.length; i++) {
+    var tx = moshTxs[i];
+    var s = matchMoshSeiyaku_(tx, idx);
+    if (!s || !s.pushDate) {
+      stats.mosh.miss++;
+      stats.mosh.missAmt += tx.amt;
+      continue;
+    }
+    stats.mosh.match++;
+    stats.mosh.matchAmt += tx.amt;
+    var bucket = ensure(shortSales_(s.sales), s.pushDate, s.name);
+    bucket.mosh += tx.amt;
+    bucket.total += tx.amt;
+    bucket.count += 1;
+  }
+
   return { result: result, stats: stats };
 }
 
@@ -599,7 +661,7 @@ function aggregateBySalesAndPushDate_(univaTxs, liftyTxs, bankTxs, idx) {
  */
 function writeSheet_(ss, tabName, aggregated, processedDates) {
   var sheet = ss.getSheetByName(tabName);
-  var headerRow = ['商談日', '商談者', '顧客', '着金額', 'ユニヴァ', 'ライフティ', '銀振', '件数', '更新日時'];
+  var headerRow = ['商談日', '商談者', '顧客', '着金額', 'ユニヴァ', 'ライフティ', 'MOSH', '銀振', '件数', '更新日時'];
   var now = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd HH:mm:ss');
 
   if (!sheet) {
@@ -631,6 +693,7 @@ function writeSheet_(ss, tabName, aggregated, processedDates) {
           toMan_(b.total),
           toMan_(b.univa),
           toMan_(b.lifty),
+          toMan_(b.mosh || 0),
           toMan_(b.bank),
           b.count,
           now
@@ -648,15 +711,16 @@ function writeSheet_(ss, tabName, aggregated, processedDates) {
   // 書き込み（書式も明示的にリセット）
   if (rows.length > 0) {
     var range = sheet.getRange(2, 1, rows.length, headerRow.length);
-    // 全列の書式を一旦リセット
     range.setNumberFormat('General');
     range.setValues(rows);
     // A列（商談日）は強制テキスト
     sheet.getRange(2, 1, rows.length, 1).setNumberFormat('@');
-    // 数値列（着金額〜件数）は数値書式を明示
-    sheet.getRange(2, 4, rows.length, 4).setNumberFormat('0.0');  // D-G: 着金額/ユニヴァ/ライフティ/銀振
-    sheet.getRange(2, 8, rows.length, 1).setNumberFormat('0');    // H: 件数（整数）
-    sheet.getRange(2, 9, rows.length, 1).setNumberFormat('@');    // I: 更新日時（テキスト）
+    // D-H: 着金額/ユニヴァ/ライフティ/MOSH/銀振 = 5列
+    sheet.getRange(2, 4, rows.length, 5).setNumberFormat('0.0');
+    // I: 件数（整数）
+    sheet.getRange(2, 9, rows.length, 1).setNumberFormat('0');
+    // J: 更新日時（テキスト）
+    sheet.getRange(2, 10, rows.length, 1).setNumberFormat('@');
   }
 }
 
@@ -918,6 +982,49 @@ function matchLiftySeiyaku_(tx, idx) {
 }
 
 /**
+ * MOSHマッチング: email完全 → 共通プレフィックス → 正規化名 → line fuzzy
+ * MOSHのゲスト名は日本語フルネーム（"水谷　康晃"）の前提
+ */
+function matchMoshSeiyaku_(tx, idx) {
+  // 1. email完全一致
+  if (tx.email && idx.email[tx.email]) return idx.email[tx.email];
+
+  // 2. email 共通プレフィックス（5文字以上一致）
+  if (tx.email) {
+    var txLocal = tx.email.split('@')[0].toLowerCase();
+    if (txLocal.length >= 5) {
+      for (var key in idx.email) {
+        var keyLocal = key.split('@')[0].toLowerCase();
+        if (commonPrefixLen_(txLocal, keyLocal) >= 5) {
+          return idx.email[key];
+        }
+      }
+    }
+  }
+
+  // 3. 正規化名 完全一致
+  var n = normalizeName_(tx.name);
+  if (n && idx.name[n]) return latestEntry_(idx.name[n]);
+
+  // 4. 正規化名 部分一致（3文字以上）
+  if (n && n.length >= 3) {
+    for (var k in idx.name) {
+      if (n.indexOf(k) !== -1 || k.indexOf(n) !== -1) {
+        return latestEntry_(idx.name[k]);
+      }
+    }
+    // line_idx fuzzy
+    for (var k2 in idx.line) {
+      if (k2.length >= 3 && (n.indexOf(k2) !== -1 || k2.indexOf(n) !== -1)) {
+        return latestEntry_(idx.line[k2]);
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
  * 同名顧客の複数商談行から、pushDate が最新のものを選ぶ
  * 過去同名顧客がいる場合に「最古商談」が選ばれて4月商談が漏れる問題を防止
  */
@@ -1089,6 +1196,7 @@ function debugByPushDate(targetDate) {
   var liftyTxs = readLiftyTab_(ss);
   var univaTxs = readUnivaTab_(ss);
   var bankTxs = readBankTab_(ss);
+  var moshTxs = readMoshTab_(ss);
 
   Logger.log('=== 一次データ → ' + targetDate + ' 商談者へのマッチ ===');
   var matchCount = 0;
@@ -1116,6 +1224,14 @@ function debugByPushDate(targetDate) {
       Logger.log('  銀振: 顧客=' + tx.name_kana + ' ¥' + tx.amt + ' → matched: ' + s.name + ' (商談者:' + s.sales + ')');
     }
   }
+  for (var i = 0; i < moshTxs.length; i++) {
+    var tx = moshTxs[i];
+    var s = matchMoshSeiyaku_(tx, indexes);
+    if (s && s.pushDate === targetDate) {
+      matchCount++;
+      Logger.log('  MOSH: 顧客=' + tx.name + ' / ' + tx.email + ' ¥' + tx.amt + ' → matched: ' + s.name + ' (商談者:' + s.sales + ')');
+    }
+  }
   Logger.log('マッチ合計: ' + matchCount + '件');
 }
 
@@ -1133,6 +1249,7 @@ function debugUnmatched() {
   var univaTxs = readUnivaTab_(ss);
   var liftyTxs = readLiftyTab_(ss);
   var bankTxs = readBankTab_(ss);
+  var moshTxs = readMoshTab_(ss);
 
   Logger.log('=== ユニヴァ不一致 ===');
   for (var i = 0; i < univaTxs.length; i++) {
@@ -1160,6 +1277,16 @@ function debugUnmatched() {
     var s = matchBankSeiyaku_(tx, indexes);
     if (!s || !s.pushDate) {
       Logger.log('  ' + tx.date + ' / ' + tx.name_kana + ' ¥' + tx.amt);
+    }
+  }
+
+  Logger.log('');
+  Logger.log('=== MOSH不一致 ===');
+  for (var i = 0; i < moshTxs.length; i++) {
+    var tx = moshTxs[i];
+    var s = matchMoshSeiyaku_(tx, indexes);
+    if (!s || !s.pushDate) {
+      Logger.log('  ' + tx.date + ' / ' + tx.name + ' / ' + tx.email + ' ¥' + tx.amt);
     }
   }
 }
