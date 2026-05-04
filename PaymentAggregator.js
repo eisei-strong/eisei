@@ -376,25 +376,50 @@ function readUnivaTab_(ss) {
   if (!sheet) { Logger.log('ユニヴァタブなし'); return []; }
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return [];
-  var data = sheet.getRange(2, 1, lastRow - 1, 8).getValues();
+  // 55列フォーマット: メールアドレス col27, カード名義 col38
+  var lastCol = Math.max(sheet.getLastColumn(), 39);
+  var data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
 
   var out = [];
   for (var i = 0; i < data.length; i++) {
     var r = data[i];
-    var status = String(r[7] || '').trim();
-    if (status && status !== '成功') continue;
-    var typ = String(r[5] || '').trim();
-    var amt = parsePAAmount_(r[4]);
-    if (amt === null) continue;
+
+    // 課金ステータス col9（成功のみ採用、空も除外）
+    var status = String(r[9] || '').trim();
+    if (status !== '成功') continue;
+
+    // イベント col16（売上/返金/リカーリングトークン発行 等）
+    var typ = String(r[16] || '').trim();
+    if (typ === 'リカーリングトークン発行') continue; // トークン発行は取引でない
+
+    // 課金金額 col7
+    var amt = parsePAAmount_(r[7]);
+    if (amt === null || amt === 0) continue;
     if (typ === '返金') amt = -Math.abs(amt);
-    var detail = String(r[3] || '').trim();
-    var parsed = parsePAUnivaDetail_(detail);
-    var dateStr = parsePAUnivaDate_(r[1]);
+
+    // メールアドレス col27
+    var email = String(r[27] || '').trim().toLowerCase();
+
+    // トークンメタデータ col11 から "univapay-name"（日本語名）を抽出
+    var meta = String(r[11] || '');
+    var nameJp = '';
+    var m = meta.match(/"univapay-name":\s*"([^"]+)"/);
+    if (m) nameJp = m[1].trim();
+
+    // カード名義 col38（ローマ字フォールバック）
+    var nameRoma = String(r[38] || '').trim();
+
+    var name = nameJp || nameRoma;
+    if (!name && !email) continue;
+
+    // 日付 col4（イベント作成日時、ISO形式）
+    var dateStr = parsePAUnivaDate_(r[4]);
     if (!dateStr) continue;
+
     out.push({
       date: dateStr,
-      name: parsed.name,
-      email: parsed.email,
+      name: name,
+      email: email,
       amt: amt,
       type: typ
     });
