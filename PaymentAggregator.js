@@ -1334,6 +1334,62 @@ function debugIimura()     { return debugCustomer('iimura'); }
 
 function debugApril28() { return debugByPushDate('2026-04-28'); }
 
+/**
+ * 指定月の不一致取引を一次データ別に金額降順でログ出力
+ * 銀振は別事業前提なので除外（ユニヴァ・ライフティ・MOSHのみ事業内不一致）
+ */
+function debugUnmatchedByMonth_(targetMonth, limit) {
+  if (!limit) limit = 30;
+  var ss = SpreadsheetApp.openById(PA_MASTER_ID);
+  var seiyaku = readAllSeiyaku_(ss);
+  var indexes = buildSeiyakuIndexes_(seiyaku);
+
+  var univaTxs = readUnivaTab_(ss);
+  var liftyTxs = readLiftyTab_(ss);
+  var moshTxs  = readMoshTab_(ss);
+
+  function inMonth(d) { return d && d.indexOf(targetMonth) === 0; }
+
+  var groups = [
+    { name: 'ユニヴァ', txs: univaTxs, match: matchUnivaSeiyaku_, dateField: 'date' },
+    { name: 'ライフティ', txs: liftyTxs, match: matchLiftySeiyaku_, dateField: 'complete_date' },
+    { name: 'MOSH', txs: moshTxs, match: matchMoshSeiyaku_, dateField: 'date' }
+  ];
+
+  groups.forEach(function(g) {
+    var miss = [];
+    var total = 0;
+    for (var i = 0; i < g.txs.length; i++) {
+      var tx = g.txs[i];
+      if (!inMonth(tx[g.dateField])) continue;
+      var s = g.match(tx, indexes);
+      if (!s || !s.pushDate) {
+        miss.push(tx);
+        total += tx.amt;
+      }
+    }
+    miss.sort(function(a, b) { return b.amt - a.amt; });
+    Logger.log('=== ' + g.name + ' 不一致 (' + targetMonth + '): ' + miss.length + '件 ¥' + Math.round(total).toLocaleString() + ' ===');
+    var show = Math.min(miss.length, limit);
+    for (var j = 0; j < show; j++) {
+      var tx = miss[j];
+      var line = '  ¥' + Math.round(tx.amt).toLocaleString();
+      if (g.name === 'ライフティ') {
+        line += ' / 完了=' + tx.complete_date + ' / ' + tx.name + ' / 担当=' + tx.sales;
+      } else {
+        line += ' / ' + tx[g.dateField] + ' / ' + tx.name + ' / ' + (tx.email || '(emailなし)');
+      }
+      Logger.log(line);
+    }
+    if (miss.length > show) Logger.log('  ... 他 ' + (miss.length - show) + ' 件');
+    Logger.log('');
+  });
+}
+
+function debugUnmatchedApril()    { return debugUnmatchedByMonth_('2026-04', 50); }
+function debugUnmatchedMarch()    { return debugUnmatchedByMonth_('2026-03', 50); }
+function debugUnmatchedFebruary() { return debugUnmatchedByMonth_('2026-02', 50); }
+
 // =========== タブ構造スキャン（読み取り専用） ===========
 /**
  * 集約スプシの全タブ + ヘッダー行 + 行数 + (検出できれば)日付範囲をログ出力
