@@ -1029,8 +1029,11 @@ function writeUnpaidSheet_(ss, aggregated, seiyaku) {
  * - 商談日が当月で経過日数 > PA_NOTIFY_GRACE_DAYS のもの
  * - 通知履歴タブにあるキーは再通知しない（1回のみ）
  * - 通知後、通知履歴タブに記録
+ *
+ * @param {boolean} [dryRun=false] - true ならCW送信せずログ出力のみ。通知履歴も書かない
  */
-function notifyUnpaid() {
+function notifyUnpaid(dryRun) {
+  if (dryRun) Logger.log('🔬 DRY RUN モード: CW送信は行いません');
   var ss = SpreadsheetApp.openById(PA_MASTER_ID);
   var unpaidSheet = ss.getSheetByName(PA_TAB_UNPAID);
   if (!unpaidSheet) { Logger.log('未収管理タブなし、aggregatePrimaryData を先に実行してください'); return; }
@@ -1111,6 +1114,13 @@ function notifyUnpaid() {
   bodyLines.push('[/info]');
   var body = bodyLines.join('\n');
 
+  if (dryRun) {
+    Logger.log('--- 送信予定メッセージ ---');
+    Logger.log(body);
+    Logger.log('--- DRY RUN 終了（CW送信せず、通知履歴にも記録しない） ---');
+    return;
+  }
+
   // CW送信
   var url = 'https://api.chatwork.com/v2/rooms/' + PA_NOTIFY_ROOM_ID + '/messages';
   var resp = UrlFetchApp.fetch(url, {
@@ -1138,6 +1148,9 @@ function notifyUnpaid() {
   notifiedSheet.getRange(notifiedSheet.getLastRow() + 1, 1, newRows.length, 6).setValues(newRows);
   Logger.log('通知履歴に ' + newRows.length + ' 件追記');
 }
+
+// GASエディタの関数ドロップダウンから引数なしで実行できるラッパー
+function notifyUnpaidDryRun() { return notifyUnpaid(true); }
 
 // =========== ヘルパー関数 ===========
 
