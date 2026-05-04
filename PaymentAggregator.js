@@ -14,8 +14,9 @@ var PA_TAB_UNIVA  = 'ユニヴァ';
 var PA_TAB_LIFTY  = 'ライフティ';
 var PA_TAB_BANK   = '銀振';
 var PA_TAB_MOSH   = 'MOSH';
-var PA_TAB_AGG    = '集計済み';      // マスター紐付け済み全月
-var PA_TAB_PAST   = '過去分割';      // 廃止（互換のためタブ自体は残す）
+var PA_TAB_AGG    = '集計済み';        // マスター紐付け済み全月
+var PA_TAB_PAST   = '過去分割';        // 廃止（互換のためタブ自体は残す）
+var PA_TAB_UNMATCHED = 'マスター登録漏れ'; // 事業内（ユニヴァ・ライフティ・MOSH）の不一致一覧
 var PA_FORM_GID   = 260080737;       // フォーム回答シートのGID（マスター本体未転記の商談記録）
 
 // マスター本体カラム（0-based）
@@ -104,6 +105,9 @@ function aggregatePrimaryData(targetMonth) {
   Logger.log('マッチ商談日: ' + allDates.length + '件');
 
   writeSheet_(ss, PA_TAB_AGG, aggregated, allDates);
+
+  // 事業内不一致（ユニヴァ・ライフティ・MOSH）を「マスター登録漏れ」タブに書き出す
+  writeUnmatchedSheet_(ss, univaTxs, liftyTxs, moshTxs, indexes);
 
   // 過去分割タブは廃止（クリアして注記行のみ残す）
   var pastSheet = ss.getSheetByName(PA_TAB_PAST);
@@ -217,6 +221,24 @@ function readSeiyakuFromMaster_(ss) {
         _origName: name
       });
     }
+    // X列補足の決済者email（守口信一タイプ：契約者と別人の決済者emailが書いてある）
+    var primaryEmail = String(row[PA_COL_EMAIL] || '').toLowerCase().trim();
+    var emailAliases = extractEmailAliases_(row[PA_COL_SUPPLEMENT]);
+    for (var ea = 0; ea < emailAliases.length; ea++) {
+      var aliasEmail = emailAliases[ea];
+      if (aliasEmail === primaryEmail) continue;
+      out.push({
+        push: String(row[PA_COL_PUSH] || '').trim(),
+        pushDate: pushDateKey_(row[PA_COL_PUSH]),
+        sales: sales,
+        name: name,
+        line: String(row[PA_COL_LINE] || '').trim(),
+        email: aliasEmail,
+        status: status,
+        _source: 'email_alias',
+        _origName: name
+      });
+    }
   }
   return out;
 }
@@ -249,6 +271,26 @@ function extractRomajiName_(supplement) {
   var m = s.match(/([A-Z]{2,}[\s　]+[A-Z]{2,})[\s　]*名義/);
   if (m) return m[1].toLowerCase().replace(/[\s　]+/g, ' ').trim();
   return null;
+}
+
+/**
+ * 「支払い予定の補足」セルから決済者emailを抽出（守口信一タイプ対応）
+ * 例: 'クレカで全額着金 守口信一s.moriguchi@accord-m.co.jp 3/10✅'
+ *      → ['s.moriguchi@accord-m.co.jp']
+ *
+ * 契約者本人とは別人の決済者emailが補足に書かれているケースを救済
+ */
+function extractEmailAliases_(supplement) {
+  if (!supplement) return [];
+  var s = String(supplement);
+  var out = [];
+  var matches = s.match(/[\w.+-]+@[\w.-]+\.[\w]+/g);
+  if (matches) {
+    for (var i = 0; i < matches.length; i++) {
+      out.push(matches[i].toLowerCase());
+    }
+  }
+  return out;
 }
 
 /**
@@ -313,6 +355,23 @@ function readSeiyakuFromFormAnswers_(ss) {
         email: '',
         status: status,
         _source: 'form_romaji_alias',
+        _origName: name
+      });
+    }
+    var primaryEmail = String(row[PA_FORM_COL_EMAIL] || '').toLowerCase().trim();
+    var emailAliases = extractEmailAliases_(row[PA_COL_SUPPLEMENT]);
+    for (var ea = 0; ea < emailAliases.length; ea++) {
+      var aliasEmail = emailAliases[ea];
+      if (aliasEmail === primaryEmail) continue;
+      out.push({
+        push: String(row[PA_COL_PUSH] || '').trim(),
+        pushDate: pushDateKey_(row[PA_COL_PUSH]),
+        sales: sales,
+        name: name,
+        line: String(row[PA_COL_LINE] || '').trim(),
+        email: aliasEmail,
+        status: status,
+        _source: 'form_email_alias',
         _origName: name
       });
     }
@@ -805,6 +864,65 @@ function toMan_(yen) {
   return Math.round(yen / 1000) / 10;
 }
 
+/**
+ * 「マスター登録漏れ」タブに事業内の不一致取引（ユニヴァ・ライフティ・MOSH）を書き出す
+ * 銀振は別事業前提のため除外
+ *
+ * このタブを見て、リーさんor営業がマスターに登録漏れを追加すれば、次回再集計で正しくマッチする
+ */
+function writeUnmatchedSheet_(ss, univaTxs, liftyTxs, moshTxs, idx) {
+  var sheet = ss.getSheetByName(PA_TAB_UNMATCHED);
+  if (!sheet) sheet = ss.insertSheet(PA_TAB_UNMATCHED);
+  sheet.clearContents();
+
+  var header = ['日付', 'ソース', '顧客名', 'email', '担当者(ライフティのみ)', '金額(円)', '更新日時'];
+  sheet.getRange(1, 1, 1, header.length).setValues([header]);
+  sheet.setFrozenRows(1);
+  sheet.getRange('A:A').setNumberFormat('@');
+
+  var now = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd HH:mm:ss');
+  var rows = [];
+
+  for (var i = 0; i < univaTxs.length; i++) {
+    var tx = univaTxs[i];
+    var s = matchUnivaSeiyaku_(tx, idx);
+    if (!s || !s.pushDate) {
+      rows.push([tx.date, 'ユニヴァ', tx.name, tx.email || '', '', Math.round(tx.amt), now]);
+    }
+  }
+  for (var j = 0; j < liftyTxs.length; j++) {
+    var tx2 = liftyTxs[j];
+    var s2 = matchLiftySeiyaku_(tx2, idx);
+    if (!s2 || !s2.pushDate) {
+      rows.push([tx2.complete_date || tx2.apply_date, 'ライフティ', tx2.name, '', tx2.sales || '', Math.round(tx2.amt), now]);
+    }
+  }
+  for (var k = 0; k < moshTxs.length; k++) {
+    var tx3 = moshTxs[k];
+    var s3 = matchMoshSeiyaku_(tx3, idx);
+    if (!s3 || !s3.pushDate) {
+      rows.push([tx3.date, 'MOSH', tx3.name, tx3.email || '', '', Math.round(tx3.amt), now]);
+    }
+  }
+
+  // 日付降順 → 金額降順
+  rows.sort(function(a, b) {
+    if (a[0] !== b[0]) return String(b[0]).localeCompare(String(a[0]));
+    return Number(b[5]) - Number(a[5]);
+  });
+
+  if (rows.length > 0) {
+    var range = sheet.getRange(2, 1, rows.length, header.length);
+    range.setNumberFormat('General');
+    range.setValues(rows);
+    sheet.getRange(2, 1, rows.length, 1).setNumberFormat('@');     // 日付テキスト
+    sheet.getRange(2, 6, rows.length, 1).setNumberFormat('#,##0'); // 金額(円)
+    sheet.getRange(2, 7, rows.length, 1).setNumberFormat('@');     // 更新日時
+  }
+
+  Logger.log('マスター登録漏れタブに ' + rows.length + ' 件書き出し');
+}
+
 // =========== ヘルパー関数 ===========
 
 function parsePAAmount_(v) {
@@ -904,7 +1022,6 @@ function matchUnivaSeiyaku_(tx, idx) {
 
   // 2. email の local part 共通プレフィックス（5文字以上一致）
   //    例: hitomi10e ⇔ hitomin12yuki31 → 'hitomi' 6文字共通 → match
-  //    indexOf ではお互いがサブストリングでないと拾えないため、共通プレフィックスで照合
   if (tx.email) {
     var txLocal = tx.email.split('@')[0].toLowerCase();
     if (txLocal.length >= 5) {
@@ -917,7 +1034,27 @@ function matchUnivaSeiyaku_(tx, idx) {
     }
   }
 
-  // 3. ローマ字 name → line_idx 部分一致（既存）
+  // 3. 正規化名 完全一致（深澤文代タイプ: フォーム回答行で本名登録あり、emailなし）
+  //    新フォーマットのユニヴァは col11 トークンメタデータから日本語名を取得済み
+  var nNorm = normalizeName_(tx.name);
+  if (nNorm && idx.name[nNorm]) return latestEntry_(idx.name[nNorm]);
+
+  // 4. 正規化名 部分一致（3文字以上）
+  if (nNorm && nNorm.length >= 3) {
+    for (var k0 in idx.name) {
+      if (k0.length >= 2 && (nNorm.indexOf(k0) !== -1 || k0.indexOf(nNorm) !== -1)) {
+        return latestEntry_(idx.name[k0]);
+      }
+    }
+    // 正規化名 → line_idx 部分一致（line=LINE名/ニックネーム）
+    for (var kl in idx.line) {
+      if (kl.length >= 2 && (nNorm.indexOf(kl) !== -1 || kl.indexOf(nNorm) !== -1)) {
+        return latestEntry_(idx.line[kl]);
+      }
+    }
+  }
+
+  // 5. ローマ字 name → line_idx 部分一致（既存: aoi ishida 等）
   var nl = tx.name.toLowerCase().replace(/\s+/g, '');
   for (var k in idx.line) {
     if (k.length >= 4 && (nl.indexOf(k) !== -1 || k.indexOf(nl) !== -1)) {
@@ -925,7 +1062,7 @@ function matchUnivaSeiyaku_(tx, idx) {
     }
   }
 
-  // 4. ローマ字 → カナ変換 → line_idx / name_idx 部分一致
+  // 6. ローマ字 → カナ変換 → line_idx / name_idx 部分一致
   //    例: fumiyo fukazawa → フミヨフカザワ → マスターLINE「フミヨ」と一致
   var kana = romajiToKatakana_(tx.name);
   if (kana && kana.length >= 4) {
