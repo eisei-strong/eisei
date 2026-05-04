@@ -94,7 +94,9 @@ function aggregatePrimaryData(targetMonth) {
   ['univa', 'lifty', 'mosh', 'bank'].forEach(function(k) {
     var s = stats[k];
     var label = (k === 'univa' ? 'ユニヴァ' : k === 'lifty' ? 'ライフティ' : k === 'mosh' ? 'MOSH' : '銀振');
-    Logger.log('  ' + label + ': ' + s.total + '件 → マッチ ' + s.match + '件 ¥' + Math.round(s.matchAmt).toLocaleString() + ' / 不一致 ' + s.miss + '件 ¥' + Math.round(s.missAmt).toLocaleString());
+    Logger.log('  ' + label + ': ' + s.total + '件 → マッチ ' + s.match + '件 ¥' + Math.round(s.matchAmt).toLocaleString()
+      + ' / 不一致 ' + s.miss + '件 ¥' + Math.round(s.missAmt).toLocaleString()
+      + ' / CO除外 ' + s.coSkip + '件 ¥' + Math.round(s.coSkipAmt).toLocaleString());
   });
 
   // 全マッチ商談日を集計済みタブに書き出し
@@ -588,13 +590,25 @@ function buildSeiyakuIndexes_(seiyaku) {
  * - 各取引を商談者にマッチ → その商談者の商談日に紐付けて計上
  * - 取引日（決済日/完了日/入金日）は使用しない（商談日が起点）
  */
+/**
+ * マスターステータスが CO（キャンセル）系かどうか
+ * 該当パターン: 成約➔CO, 成約→CO, 成約→キャンセル, 成約➔キャンセル 等
+ * これらの成約者の一次データ取引は「銀振で返金済み」とみなして集計から除外
+ */
+function isCOStatus_(status) {
+  if (!status) return false;
+  if (status.indexOf('CO') !== -1) return true;
+  if (status.indexOf('キャンセル') !== -1) return true;
+  return false;
+}
+
 function aggregateBySalesAndPushDate_(univaTxs, liftyTxs, bankTxs, moshTxs, idx) {
   var result = {};
   var stats = {
-    univa: { total: univaTxs.length, match: 0, matchAmt: 0, miss: 0, missAmt: 0 },
-    lifty: { total: liftyTxs.length, match: 0, matchAmt: 0, miss: 0, missAmt: 0 },
-    bank:  { total: bankTxs.length,  match: 0, matchAmt: 0, miss: 0, missAmt: 0 },
-    mosh:  { total: moshTxs.length,  match: 0, matchAmt: 0, miss: 0, missAmt: 0 }
+    univa: { total: univaTxs.length, match: 0, matchAmt: 0, miss: 0, missAmt: 0, coSkip: 0, coSkipAmt: 0 },
+    lifty: { total: liftyTxs.length, match: 0, matchAmt: 0, miss: 0, missAmt: 0, coSkip: 0, coSkipAmt: 0 },
+    bank:  { total: bankTxs.length,  match: 0, matchAmt: 0, miss: 0, missAmt: 0, coSkip: 0, coSkipAmt: 0 },
+    mosh:  { total: moshTxs.length,  match: 0, matchAmt: 0, miss: 0, missAmt: 0, coSkip: 0, coSkipAmt: 0 }
   };
   // 3層ネスト: result[sales][pushDate][customerName] = bucket
   function ensure(sales, pushDate, name) {
@@ -611,6 +625,11 @@ function aggregateBySalesAndPushDate_(univaTxs, liftyTxs, bankTxs, moshTxs, idx)
     if (!s || !s.pushDate) {
       stats.univa.miss++;
       stats.univa.missAmt += tx.amt;
+      continue;
+    }
+    if (isCOStatus_(s.status)) {
+      stats.univa.coSkip++;
+      stats.univa.coSkipAmt += tx.amt;
       continue;
     }
     stats.univa.match++;
@@ -630,6 +649,11 @@ function aggregateBySalesAndPushDate_(univaTxs, liftyTxs, bankTxs, moshTxs, idx)
       stats.lifty.missAmt += tx.amt;
       continue;
     }
+    if (isCOStatus_(s.status)) {
+      stats.lifty.coSkip++;
+      stats.lifty.coSkipAmt += tx.amt;
+      continue;
+    }
     stats.lifty.match++;
     stats.lifty.matchAmt += tx.amt;
     var bucket = ensure(shortSales_(s.sales), s.pushDate, s.name);
@@ -647,6 +671,11 @@ function aggregateBySalesAndPushDate_(univaTxs, liftyTxs, bankTxs, moshTxs, idx)
       stats.bank.missAmt += tx.amt;
       continue;
     }
+    if (isCOStatus_(s.status)) {
+      stats.bank.coSkip++;
+      stats.bank.coSkipAmt += tx.amt;
+      continue;
+    }
     stats.bank.match++;
     stats.bank.matchAmt += tx.amt;
     var bucket = ensure(shortSales_(s.sales), s.pushDate, s.name);
@@ -662,6 +691,11 @@ function aggregateBySalesAndPushDate_(univaTxs, liftyTxs, bankTxs, moshTxs, idx)
     if (!s || !s.pushDate) {
       stats.mosh.miss++;
       stats.mosh.missAmt += tx.amt;
+      continue;
+    }
+    if (isCOStatus_(s.status)) {
+      stats.mosh.coSkip++;
+      stats.mosh.coSkipAmt += tx.amt;
       continue;
     }
     stats.mosh.match++;
