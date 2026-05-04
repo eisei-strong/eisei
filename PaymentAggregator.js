@@ -1176,3 +1176,34 @@ function debugKotaki()     { return debugCustomer('小滝'); }
 function debugIimura()     { return debugCustomer('iimura'); }
 
 function debugApril28() { return debugByPushDate('2026-04-28'); }
+
+// =========== タブ構造スキャン（読み取り専用） ===========
+/**
+ * 集約スプシの全タブ + ヘッダー行 + 行数 + (検出できれば)日付範囲をログ出力
+ * MOSH対応や過去月対応の前段で「データがどこに何件あるか」を可視化するため
+ */
+function paDebugScanTabs() {
+  var ss = SpreadsheetApp.openById(PA_MASTER_ID);
+  var sheets = ss.getSheets();
+  Logger.log('=== 全タブスキャン (' + sheets.length + 'タブ) ===');
+  for (var i = 0; i < sheets.length; i++) {
+    var s = sheets[i];
+    var name = s.getName();
+    var lastRow = s.getLastRow();
+    var lastCol = s.getLastColumn();
+    Logger.log('---');
+    Logger.log('[' + (i + 1) + '] ' + name + ' (rows=' + lastRow + ', cols=' + lastCol + ', gid=' + s.getSheetId() + ')');
+    if (lastRow >= 1 && lastCol >= 1) {
+      var header = s.getRange(1, 1, 1, lastCol).getValues()[0];
+      Logger.log('  header: ' + JSON.stringify(header));
+    }
+    if (lastRow >= 2 && lastCol >= 1) {
+      var first = s.getRange(2, 1, 1, lastCol).getValues()[0];
+      Logger.log('  row2  : ' + JSON.stringify(first));
+    }
+    if (lastRow >= 3 && lastCol >= 1) {
+      var last = s.getRange(lastRow, 1, 1, lastCol).getValues()[0];
+      Logger.log('  rowN  : ' + JSON.stringify(last));
+    }
+  }
+}
