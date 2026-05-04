@@ -404,8 +404,13 @@ function readUnivaTab_(ss) {
 
 /**
  * 「ライフティ」タブ読み取り
- * 期待カラム: 申込ID, 申込日時, 加盟店名, 加盟店支店名, 担当者, 加盟店顧客ID,
- *           申込者氏名, 金額, 回数, 承認番号, お客様ﾀﾞｳﾝﾛｰﾄﾞ日時, 受付ｽﾃｰﾀｽ, ...
+ * 期待カラム: 0:申込ID, 1:申込日時, 2:加盟店名, 3:加盟店支店名, 4:担当者, 5:加盟店顧客ID,
+ *           6:申込者氏名, 7:金額, 8:回数, 9:承認番号, 10:お客様ﾀﾞｳﾝﾛｰﾄﾞ日時,
+ *           11:受付ｽﾃｰﾀｽ, 12:審査ｽﾃｰﾀｽ, 13:審査ｻﾌﾞｽﾃｰﾀｽ, 14:加盟店メモ,
+ *           15:連絡事項ｽﾃｰﾀｽ, 16:集計
+ *
+ * - r[16] (集計) === '集計済み' のみ採用（=ライフティ側が承認＋確定した取引のみ）
+ *   受付=完了 でも 審査=否決/本人確認中/審査中 のものは「集計済み」にならない
  */
 function readLiftyTab_(ss) {
   var sheet = ss.getSheetByName(PA_TAB_LIFTY);
@@ -417,8 +422,8 @@ function readLiftyTab_(ss) {
   var out = [];
   for (var i = 0; i < data.length; i++) {
     var r = data[i];
-    var receipt = String(r[11] || '').trim();
-    if (receipt && receipt !== '完了') continue;
+    var aggStatus = String(r[16] || '').trim();
+    if (aggStatus !== '集計済み') continue;
     var amt = parsePAAmount_(r[7]);
     if (amt === null || amt <= 0) continue;
     var name = String(r[6] || '').trim();
