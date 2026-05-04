@@ -885,6 +885,7 @@ function writeUnmatchedSheet_(ss, univaTxs, liftyTxs, moshTxs, idx) {
 
   for (var i = 0; i < univaTxs.length; i++) {
     var tx = univaTxs[i];
+    if (tx.amt < 0) continue; // 返金は登録漏れリストから除外
     var s = matchUnivaSeiyaku_(tx, idx);
     if (!s || !s.pushDate) {
       rows.push([tx.date, 'ユニヴァ', tx.name, tx.email || '', '', Math.round(tx.amt), now]);
@@ -892,6 +893,7 @@ function writeUnmatchedSheet_(ss, univaTxs, liftyTxs, moshTxs, idx) {
   }
   for (var j = 0; j < liftyTxs.length; j++) {
     var tx2 = liftyTxs[j];
+    if (tx2.amt < 0) continue;
     var s2 = matchLiftySeiyaku_(tx2, idx);
     if (!s2 || !s2.pushDate) {
       rows.push([tx2.complete_date || tx2.apply_date, 'ライフティ', tx2.name, '', tx2.sales || '', Math.round(tx2.amt), now]);
@@ -899,6 +901,7 @@ function writeUnmatchedSheet_(ss, univaTxs, liftyTxs, moshTxs, idx) {
   }
   for (var k = 0; k < moshTxs.length; k++) {
     var tx3 = moshTxs[k];
+    if (tx3.amt < 0) continue;
     var s3 = matchMoshSeiyaku_(tx3, idx);
     if (!s3 || !s3.pushDate) {
       rows.push([tx3.date, 'MOSH', tx3.name, tx3.email || '', '', Math.round(tx3.amt), now]);
