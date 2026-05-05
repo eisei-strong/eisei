@@ -13,6 +13,18 @@ $GAS_URL = 'https://script.google.com/macros/s/AKfycbw2tvPqcuJttb09OuuCDKvi5mQMw
 $MASTER_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1KxHeLmrpdaw1IUhBaQ46UWSHu-8SCRZqcrHOE2hMwDo/export?format=csv&gid=326094286';
 // 集計済みタブ（GASのPaymentAggregatorが生成、一次データから計算した着金額）
 $AGG_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1KxHeLmrpdaw1IUhBaQ46UWSHu-8SCRZqcrHOE2hMwDo/export?format=csv&gid=821922438';
+// 当月成約者の判定用シート（営業ごとタブ、手動入力）
+$CURRENT_MONTH_SHEET_ID = '1N9EYVIF5KOXTRQRjfLXvP1vV2LfJB0seQxirq5UScbw';
+$CURRENT_MONTH_TABS = [
+    '意思決定','言い切り','夜神月','ゴジータ','信',
+    'ぜんぶり','ポジティブ','more','ありのままを捨てる',
+    '司波達也','悟空','週1休みくん','サンウォン','ヒトコト','けつだん'
+];
+$CURRENT_MONTH_TAB_TO_DISPLAY = [
+    'more' => '1日1more',
+    'ありのままを捨てる' => 'ありのまま',
+    '司波達也' => '司波'
+];
 $CACHE_DIR = __DIR__ . '/cache';
 $CACHE_TTL_LIVE = 180;
 $CACHE_TTL_ARCHIVE = 3600;
@@ -993,21 +1005,86 @@ function fetchFromAggregatedSheet($month, $year) {
     return $byRawName;
 }
 
-// 集計済みタブの値で $data の revenue / totalRevenue / ランキングを上書き
+// 当月シート（営業ごとタブ）から [表示名 => 着金額(万円)] を取得
+function fetchFromCurrentMonthSheet($month, $year) {
+    global $CURRENT_MONTH_SHEET_ID, $CURRENT_MONTH_TABS, $CURRENT_MONTH_TAB_TO_DISPLAY;
+
+    $monthPrefix = sprintf('%04d-%02d', $year, $month);
+    $byDisplay = [];
+
+    foreach ($CURRENT_MONTH_TABS as $tabName) {
+        $url = 'https://docs.google.com/spreadsheets/d/' . $CURRENT_MONTH_SHEET_ID
+            . '/gviz/tq?tqx=out:csv&sheet=' . rawurlencode($tabName);
+        $csv = gasRequest($url);
+        if (!$csv) continue;
+        $rows = parseCsv($csv);
+        if (count($rows) < 6) continue; // ヘッダー数行がある前提
+
+        $displayName = $CURRENT_MONTH_TAB_TO_DISPLAY[$tabName] ?? $tabName;
+        $sum = 0;
+        // row6から個別商談（0-indexed=5）
+        for ($i = 5; $i < count($rows); $i++) {
+            $row = $rows[$i];
+            if (count($row) < 17) continue;
+            $no = trim($row[0] ?? '');
+            if ($no === '') continue;
+
+            // 初回商談日 col1 → YYYY-MM 抽出
+            $dateRaw = trim($row[1] ?? '');
+            if (!$dateRaw) continue;
+            $datePrefix = '';
+            if (preg_match('/^(\d{4})[-\/](\d{1,2})/', $dateRaw, $m)) {
+                $datePrefix = sprintf('%04d-%02d', $m[1], $m[2]);
+            }
+            if ($datePrefix !== $monthPrefix) continue;
+
+            // 成約状況フィルタ
+            $status = trim($row[4] ?? '');
+            if (mb_strpos($status, '成約') === false) continue;
+            if (mb_strpos($status, 'CO') !== false) continue;
+            if (mb_strpos($status, 'キャンセル') !== false) continue;
+            if (mb_strpos($status, '失注') !== false) continue;
+
+            // CO チェックボックス col16
+            $co = $row[16] ?? '';
+            if ($co === 'TRUE' || $co === true) continue;
+
+            // 着金額 col6（G列、万円単位）
+            $paid = floatval(str_replace(',', '', $row[6] ?? '0'));
+            if ($paid > 0) {
+                $sum += $paid;
+            }
+        }
+        if ($sum > 0) {
+            $byDisplay[$displayName] = ($byDisplay[$displayName] ?? 0) + $sum;
+        }
+    }
+    return $byDisplay;
+}
+
+// $data の revenue / totalRevenue / ランキングを上書き
+// 当月: 新シート（営業ごとタブ）から取得、それ以外: 集計済みタブから取得
 function applyAggregatedRevenue(&$data, $month, $year) {
     if (empty($data['members'])) return;
 
-    $aggByRaw = fetchFromAggregatedSheet($month, $year);
-    if (empty($aggByRaw)) return; // フォールバック: マスター値のまま
+    $now = new DateTime('now', new DateTimeZone('Asia/Tokyo'));
+    $isCurrentMonth = (intval($month) === intval($now->format('n')) && intval($year) === intval($now->format('Y')));
 
-    list($nameMap, , ) = getMapsForMonth($month, $year);
-
-    // 本名 → 表示名 へ集約
-    $aggByDisplay = [];
-    foreach ($aggByRaw as $rawName => $amount) {
-        $displayName = resolveV2Name($rawName, $nameMap);
-        if (!$displayName) continue;
-        $aggByDisplay[$displayName] = ($aggByDisplay[$displayName] ?? 0) + $amount;
+    if ($isCurrentMonth) {
+        // 当月は新シートから取得（営業手動入力ベース）
+        $aggByDisplay = fetchFromCurrentMonthSheet($month, $year);
+        if (empty($aggByDisplay)) return; // 取れなければマスター値のまま
+    } else {
+        // 過去月は集計済みタブから取得
+        $aggByRaw = fetchFromAggregatedSheet($month, $year);
+        if (empty($aggByRaw)) return;
+        list($nameMap, , ) = getMapsForMonth($month, $year);
+        $aggByDisplay = [];
+        foreach ($aggByRaw as $rawName => $amount) {
+            $displayName = resolveV2Name($rawName, $nameMap);
+            if (!$displayName) continue;
+            $aggByDisplay[$displayName] = ($aggByDisplay[$displayName] ?? 0) + $amount;
+        }
     }
 
     // メンバー毎に revenue 上書き
