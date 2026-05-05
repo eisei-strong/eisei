@@ -1172,9 +1172,9 @@ function writeUnpaidSheet_(ss, aggregated, seiyaku) {
     ]);
   }
 
-  // 当月優先 + 残未収多い順
+  // 商談日（新→旧）→ 同日内は残未収多い順
   rows.sort(function(a, b) {
-    if (a[7] !== b[7]) return a[7] === '当月' ? -1 : 1;
+    if (a[0] !== b[0]) return String(b[0]).localeCompare(String(a[0]));
     return Number(b[5]) - Number(a[5]);
   });
 
