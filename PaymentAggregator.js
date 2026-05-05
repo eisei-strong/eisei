@@ -17,7 +17,7 @@ var PA_TAB_MOSH   = 'MOSH';
 var PA_TAB_AGG    = '集計済み';        // マスター紐付け済み全月
 var PA_TAB_PAST   = '過去分割';        // 廃止（互換のためタブ自体は残す）
 var PA_TAB_UNMATCHED = 'マスター登録漏れ'; // 事業内（ユニヴァ・ライフティ・MOSH）の不一致一覧
-var PA_TAB_UNPAID    = '未収管理';     // 契約金額 > 着金額 の未収案件（全期間）
+var PA_TAB_UNPAID    = '未払管理';     // 契約金額 > 着金額 の未払案件（全期間）
 var PA_TAB_NOTIFIED  = '通知履歴';     // CW通知済み案件の記録（重複通知防止）
 
 var PA_NOTIFY_ROOM_ID = '435865043';   // 未収通知先 CW ルーム
@@ -45,6 +45,7 @@ var PA_CURRENT_MONTH_SKIP_TABS = {
 var PA_FORM_GID   = 260080737;       // フォーム回答シートのGID（マスター本体未転記の商談記録）
 
 // マスター本体カラム（0-based）
+var PA_COL_STUDENT_ID = 1;   // 受講生ID（B列）
 var PA_COL_PUSH    = 2;   // プッシュ日時
 var PA_COL_SALES   = 3;   // 商談者名
 var PA_COL_LINE    = 4;   // LINE名
@@ -53,6 +54,7 @@ var PA_COL_REVENUE = 16;  // 売上（万円）
 var PA_COL_NAME       = 17;  // 顧客名（漢字フルネーム）
 var PA_COL_SUPPLEMENT = 23;  // 支払い予定の補足（X列、契約者別人時の備考）
 var PA_COL_EMAIL      = 34;  // 契約アドレス（マスター本体）
+var PA_COL_INFLOW_ID  = 112; // 流入経路受講生ID（最終列付近）
 
 // フォーム回答シートのカラム（CLAUDE.md「フォーム→マスター列マッピング」より）
 // フォーム[0-23] → マスター[0-23] 直接コピー、フォーム[32] → マスター[34]（契約アドレス）
@@ -217,7 +219,10 @@ function readSeiyakuFromMaster_(ss) {
       line: String(row[PA_COL_LINE] || '').trim(),
       email: String(row[PA_COL_EMAIL] || '').toLowerCase().trim(),
       status: status,
-      revenue: parsePAAmount_(row[PA_COL_REVENUE]) || 0  // 契約金額（万円）
+      revenue: parsePAAmount_(row[PA_COL_REVENUE]) || 0,  // 契約金額（万円）
+      masterRow: i + 2,  // マスタータブの実行番号（1-indexed、ヘッダー込み）
+      studentId: String(row[PA_COL_STUDENT_ID] || '').trim(),
+      inflowId: String(row[PA_COL_INFLOW_ID] || '').trim()
     });
 
     // X列補足に「契約者は○○」がある場合、契約者を別エントリ（エイリアス）として追加
@@ -988,14 +993,16 @@ function readCurrentMonthSheet_() {
 function paDebugUnpaidCurrentMonth() {
   var ss = SpreadsheetApp.openById(PA_MASTER_ID);
   var s = ss.getSheetByName(PA_TAB_UNPAID);
-  if (!s) { Logger.log('未収管理タブなし'); return; }
+  if (!s) { Logger.log('未払管理タブなし'); return; }
   var lastRow = s.getLastRow();
   if (lastRow < 2) { Logger.log('データなし'); return; }
-  var data = s.getRange(2, 1, lastRow - 1, 11).getValues();
-  var current = data.filter(function(r) { return r[7] === '当月'; });
-  Logger.log('=== 未収管理タブ 当月行 (' + current.length + '件) ===');
+  var data = s.getRange(2, 1, lastRow - 1, 14).getValues();
+  // 当月? 列は index 10
+  var current = data.filter(function(r) { return r[10] === '当月'; });
+  Logger.log('=== 未払管理タブ 当月行 (' + current.length + '件) ===');
   current.forEach(function(r) {
-    Logger.log('  ' + r[0] + ' / ' + r[1] + ' / ' + r[2] + ' / 契約' + r[3] + '万 / 着金' + r[4] + '万 / 残' + r[5] + '万 / 経過' + r[6] + '日 / ' + r[8] + ' / ソース:' + r[9]);
+    // [商談日, マスター行, 受講生ID, 流入経路ID, 商談者, 顧客, 契約金額, 着金額, 残未払, 経過日数, 当月?, 状態, ソース, 更新日時]
+    Logger.log('  ' + r[0] + ' / ' + r[4] + ' / ' + r[5] + ' / 契約' + r[6] + '万 / 着金' + r[7] + '万 / 残' + r[8] + '万 / 経過' + r[9] + '日 / ' + r[11] + ' / ソース:' + r[12]);
   });
 }
 
@@ -1095,7 +1102,7 @@ function writeUnpaidSheet_(ss, aggregated, seiyaku) {
   if (!sheet) sheet = ss.insertSheet(PA_TAB_UNPAID);
   sheet.clearContents();
 
-  var header = ['商談日', '商談者', '顧客', '契約金額(万)', '着金額(万)', '残未収(万)', '経過日数', '当月?', '状態', 'ソース', '更新日時'];
+  var header = ['商談日', 'マスター行', '受講生ID', '流入経路ID', '商談者', '顧客', '契約金額(万)', '着金額(万)', '残未払(万)', '経過日数', '当月?', '状態', 'ソース', '更新日時'];
   sheet.getRange(1, 1, 1, header.length).setValues([header]);
   sheet.setFrozenRows(1);
   sheet.getRange('A:A').setNumberFormat('@');
@@ -1119,10 +1126,12 @@ function writeUnpaidSheet_(ss, aggregated, seiyaku) {
 
     var pd = new Date(d.pushDate + 'T00:00:00+09:00');
     var daysElapsed = Math.floor((now - pd) / (1000 * 60 * 60 * 24));
-    var statusLabel = (daysElapsed > PA_NOTIFY_GRACE_DAYS) ? '⚠️未収' : '猶予期間';
+    var statusLabel = (daysElapsed > PA_NOTIFY_GRACE_DAYS) ? '⚠️未払' : '猶予期間';
 
+    // 当月新シート由来は受講生ID/流入経路IDなし（マスター紐付け前）
     rows.push([
-      d.pushDate, d.sales, d.name,
+      d.pushDate, '', '', '',
+      d.sales, d.name,
       d.contractAmt, d.paidAmt, unpaidMan,
       daysElapsed, '当月',
       statusLabel, '新シート', nowStr
@@ -1162,20 +1171,21 @@ function writeUnpaidSheet_(ss, aggregated, seiyaku) {
 
     var pd2 = new Date(s.pushDate + 'T00:00:00+09:00');
     var daysElapsed2 = Math.floor((now - pd2) / (1000 * 60 * 60 * 24));
-    var statusLabel2 = (daysElapsed2 > PA_NOTIFY_GRACE_DAYS) ? '⚠️未収' : '猶予期間';
+    var statusLabel2 = (daysElapsed2 > PA_NOTIFY_GRACE_DAYS) ? '⚠️未払' : '猶予期間';
 
     rows.push([
-      s.pushDate, salesShort, s.name,
+      s.pushDate, s.masterRow || '', s.studentId || '', s.inflowId || '',
+      salesShort, s.name,
       contractAmt, paidMan, unpaidMan2,
       daysElapsed2, '',
       statusLabel2, '集計済み', nowStr
     ]);
   }
 
-  // 商談日（新→旧）→ 同日内は残未収多い順
+  // 商談日（新→旧）→ 同日内は残未払多い順
   rows.sort(function(a, b) {
     if (a[0] !== b[0]) return String(b[0]).localeCompare(String(a[0]));
-    return Number(b[5]) - Number(a[5]);
+    return Number(b[8]) - Number(a[8]); // 残未払は index 8 に移動（4列増えたから）
   });
 
   if (rows.length > 0) {
@@ -1183,12 +1193,14 @@ function writeUnpaidSheet_(ss, aggregated, seiyaku) {
     range.setNumberFormat('General');
     range.setValues(rows);
     sheet.getRange(2, 1, rows.length, 1).setNumberFormat('@');         // 商談日
-    sheet.getRange(2, 4, rows.length, 3).setNumberFormat('0.0');       // 契約/着金/残未収
-    sheet.getRange(2, 7, rows.length, 1).setNumberFormat('0');         // 経過日数
-    sheet.getRange(2, 11, rows.length, 1).setNumberFormat('@');        // 更新日時
+    sheet.getRange(2, 2, rows.length, 1).setNumberFormat('0');         // マスター行（整数）
+    sheet.getRange(2, 3, rows.length, 2).setNumberFormat('@');         // 受講生ID/流入経路ID（テキスト）
+    sheet.getRange(2, 7, rows.length, 3).setNumberFormat('0.0');       // 契約/着金/残未払
+    sheet.getRange(2, 10, rows.length, 1).setNumberFormat('0');        // 経過日数
+    sheet.getRange(2, 14, rows.length, 1).setNumberFormat('@');        // 更新日時
   }
 
-  Logger.log('未収管理タブに ' + rows.length + ' 件書き出し（当月新シート由来 + 過去月集計済み由来）');
+  Logger.log('未払管理タブに ' + rows.length + ' 件書き出し（当月新シート由来 + 過去月集計済み由来）');
 }
 
 /**
@@ -1206,18 +1218,18 @@ function notifyUnpaid(dryRun, allPeriods) {
   if (allPeriods) Logger.log('🌐 全期間モード: 当月フィルタを外します（テスト用）');
   var ss = SpreadsheetApp.openById(PA_MASTER_ID);
   var unpaidSheet = ss.getSheetByName(PA_TAB_UNPAID);
-  if (!unpaidSheet) { Logger.log('未収管理タブなし、aggregatePrimaryData を先に実行してください'); return; }
+  if (!unpaidSheet) { Logger.log('未払管理タブなし、aggregatePrimaryData を先に実行してください'); return; }
 
   var lastRow = unpaidSheet.getLastRow();
-  if (lastRow < 2) { Logger.log('未収案件なし'); return; }
+  if (lastRow < 2) { Logger.log('未払案件なし'); return; }
 
-  var data = unpaidSheet.getRange(2, 1, lastRow - 1, 10).getValues();
+  var data = unpaidSheet.getRange(2, 1, lastRow - 1, 14).getValues();
 
   // 通知履歴を読込
   var notifiedSheet = ss.getSheetByName(PA_TAB_NOTIFIED);
   if (!notifiedSheet) {
     notifiedSheet = ss.insertSheet(PA_TAB_NOTIFIED);
-    notifiedSheet.getRange(1, 1, 1, 6).setValues([['通知日', '商談日', '商談者', '顧客', '残未収(万)', 'メッセージID']]);
+    notifiedSheet.getRange(1, 1, 1, 6).setValues([['通知日', '商談日', '商談者', '顧客', '残未払(万)', 'メッセージID']]);
     notifiedSheet.setFrozenRows(1);
   }
   var notifiedKeys = {};
@@ -1233,16 +1245,17 @@ function notifyUnpaid(dryRun, allPeriods) {
   var targets = [];
   var now = new Date();
   var nowStr = Utilities.formatDate(now, 'Asia/Tokyo', 'yyyy-MM-dd HH:mm:ss');
+  // 列構造: [商談日, マスター行, 受講生ID, 流入経路ID, 商談者, 顧客, 契約金額, 着金額, 残未払, 経過日数, 当月?, 状態, ソース, 更新日時]
   for (var j = 0; j < data.length; j++) {
     var row = data[j];
     var pushDate = String(row[0]).trim();
-    var sales = String(row[1]).trim();
-    var name = String(row[2]).trim();
-    var contractAmt = Number(row[3]);
-    var paidMan = Number(row[4]);
-    var unpaidMan = Number(row[5]);
-    var daysElapsed = Number(row[6]);
-    var isCurrentMonth = String(row[7]).trim() === '当月';
+    var sales = String(row[4]).trim();
+    var name = String(row[5]).trim();
+    var contractAmt = Number(row[6]);
+    var paidMan = Number(row[7]);
+    var unpaidMan = Number(row[8]);
+    var daysElapsed = Number(row[9]);
+    var isCurrentMonth = String(row[10]).trim() === '当月';
 
     if (!allPeriods && !isCurrentMonth) continue;
     if (daysElapsed <= PA_NOTIFY_GRACE_DAYS) continue;
@@ -1257,7 +1270,7 @@ function notifyUnpaid(dryRun, allPeriods) {
   }
 
   if (targets.length === 0) {
-    Logger.log('当月の新規未収通知対象なし');
+    Logger.log('当月の新規未払通知対象なし');
     return;
   }
 
@@ -1270,13 +1283,13 @@ function notifyUnpaid(dryRun, allPeriods) {
 
   // メッセージ組み立て
   var bodyLines = [];
-  bodyLines.push('[info][title]⚠️ 当月成約 未収アラート（3日以上経過）[/title]');
+  bodyLines.push('[info][title]⚠️ 当月成約 未払アラート（3日以上経過）[/title]');
   bodyLines.push('対象案件 ' + targets.length + ' 件');
   bodyLines.push('');
   for (var sName in bySales) {
     bodyLines.push('▼ 商談者: ' + sName);
     bySales[sName].forEach(function(t) {
-      bodyLines.push('  ・' + t.pushDate + ' / ' + t.name + ' / 契約' + t.contractAmt + '万 / 着金' + t.paidMan + '万 / 残未収' + t.unpaidMan + '万 / 経過' + t.daysElapsed + '日');
+      bodyLines.push('  ・' + t.pushDate + ' / ' + t.name + ' / 契約' + t.contractAmt + '万 / 着金' + t.paidMan + '万 / 残未払' + t.unpaidMan + '万 / 経過' + t.daysElapsed + '日');
     });
     bodyLines.push('');
   }
