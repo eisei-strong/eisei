@@ -1062,7 +1062,8 @@ function fetchFromCurrentMonthSheet($month, $year) {
 }
 
 // $data の revenue / totalRevenue / ランキングを上書き
-// 当月: 新シート（営業ごとタブ）から取得、それ以外: 集計済みタブから取得
+// 当月: マスターCSV値のまま（着金速報とランキング合計を整合させるため）
+// 過去月: 集計済みタブから取得（一次データ突合済み）
 function applyAggregatedRevenue(&$data, $month, $year) {
     if (empty($data['members'])) return;
 
@@ -1070,20 +1071,19 @@ function applyAggregatedRevenue(&$data, $month, $year) {
     $isCurrentMonth = (intval($month) === intval($now->format('n')) && intval($year) === intval($now->format('Y')));
 
     if ($isCurrentMonth) {
-        // 当月は新シートから取得（営業手動入力ベース）
-        $aggByDisplay = fetchFromCurrentMonthSheet($month, $year);
-        if (empty($aggByDisplay)) return; // 取れなければマスター値のまま
-    } else {
-        // 過去月は集計済みタブから取得
-        $aggByRaw = fetchFromAggregatedSheet($month, $year);
-        if (empty($aggByRaw)) return;
-        list($nameMap, , ) = getMapsForMonth($month, $year);
-        $aggByDisplay = [];
-        foreach ($aggByRaw as $rawName => $amount) {
-            $displayName = resolveV2Name($rawName, $nameMap);
-            if (!$displayName) continue;
-            $aggByDisplay[$displayName] = ($aggByDisplay[$displayName] ?? 0) + $amount;
-        }
+        // 当月は applyAggregatedRevenue をスキップ → マスターCSV値（paymentNewsと同じソース）のまま
+        return;
+    }
+
+    // 過去月は集計済みタブから取得
+    $aggByRaw = fetchFromAggregatedSheet($month, $year);
+    if (empty($aggByRaw)) return;
+    list($nameMap, , ) = getMapsForMonth($month, $year);
+    $aggByDisplay = [];
+    foreach ($aggByRaw as $rawName => $amount) {
+        $displayName = resolveV2Name($rawName, $nameMap);
+        if (!$displayName) continue;
+        $aggByDisplay[$displayName] = ($aggByDisplay[$displayName] ?? 0) + $amount;
     }
 
     // メンバー毎に revenue 上書き
