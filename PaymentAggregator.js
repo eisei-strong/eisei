@@ -17,6 +17,31 @@ var PA_TAB_MOSH   = 'MOSH';
 var PA_TAB_AGG    = '集計済み';        // マスター紐付け済み全月
 var PA_TAB_PAST   = '過去分割';        // 廃止（互換のためタブ自体は残す）
 var PA_TAB_UNMATCHED = 'マスター登録漏れ'; // 事業内（ユニヴァ・ライフティ・MOSH）の不一致一覧
+var PA_TAB_UNPAID    = '未収管理';     // 契約金額 > 着金額 の未収案件（全期間）
+var PA_TAB_NOTIFIED  = '通知履歴';     // CW通知済み案件の記録（重複通知防止）
+
+var PA_NOTIFY_ROOM_ID = '435865043';   // 未収通知先 CW ルーム
+var PA_NOTIFY_GRACE_DAYS = 3;          // 商談日からN日経過で通知開始
+
+// 当月（マスターに一次データ貼る運用前）の判定用シート
+// タブが営業ごとに分かれてて各タブが管理シートになっている
+var PA_CURRENT_MONTH_SHEET_ID = '1N9EYVIF5KOXTRQRjfLXvP1vV2LfJB0seQxirq5UScbw';
+
+// 当月シートで「row6から個別商談データ」「row5はヘッダー」「row1〜4は集計サマリ・注釈」
+var PA_CURRENT_MONTH_DATA_START_ROW = 6;
+
+// タブ名 → ダッシュボード表示名マッピング（差分のみ。同名は不要）
+var PA_CURRENT_MONTH_TAB_TO_DISPLAY = {
+  'more': '1日1more',
+  'ありのままを捨てる': 'ありのまま',
+  '司波達也': '司波'
+};
+
+// スキップするタブ
+var PA_CURRENT_MONTH_SKIP_TABS = {
+  '全体数値': true,
+  'テンプレ（編集禁止）': true
+};
 var PA_FORM_GID   = 260080737;       // フォーム回答シートのGID（マスター本体未転記の商談記録）
 
 // マスター本体カラム（0-based）
@@ -109,6 +134,9 @@ function aggregatePrimaryData(targetMonth) {
   // 事業内不一致（ユニヴァ・ライフティ・MOSH）を「マスター登録漏れ」タブに書き出す
   writeUnmatchedSheet_(ss, univaTxs, liftyTxs, moshTxs, indexes);
 
+  // 未収案件（契約金額 > 着金額）を「未収管理」タブに書き出す
+  writeUnpaidSheet_(ss, aggregated, seiyaku);
+
   // 過去分割タブは廃止（クリアして注記行のみ残す）
   var pastSheet = ss.getSheetByName(PA_TAB_PAST);
   if (pastSheet) {
@@ -188,7 +216,8 @@ function readSeiyakuFromMaster_(ss) {
       name: name,
       line: String(row[PA_COL_LINE] || '').trim(),
       email: String(row[PA_COL_EMAIL] || '').toLowerCase().trim(),
-      status: status
+      status: status,
+      revenue: parsePAAmount_(row[PA_COL_REVENUE]) || 0  // 契約金額（万円）
     });
 
     // X列補足に「契約者は○○」がある場合、契約者を別エントリ（エイリアス）として追加
@@ -327,6 +356,7 @@ function readSeiyakuFromFormAnswers_(ss) {
       line: String(row[PA_COL_LINE] || '').trim(),
       email: String(row[PA_FORM_COL_EMAIL] || '').toLowerCase().trim(),
       status: status,
+      revenue: parsePAAmount_(row[PA_COL_REVENUE]) || 0,
       _source: 'form'
     });
 
@@ -865,6 +895,130 @@ function toMan_(yen) {
 }
 
 /**
+ * 当月判定用シート（営業ごとのタブ）から成約・未収候補を抽出
+ *
+ * 各タブの構造:
+ *   row1〜4: 集計サマリ・注釈
+ *   row5: ヘッダー（No., 初回商談日, 本名, LINE名, 成約状況, 成約金額, 着金額, ...）
+ *   row6〜: 個別商談
+ *
+ * 列マッピング (0-indexed):
+ *   0: No.
+ *   1: 初回商談日 (Date)
+ *   2: 本名 (顧客)
+ *   3: LINE名
+ *   4: 成約状況
+ *   5: 成約金額 (万円)
+ *   6: 着金額 (万円)
+ *   16: CO (チェックボックス)
+ *
+ * @return {Array} [{sales, pushDate, name, contractAmt, paidAmt, status}]
+ */
+function readCurrentMonthSheet_() {
+  var ss;
+  try {
+    ss = SpreadsheetApp.openById(PA_CURRENT_MONTH_SHEET_ID);
+  } catch (e) {
+    Logger.log('当月シート読込失敗: ' + e.message);
+    return [];
+  }
+
+  // 当月プレフィックス（YYYY-MM）。初回商談日が当月の行だけ採用
+  var thisMonthPrefix = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM');
+
+  var sheets = ss.getSheets();
+  var out = [];
+
+  for (var i = 0; i < sheets.length; i++) {
+    var s = sheets[i];
+    var tabName = s.getName();
+    if (PA_CURRENT_MONTH_SKIP_TABS[tabName]) continue;
+
+    var lastRow = s.getLastRow();
+    if (lastRow < PA_CURRENT_MONTH_DATA_START_ROW) continue;
+
+    var data = s.getRange(PA_CURRENT_MONTH_DATA_START_ROW, 1, lastRow - PA_CURRENT_MONTH_DATA_START_ROW + 1, 17).getValues();
+    var displayName = PA_CURRENT_MONTH_TAB_TO_DISPLAY[tabName] || tabName;
+
+    for (var r = 0; r < data.length; r++) {
+      var row = data[r];
+      var no = row[0];
+      if (no === '' || no === null || no === undefined) continue;
+
+      var name = String(row[2] || '').trim();
+      if (!name) continue;
+
+      var pushDate = pushDateKey_(row[1]); // 日付正規化（YYYY-MM-DD）
+      if (!pushDate) continue;
+      // 初回商談日が当月でない行は除外（過去月成約者は集計済みタブで判定する仕様）
+      if (pushDate.indexOf(thisMonthPrefix) !== 0) continue;
+
+      var status = String(row[4] || '').trim();
+      // 「成約」を含まないものは除外（"継続中" "失注" "未成約" 等）
+      if (status.indexOf('成約') === -1) continue;
+      // 「成約→CO」「成約→失注」「成約→キャンセル」も除外
+      if (isCOStatus_(status)) continue;
+
+      // CO チェックボックス (col Q=16)
+      if (row[16] === true) continue;
+
+      var contractAmt = parsePAAmount_(row[5]);
+      if (!contractAmt || contractAmt <= 0) continue;
+
+      var paidAmt = parsePAAmount_(row[6]) || 0;
+
+      out.push({
+        sales: displayName,
+        pushDate: pushDate,
+        name: name,
+        contractAmt: contractAmt,
+        paidAmt: paidAmt,
+        status: status,
+        _source: 'current_month_sheet',
+        _tabName: tabName
+      });
+    }
+  }
+  return out;
+}
+
+/**
+ * 未収管理タブの当月行をログ出力
+ */
+function paDebugUnpaidCurrentMonth() {
+  var ss = SpreadsheetApp.openById(PA_MASTER_ID);
+  var s = ss.getSheetByName(PA_TAB_UNPAID);
+  if (!s) { Logger.log('未収管理タブなし'); return; }
+  var lastRow = s.getLastRow();
+  if (lastRow < 2) { Logger.log('データなし'); return; }
+  var data = s.getRange(2, 1, lastRow - 1, 11).getValues();
+  var current = data.filter(function(r) { return r[7] === '当月'; });
+  Logger.log('=== 未収管理タブ 当月行 (' + current.length + '件) ===');
+  current.forEach(function(r) {
+    Logger.log('  ' + r[0] + ' / ' + r[1] + ' / ' + r[2] + ' / 契約' + r[3] + '万 / 着金' + r[4] + '万 / 残' + r[5] + '万 / 経過' + r[6] + '日 / ' + r[8] + ' / ソース:' + r[9]);
+  });
+}
+
+/**
+ * readCurrentMonthSheet_ の結果をログ出力するデバッグラッパー
+ */
+function paDebugCurrentMonthData() {
+  var data = readCurrentMonthSheet_();
+  Logger.log('=== 当月シート読込結果 (' + data.length + '件) ===');
+  var bySales = {};
+  data.forEach(function(d) {
+    if (!bySales[d.sales]) bySales[d.sales] = [];
+    bySales[d.sales].push(d);
+  });
+  for (var sName in bySales) {
+    Logger.log('▼ ' + sName + ' (' + bySales[sName].length + '件)');
+    bySales[sName].forEach(function(d) {
+      Logger.log('  ' + d.pushDate + ' / ' + d.name + ' / 契約' + d.contractAmt + '万 / 着金' + d.paidAmt + '万 / status=' + d.status);
+    });
+  }
+}
+
+/**
  * 「マスター登録漏れ」タブに事業内の不一致取引（ユニヴァ・ライフティ・MOSH）を書き出す
  * 銀振は別事業前提のため除外
  *
@@ -925,6 +1079,249 @@ function writeUnmatchedSheet_(ss, univaTxs, liftyTxs, moshTxs, idx) {
 
   Logger.log('マスター登録漏れタブに ' + rows.length + ' 件書き出し');
 }
+
+/**
+ * 「未収管理」タブに未収案件を書き出す
+ *
+ * 判定: マスターQ列(契約金額) > 集計済みタブの着金額合計 → 未収あり
+ * 全期間（過去月含む）を一覧化。CW通知は当月分のみ別関数で実施。
+ *
+ * @param {Spreadsheet} ss
+ * @param {Object} aggregated - aggregateBySalesAndPushDate_ の結果
+ * @param {Array} seiyaku - readAllSeiyaku_ の結果
+ */
+function writeUnpaidSheet_(ss, aggregated, seiyaku) {
+  var sheet = ss.getSheetByName(PA_TAB_UNPAID);
+  if (!sheet) sheet = ss.insertSheet(PA_TAB_UNPAID);
+  sheet.clearContents();
+
+  var header = ['商談日', '商談者', '顧客', '契約金額(万)', '着金額(万)', '残未収(万)', '経過日数', '当月?', '状態', 'ソース', '更新日時'];
+  sheet.getRange(1, 1, 1, header.length).setValues([header]);
+  sheet.setFrozenRows(1);
+  sheet.getRange('A:A').setNumberFormat('@');
+
+  var now = new Date();
+  var nowStr = Utilities.formatDate(now, 'Asia/Tokyo', 'yyyy-MM-dd HH:mm:ss');
+  var thisMonthPrefix = Utilities.formatDate(now, 'Asia/Tokyo', 'yyyy-MM');
+
+  var rows = [];
+  var currentMonthSeen = {}; // 当月新シートに含まれるキー（過去月ロジックで重複登録しない用）
+
+  // === Phase 1: 当月（新シート由来） ===
+  var currentMonthData = readCurrentMonthSheet_();
+  for (var c = 0; c < currentMonthData.length; c++) {
+    var d = currentMonthData[c];
+    var key = d.sales + '|' + d.pushDate + '|' + d.name;
+    currentMonthSeen[key] = true;
+
+    var unpaidMan = Math.round((d.contractAmt - d.paidAmt) * 10) / 10;
+    if (unpaidMan <= 0) continue; // 完済はスキップ
+
+    var pd = new Date(d.pushDate + 'T00:00:00+09:00');
+    var daysElapsed = Math.floor((now - pd) / (1000 * 60 * 60 * 24));
+    var statusLabel = (daysElapsed > PA_NOTIFY_GRACE_DAYS) ? '⚠️未収' : '猶予期間';
+
+    rows.push([
+      d.pushDate, d.sales, d.name,
+      d.contractAmt, d.paidAmt, unpaidMan,
+      daysElapsed, '当月',
+      statusLabel, '新シート', nowStr
+    ]);
+  }
+
+  // === Phase 2: 過去月（seiyaku + aggregated 由来） ===
+  var seen = {};
+  for (var i = 0; i < seiyaku.length; i++) {
+    var s = seiyaku[i];
+    if (!s.pushDate) continue;
+    if (isCOStatus_(s.status)) continue;
+
+    // 当月分はPhase 1で処理済みなのでスキップ（新シート優先）
+    if (s.pushDate.indexOf(thisMonthPrefix) === 0) continue;
+
+    // エイリアス由来（_source）はスキップ、本体のみ採用
+    if (s._source === 'contractor_alias' || s._source === 'romaji_alias' || s._source === 'email_alias'
+        || s._source === 'form_contractor_alias' || s._source === 'form_romaji_alias' || s._source === 'form_email_alias') continue;
+
+    var contractAmt = s.revenue || 0;
+    if (contractAmt <= 0) continue;
+
+    var dedupKey = s.sales + '|' + s.pushDate + '|' + s.name;
+    if (seen[dedupKey]) continue;
+    seen[dedupKey] = true;
+
+    var salesShort = shortSales_(s.sales);
+    var paidYen = 0;
+    if (aggregated[salesShort] && aggregated[salesShort][s.pushDate] && aggregated[salesShort][s.pushDate][s.name]) {
+      paidYen = aggregated[salesShort][s.pushDate][s.name].total;
+    }
+    var paidMan = Math.round(paidYen / 1000) / 10;
+    var unpaidMan2 = Math.round((contractAmt - paidMan) * 10) / 10;
+
+    if (unpaidMan2 <= 0) continue;
+
+    var pd2 = new Date(s.pushDate + 'T00:00:00+09:00');
+    var daysElapsed2 = Math.floor((now - pd2) / (1000 * 60 * 60 * 24));
+    var statusLabel2 = (daysElapsed2 > PA_NOTIFY_GRACE_DAYS) ? '⚠️未収' : '猶予期間';
+
+    rows.push([
+      s.pushDate, salesShort, s.name,
+      contractAmt, paidMan, unpaidMan2,
+      daysElapsed2, '',
+      statusLabel2, '集計済み', nowStr
+    ]);
+  }
+
+  // 当月優先 + 残未収多い順
+  rows.sort(function(a, b) {
+    if (a[7] !== b[7]) return a[7] === '当月' ? -1 : 1;
+    return Number(b[5]) - Number(a[5]);
+  });
+
+  if (rows.length > 0) {
+    var range = sheet.getRange(2, 1, rows.length, header.length);
+    range.setNumberFormat('General');
+    range.setValues(rows);
+    sheet.getRange(2, 1, rows.length, 1).setNumberFormat('@');         // 商談日
+    sheet.getRange(2, 4, rows.length, 3).setNumberFormat('0.0');       // 契約/着金/残未収
+    sheet.getRange(2, 7, rows.length, 1).setNumberFormat('0');         // 経過日数
+    sheet.getRange(2, 11, rows.length, 1).setNumberFormat('@');        // 更新日時
+  }
+
+  Logger.log('未収管理タブに ' + rows.length + ' 件書き出し（当月新シート由来 + 過去月集計済み由来）');
+}
+
+/**
+ * 当月成約者の未収案件をCW通知（毎朝1回トリガー想定）
+ *
+ * - 商談日が当月で経過日数 > PA_NOTIFY_GRACE_DAYS のもの
+ * - 通知履歴タブにあるキーは再通知しない（1回のみ）
+ * - 通知後、通知履歴タブに記録
+ *
+ * @param {boolean} [dryRun=false] - true ならCW送信せずログ出力のみ。通知履歴も書かない
+ * @param {boolean} [allPeriods=false] - true なら当月フィルタを外して全期間対象（テスト用、本番運用ではfalse）
+ */
+function notifyUnpaid(dryRun, allPeriods) {
+  if (dryRun) Logger.log('🔬 DRY RUN モード: CW送信は行いません');
+  if (allPeriods) Logger.log('🌐 全期間モード: 当月フィルタを外します（テスト用）');
+  var ss = SpreadsheetApp.openById(PA_MASTER_ID);
+  var unpaidSheet = ss.getSheetByName(PA_TAB_UNPAID);
+  if (!unpaidSheet) { Logger.log('未収管理タブなし、aggregatePrimaryData を先に実行してください'); return; }
+
+  var lastRow = unpaidSheet.getLastRow();
+  if (lastRow < 2) { Logger.log('未収案件なし'); return; }
+
+  var data = unpaidSheet.getRange(2, 1, lastRow - 1, 10).getValues();
+
+  // 通知履歴を読込
+  var notifiedSheet = ss.getSheetByName(PA_TAB_NOTIFIED);
+  if (!notifiedSheet) {
+    notifiedSheet = ss.insertSheet(PA_TAB_NOTIFIED);
+    notifiedSheet.getRange(1, 1, 1, 6).setValues([['通知日', '商談日', '商談者', '顧客', '残未収(万)', 'メッセージID']]);
+    notifiedSheet.setFrozenRows(1);
+  }
+  var notifiedKeys = {};
+  if (notifiedSheet.getLastRow() >= 2) {
+    var notifiedData = notifiedSheet.getRange(2, 1, notifiedSheet.getLastRow() - 1, 4).getValues();
+    for (var i = 0; i < notifiedData.length; i++) {
+      var key = notifiedData[i][1] + '|' + notifiedData[i][2] + '|' + notifiedData[i][3];
+      notifiedKeys[key] = true;
+    }
+  }
+
+  // 通知対象を抽出（当月 + 経過日数>3 + 未通知）
+  var targets = [];
+  var now = new Date();
+  var nowStr = Utilities.formatDate(now, 'Asia/Tokyo', 'yyyy-MM-dd HH:mm:ss');
+  for (var j = 0; j < data.length; j++) {
+    var row = data[j];
+    var pushDate = String(row[0]).trim();
+    var sales = String(row[1]).trim();
+    var name = String(row[2]).trim();
+    var contractAmt = Number(row[3]);
+    var paidMan = Number(row[4]);
+    var unpaidMan = Number(row[5]);
+    var daysElapsed = Number(row[6]);
+    var isCurrentMonth = String(row[7]).trim() === '当月';
+
+    if (!allPeriods && !isCurrentMonth) continue;
+    if (daysElapsed <= PA_NOTIFY_GRACE_DAYS) continue;
+    var key = pushDate + '|' + sales + '|' + name;
+    if (!allPeriods && notifiedKeys[key]) continue; // allPeriodsテスト時は履歴チェックをスキップ
+
+    targets.push({
+      pushDate: pushDate, sales: sales, name: name,
+      contractAmt: contractAmt, paidMan: paidMan, unpaidMan: unpaidMan,
+      daysElapsed: daysElapsed, key: key
+    });
+  }
+
+  if (targets.length === 0) {
+    Logger.log('当月の新規未収通知対象なし');
+    return;
+  }
+
+  // 商談者別にグループ化
+  var bySales = {};
+  targets.forEach(function(t) {
+    if (!bySales[t.sales]) bySales[t.sales] = [];
+    bySales[t.sales].push(t);
+  });
+
+  // メッセージ組み立て
+  var bodyLines = [];
+  bodyLines.push('[info][title]⚠️ 当月成約 未収アラート（3日以上経過）[/title]');
+  bodyLines.push('対象案件 ' + targets.length + ' 件');
+  bodyLines.push('');
+  for (var sName in bySales) {
+    bodyLines.push('▼ 商談者: ' + sName);
+    bySales[sName].forEach(function(t) {
+      bodyLines.push('  ・' + t.pushDate + ' / ' + t.name + ' / 契約' + t.contractAmt + '万 / 着金' + t.paidMan + '万 / 残未収' + t.unpaidMan + '万 / 経過' + t.daysElapsed + '日');
+    });
+    bodyLines.push('');
+  }
+  bodyLines.push('対応・確認お願いします。');
+  bodyLines.push('[/info]');
+  var body = bodyLines.join('\n');
+
+  if (dryRun) {
+    Logger.log('--- 送信予定メッセージ ---');
+    Logger.log(body);
+    Logger.log('--- DRY RUN 終了（CW送信せず、通知履歴にも記録しない） ---');
+    return;
+  }
+
+  // CW送信
+  var url = 'https://api.chatwork.com/v2/rooms/' + PA_NOTIFY_ROOM_ID + '/messages';
+  var resp = UrlFetchApp.fetch(url, {
+    method: 'post',
+    headers: { 'X-ChatWorkToken': CW_API_TOKEN },
+    payload: { body: body },
+    muteHttpExceptions: true
+  });
+  var code = resp.getResponseCode();
+  var respBody = resp.getContentText();
+  Logger.log('CW送信 status=' + code + ' / response=' + respBody);
+
+  if (code !== 200) {
+    Logger.log('CW送信失敗、通知履歴に記録しない');
+    return;
+  }
+
+  var msgId = '';
+  try { msgId = JSON.parse(respBody).message_id || ''; } catch (e) {}
+
+  // 通知履歴に追記
+  var newRows = targets.map(function(t) {
+    return [nowStr, t.pushDate, t.sales, t.name, t.unpaidMan, msgId];
+  });
+  notifiedSheet.getRange(notifiedSheet.getLastRow() + 1, 1, newRows.length, 6).setValues(newRows);
+  Logger.log('通知履歴に ' + newRows.length + ' 件追記');
+}
+
+// GASエディタの関数ドロップダウンから引数なしで実行できるラッパー
+function notifyUnpaidDryRun() { return notifyUnpaid(true); }
+function notifyUnpaidAllPeriodsDryRun() { return notifyUnpaid(true, true); }
 
 // =========== ヘルパー関数 ===========
 
@@ -1573,6 +1970,55 @@ function debugUnmatchedByMonth_(targetMonth, limit) {
 function debugUnmatchedApril()    { return debugUnmatchedByMonth_('2026-04', 50); }
 function debugUnmatchedMarch()    { return debugUnmatchedByMonth_('2026-03', 50); }
 function debugUnmatchedFebruary() { return debugUnmatchedByMonth_('2026-02', 50); }
+
+/**
+ * 意思決定タブの先頭6行を詳細表示（row1〜6 + lastRow）
+ * 個別商談行がどこから始まるか・列マッピングを確認するため
+ */
+function paDebugScanIshiketteiDetail() {
+  var ss = SpreadsheetApp.openById(PA_CURRENT_MONTH_SHEET_ID);
+  var s = ss.getSheetByName('意思決定');
+  if (!s) { Logger.log('意思決定タブなし'); return; }
+  var lastCol = s.getLastColumn();
+  var lastRow = s.getLastRow();
+  Logger.log('=== 意思決定タブ詳細 (rows=' + lastRow + ', cols=' + lastCol + ') ===');
+  for (var r = 1; r <= Math.min(6, lastRow); r++) {
+    var row = s.getRange(r, 1, 1, lastCol).getValues()[0];
+    Logger.log('row' + r + ': ' + JSON.stringify(row));
+  }
+  if (lastRow > 6) {
+    Logger.log('...');
+    var lastDataRow = s.getRange(lastRow, 1, 1, lastCol).getValues()[0];
+    Logger.log('row' + lastRow + ': ' + JSON.stringify(lastDataRow));
+  }
+}
+
+/**
+ * 当月シート（営業ごとタブ）の全タブをスキャン
+ * 各タブのヘッダー・行数・サンプル行をログ出力
+ */
+function paDebugScanCurrentMonthSheet() {
+  var ss = SpreadsheetApp.openById(PA_CURRENT_MONTH_SHEET_ID);
+  var sheets = ss.getSheets();
+  Logger.log('=== 当月シート全タブスキャン (' + sheets.length + 'タブ) ===');
+  for (var i = 0; i < sheets.length; i++) {
+    var s = sheets[i];
+    Logger.log('---');
+    Logger.log('[' + (i + 1) + '] ' + s.getName() + ' (rows=' + s.getLastRow() + ', cols=' + s.getLastColumn() + ', gid=' + s.getSheetId() + ')');
+    if (s.getLastRow() >= 1 && s.getLastColumn() >= 1) {
+      var header = s.getRange(1, 1, 1, s.getLastColumn()).getValues()[0];
+      Logger.log('  header: ' + JSON.stringify(header));
+    }
+    if (s.getLastRow() >= 2) {
+      var sample = s.getRange(2, 1, 1, s.getLastColumn()).getValues()[0];
+      Logger.log('  row2  : ' + JSON.stringify(sample));
+    }
+    if (s.getLastRow() >= 3) {
+      var last = s.getRange(s.getLastRow(), 1, 1, s.getLastColumn()).getValues()[0];
+      Logger.log('  rowN  : ' + JSON.stringify(last));
+    }
+  }
+}
 
 // =========== タブ構造スキャン（読み取り専用） ===========
 /**
