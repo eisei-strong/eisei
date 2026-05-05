@@ -348,6 +348,26 @@ tbody tr:hover { background: #F8FAFC; }
     </div>
   </div>
 
+  <!-- 代理店報酬（常時表示・最下部） -->
+  <div class="section">
+    <div class="section-title"><span class="section-icon">&#x1F4CC;</span> 代理店報酬</div>
+    <div class="modal-total" id="agencyRewardTotal"></div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>摘要</th>
+            <th>日付</th>
+            <th style="text-align:right;">金額</th>
+            <th>支払元</th>
+          </tr>
+        </thead>
+        <tbody id="agencyRewardBody"></tbody>
+      </table>
+    </div>
+  </div>
+
   <!-- Footer -->
   <div class="footer" id="footerMsg">3分ごとに自動更新</div>
 </div>
@@ -478,6 +498,7 @@ function onDataLoaded(data) {
   updateBarChart(data);
   updateWastefulAlerts(data);
   updateTopExpensesTable(data);
+  loadAgencyRewardDetail();
 
   document.getElementById('updatedAt').textContent = '最終更新: ' + data.updatedAt;
   var isLive = (currentViewMonth === currentLiveMonth && currentViewYear === currentLiveYear);
@@ -959,6 +980,38 @@ function openCategoryModal(catName) {
     })
     .catch(function(err) {
       document.getElementById('modalBody').innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:#EF4444;">取得エラー</td></tr>';
+    });
+}
+
+// ===== 代理店報酬（常時表示・最下部） =====
+function loadAgencyRewardDetail() {
+  if (!currentViewMonth || !currentViewYear) return;
+  var url = GAS_API + '?action=expense&type=detail&month=' + currentViewMonth + '&year=' + currentViewYear + '&cat=' + encodeURIComponent('代理店報酬');
+  document.getElementById('agencyRewardBody').innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:#94A3B8;">読み込み中...</td></tr>';
+  document.getElementById('agencyRewardTotal').textContent = '';
+  fetch(url)
+    .then(function(r) { return r.json(); })
+    .then(function(detail) {
+      document.getElementById('agencyRewardTotal').textContent =
+        '合計: ' + formatYen(detail.total) + ' (' + detail.count + '件)';
+      var html = '';
+      var items = detail.items || [];
+      for (var i = 0; i < items.length; i++) {
+        var it = items[i];
+        html += '<tr>' +
+          '<td class="td-rank">' + (i + 1) + '</td>' +
+          '<td>' + escapeHtml(truncate(it.description, 50)) + '</td>' +
+          '<td style="white-space:nowrap;">' + escapeHtml(it.date) + '</td>' +
+          '<td class="td-amount">' + formatYen(it.amount) + '</td>' +
+          '<td style="font-size:11px;color:#64748B;">' + escapeHtml(it.source) + '</td>' +
+          '</tr>';
+      }
+      document.getElementById('agencyRewardBody').innerHTML = html ||
+        '<tr><td colspan="5" style="text-align:center;padding:24px;color:#94A3B8;">データなし</td></tr>';
+    })
+    .catch(function() {
+      document.getElementById('agencyRewardBody').innerHTML =
+        '<tr><td colspan="5" style="text-align:center;padding:24px;color:#EF4444;">取得エラー</td></tr>';
     });
 }
 
