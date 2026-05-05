@@ -2134,3 +2134,83 @@ function adjustHopeAndPostFreeze() {
 
   Logger.log('=== 完了 ===');
 }
+
+// ============================================
+// 受講生アカウントURL機能 構造調査（読み取り専用）
+// 新シート設計のための事前調査用。書き込み一切なし。
+// ============================================
+function inspectPostSheetStructureForUrlFeature() {
+  var ss = SpreadsheetApp.openById(POST_APP_SS_ID);
+
+  Logger.log('=== スプシ内シート一覧 ===');
+  var sheets = ss.getSheets();
+  for (var i = 0; i < sheets.length; i++) {
+    Logger.log('  ' + sheets[i].getName() + ' (gid=' + sheets[i].getSheetId() + ')');
+  }
+
+  var sheet = ss.getSheetByName(POST_APP_SHEET_NAME);
+  if (!sheet) { Logger.log('!! ' + POST_APP_SHEET_NAME + ' シートが見つかりません'); return; }
+
+  Logger.log('=== 投稿数シート 基本情報 ===');
+  Logger.log('最終行: ' + sheet.getLastRow());
+  Logger.log('最終列: ' + sheet.getLastColumn());
+  Logger.log('最大列: ' + sheet.getMaxColumns());
+  Logger.log('固定行(frozen rows): ' + sheet.getFrozenRows());
+  Logger.log('固定列(frozen cols): ' + sheet.getFrozenColumns());
+
+  var inspectCols = 15; // A〜O
+  Logger.log('=== マージ範囲（行1〜5 × A〜O 内） ===');
+  var topMerges = sheet.getRange(1, 1, 5, inspectCols).getMergedRanges();
+  if (topMerges.length === 0) {
+    Logger.log('  （マージなし）');
+  } else {
+    for (var i = 0; i < topMerges.length; i++) {
+      Logger.log('  ' + topMerges[i].getA1Notation());
+    }
+  }
+
+  Logger.log('=== ヘッダー行（row1）A〜O ===');
+  var hdr = sheet.getRange(1, 1, 1, inspectCols).getValues()[0];
+  var hdrBg = sheet.getRange(1, 1, 1, inspectCols).getBackgrounds()[0];
+  for (var c = 0; c < inspectCols; c++) {
+    Logger.log('  ' + postAppColToLetter_(c + 1) + ': ' + JSON.stringify(hdr[c]) + ' bg=' + hdrBg[c]);
+  }
+
+  Logger.log('=== サンプルデータ行 row2〜row6 A〜O（値・背景色） ===');
+  var lastRow = Math.min(6, sheet.getLastRow());
+  if (lastRow >= 2) {
+    var dataVals = sheet.getRange(2, 1, lastRow - 1, inspectCols).getValues();
+    var dataBg = sheet.getRange(2, 1, lastRow - 1, inspectCols).getBackgrounds();
+    for (var r = 0; r < dataVals.length; r++) {
+      Logger.log('--- row ' + (r + 2) + ' ---');
+      for (var c = 0; c < inspectCols; c++) {
+        Logger.log('  ' + postAppColToLetter_(c + 1) + ': ' + JSON.stringify(dataVals[r][c]) + ' bg=' + dataBg[r][c]);
+      }
+    }
+  } else {
+    Logger.log('  （データ行なし）');
+  }
+
+  Logger.log('=== 全データ行のID列・名前列 件数確認 ===');
+  if (sheet.getLastRow() >= 2) {
+    var rows = sheet.getLastRow() - 1;
+    var idCol = sheet.getRange(2, POST_APP_ID_COL, rows, 1).getValues();
+    var nameCol = sheet.getRange(2, POST_APP_NAME_COL, rows, 1).getValues();
+    var nameBg = sheet.getRange(2, POST_APP_NAME_COL, rows, 1).getBackgrounds();
+    var idCount = 0, nameCount = 0, bgCount = 0;
+    var bgSamples = {};
+    for (var i = 0; i < rows; i++) {
+      if (idCol[i][0]) idCount++;
+      if (nameCol[i][0]) nameCount++;
+      var bg = nameBg[i][0];
+      if (bg && bg !== '#ffffff') {
+        bgCount++;
+        bgSamples[bg] = (bgSamples[bg] || 0) + 1;
+      }
+    }
+    Logger.log('  ID入力済み行数: ' + idCount);
+    Logger.log('  名前入力済み行数: ' + nameCount);
+    Logger.log('  名前列の非白背景色 行数: ' + bgCount);
+    Logger.log('  名前列の背景色サンプル: ' + JSON.stringify(bgSamples));
+  }
+}
