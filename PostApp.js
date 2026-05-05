@@ -2515,3 +2515,148 @@ function testCountYouTubeForUrl() {
   var count = countYouTubeUploadsThisMonth_(channelId);
   Logger.log('今月の投稿数: ' + count);
 }
+
+// ============================================
+// 夜間バッチ：受講生アカウントURLシートを巡回して
+// YouTube今月投稿数を取得・書き込み
+// ============================================
+
+// 受講生アカウントURLシートの列番号
+var ACCOUNT_URL_YT_URL_COL = 3;       // C
+var ACCOUNT_URL_YT_COUNT_COL = 6;     // F
+var ACCOUNT_URL_YT_FETCHED_COL = 7;   // G
+var ACCOUNT_URL_UPDATED_AT_COL = 8;   // H
+
+/**
+ * 全受講生のYT今月投稿数を更新（夜間トリガーから呼ばれる本番関数）
+ */
+function updateYouTubeCountsForAllStudents() {
+  return updateYouTubeCounts_(null);
+}
+
+/**
+ * 動作確認用：YT_URLが入ってる行の先頭3件だけ処理
+ */
+function testUpdateYouTubeCountsLimit3() {
+  return updateYouTubeCounts_(3);
+}
+
+/**
+ * 内部本体。limit=null で全件、数値で先頭N件のみ処理。
+ * 安全策:
+ * - C/D/E (URL列) は touch しない（読むだけ）→ UI入力との競合回避
+ * - F/G/H のみ setValues で更新
+ * - 5分で打ち切り（GAS6分制限の余裕分）
+ */
+function updateYouTubeCounts_(limit) {
+  var ss = SpreadsheetApp.openById(POST_APP_SS_ID);
+  var sheet = ss.getSheetByName(ACCOUNT_URL_SHEET_NAME);
+  if (!sheet) { Logger.log('!! ' + ACCOUNT_URL_SHEET_NAME + ' シートが見つかりません'); return; }
+
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) { Logger.log('データなし'); return; }
+  var rowCount = lastRow - 1;
+
+  var idCol = sheet.getRange(2, 1, rowCount, 1).getValues();
+  var nameCol = sheet.getRange(2, 2, rowCount, 1).getValues();
+  var urlCol = sheet.getRange(2, ACCOUNT_URL_YT_URL_COL, rowCount, 1).getValues();
+  // F/G/H 既存値（処理しない行はそのまま書き戻す）
+  var resultCols = sheet.getRange(2, ACCOUNT_URL_YT_COUNT_COL, rowCount, 3).getValues();
+
+  var processed = 0, success = 0, failed = 0, skipped = 0;
+  var startMs = Date.now();
+  var TIME_LIMIT_MS = 5 * 60 * 1000;
+
+  for (var i = 0; i < rowCount; i++) {
+    var ytUrl = urlCol[i][0];
+    if (!ytUrl) { skipped++; continue; }
+
+    if (Date.now() - startMs > TIME_LIMIT_MS) {
+      Logger.log('⏱  時間制限到達。残り ' + (rowCount - i) + ' 件は次回に持ち越し');
+      break;
+    }
+    if (limit && processed >= limit) {
+      Logger.log('🔢  limit=' + limit + ' 到達、停止');
+      break;
+    }
+    processed++;
+
+    var id = idCol[i][0];
+    var name = nameCol[i][0];
+
+    try {
+      var parsed = parseYouTubeChannelUrl_(ytUrl);
+      if (!parsed) {
+        Logger.log('  [' + id + ' ' + name + '] URLパース失敗: ' + ytUrl);
+        failed++;
+        continue;
+      }
+      var channelId = resolveYouTubeChannelId_(parsed);
+      if (!channelId) {
+        Logger.log('  [' + id + ' ' + name + '] channelId解決失敗 type=' + parsed.type);
+        failed++;
+        continue;
+      }
+      var count = countYouTubeUploadsThisMonth_(channelId);
+      if (count == null) {
+        Logger.log('  [' + id + ' ' + name + '] count取得失敗');
+        failed++;
+        continue;
+      }
+      var nowTs = new Date();
+      resultCols[i][0] = count;   // F: YT今月数_自動
+      resultCols[i][1] = nowTs;   // G: YT最終取得日時
+      resultCols[i][2] = nowTs;   // H: 更新日時
+      success++;
+      Logger.log('  ✅ [' + id + ' ' + name + '] 今月 ' + count + ' 本');
+    } catch (e) {
+      Logger.log('  !! [' + id + ' ' + name + '] エラー: ' + e);
+      failed++;
+    }
+  }
+
+  if (success > 0) {
+    sheet.getRange(2, ACCOUNT_URL_YT_COUNT_COL, rowCount, 3).setValues(resultCols);
+  }
+  Logger.log('=== バッチ完了 ===');
+  Logger.log('  処理: ' + processed + ', 成功: ' + success + ', 失敗: ' + failed + ', スキップ(URL空): ' + skipped);
+  Logger.log('  経過時間: ' + Math.floor((Date.now() - startMs) / 1000) + ' 秒');
+}
+
+/**
+ * 夜間バッチのトリガー作成（毎日 JST 03:00台）。
+ * 既存の同名トリガーは事前に削除する（重複防止）。
+ */
+function setupYouTubeNightlyTrigger() {
+  var existing = ScriptApp.getProjectTriggers();
+  var removed = 0;
+  for (var i = 0; i < existing.length; i++) {
+    if (existing[i].getHandlerFunction() === 'updateYouTubeCountsForAllStudents') {
+      ScriptApp.deleteTrigger(existing[i]);
+      removed++;
+    }
+  }
+  if (removed > 0) Logger.log('既存トリガー削除: ' + removed + '個');
+
+  ScriptApp.newTrigger('updateYouTubeCountsForAllStudents')
+    .timeBased()
+    .atHour(3)
+    .everyDays(1)
+    .create();
+  Logger.log('✅ 夜間トリガー作成: updateYouTubeCountsForAllStudents (毎日3時台)');
+}
+
+/**
+ * 夜間バッチのトリガー全削除
+ */
+function removeYouTubeNightlyTriggers() {
+  var triggers = ScriptApp.getProjectTriggers();
+  var removed = 0;
+  for (var i = 0; i < triggers.length; i++) {
+    if (triggers[i].getHandlerFunction() === 'updateYouTubeCountsForAllStudents') {
+      ScriptApp.deleteTrigger(triggers[i]);
+      removed++;
+    }
+  }
+  Logger.log('✅ updateYouTubeCountsForAllStudents トリガー削除: ' + removed + '個');
+}
