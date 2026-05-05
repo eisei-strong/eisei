@@ -2139,7 +2139,7 @@ function adjustHopeAndPostFreeze() {
 // 受講生アカウントURL機能 構造調査（読み取り専用）
 // 新シート設計のための事前調査用。書き込み一切なし。
 // ============================================
-function inspectPostSheetStructure_() {
+function inspectPostSheetStructureForUrlFeature() {
   var ss = SpreadsheetApp.openById(POST_APP_SS_ID);
 
   Logger.log('=== スプシ内シート一覧 ===');
