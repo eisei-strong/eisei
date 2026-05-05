@@ -983,6 +983,23 @@ function readCurrentMonthSheet_() {
 }
 
 /**
+ * 未収管理タブの当月行をログ出力
+ */
+function paDebugUnpaidCurrentMonth() {
+  var ss = SpreadsheetApp.openById(PA_MASTER_ID);
+  var s = ss.getSheetByName(PA_TAB_UNPAID);
+  if (!s) { Logger.log('未収管理タブなし'); return; }
+  var lastRow = s.getLastRow();
+  if (lastRow < 2) { Logger.log('データなし'); return; }
+  var data = s.getRange(2, 1, lastRow - 1, 11).getValues();
+  var current = data.filter(function(r) { return r[7] === '当月'; });
+  Logger.log('=== 未収管理タブ 当月行 (' + current.length + '件) ===');
+  current.forEach(function(r) {
+    Logger.log('  ' + r[0] + ' / ' + r[1] + ' / ' + r[2] + ' / 契約' + r[3] + '万 / 着金' + r[4] + '万 / 残' + r[5] + '万 / 経過' + r[6] + '日 / ' + r[8] + ' / ソース:' + r[9]);
+  });
+}
+
+/**
  * readCurrentMonthSheet_ の結果をログ出力するデバッグラッパー
  */
 function paDebugCurrentMonthData() {
