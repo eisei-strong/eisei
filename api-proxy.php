@@ -1062,7 +1062,7 @@ function fetchFromCurrentMonthSheet($month, $year) {
 }
 
 // $data の revenue / totalRevenue / ランキングを上書き
-// 当月: マスターCSV値のまま（着金速報とランキング合計を整合させるため）
+// 当月: paymentNews（着金速報）を商談者別に合計 → speed と revenue が完全一致
 // 過去月: 集計済みタブから取得（一次データ突合済み）
 function applyAggregatedRevenue(&$data, $month, $year) {
     if (empty($data['members'])) return;
@@ -1070,20 +1070,27 @@ function applyAggregatedRevenue(&$data, $month, $year) {
     $now = new DateTime('now', new DateTimeZone('Asia/Tokyo'));
     $isCurrentMonth = (intval($month) === intval($now->format('n')) && intval($year) === intval($now->format('Y')));
 
-    if ($isCurrentMonth) {
-        // 当月は applyAggregatedRevenue をスキップ → マスターCSV値（paymentNewsと同じソース）のまま
-        return;
-    }
-
-    // 過去月は集計済みタブから取得
-    $aggByRaw = fetchFromAggregatedSheet($month, $year);
-    if (empty($aggByRaw)) return;
-    list($nameMap, , ) = getMapsForMonth($month, $year);
     $aggByDisplay = [];
-    foreach ($aggByRaw as $rawName => $amount) {
-        $displayName = resolveV2Name($rawName, $nameMap);
-        if (!$displayName) continue;
-        $aggByDisplay[$displayName] = ($aggByDisplay[$displayName] ?? 0) + $amount;
+
+    if ($isCurrentMonth) {
+        // 当月は paymentNews（着金速報）から商談者別合計を計算 → speed と完全整合
+        foreach (($data['paymentNews'] ?? []) as $n) {
+            $name = $n['name'] ?? '';
+            $amt = floatval($n['amount'] ?? 0);
+            if (!$name || $amt <= 0) continue;
+            $aggByDisplay[$name] = ($aggByDisplay[$name] ?? 0) + $amt;
+        }
+        if (empty($aggByDisplay)) return;
+    } else {
+        // 過去月は集計済みタブから取得
+        $aggByRaw = fetchFromAggregatedSheet($month, $year);
+        if (empty($aggByRaw)) return;
+        list($nameMap, , ) = getMapsForMonth($month, $year);
+        foreach ($aggByRaw as $rawName => $amount) {
+            $displayName = resolveV2Name($rawName, $nameMap);
+            if (!$displayName) continue;
+            $aggByDisplay[$displayName] = ($aggByDisplay[$displayName] ?? 0) + $amount;
+        }
     }
 
     // メンバー毎に revenue 上書き
