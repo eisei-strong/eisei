@@ -2340,3 +2340,178 @@ function checkYouTubeApiKeyStored() {
   Logger.log('   先頭4文字: ' + key.substring(0, 4) + '...');
   Logger.log('   末尾4文字: ...' + key.substring(key.length - 4));
 }
+
+// ============================================
+// YouTube Data API v3 連携（fetch本体）
+// ============================================
+
+function getYouTubeApiKey_() {
+  var key = PropertiesService.getScriptProperties().getProperty('YOUTUBE_API_KEY');
+  if (!key) throw new Error('YOUTUBE_API_KEY が ScriptProperties に未保存です。setYouTubeApiKeyOnce で先に保存してください。');
+  return key;
+}
+
+/**
+ * APIキーが効いているかの接続テスト。
+ * Google公式チャンネル(UCK8sQmJBp8GCxrOtXWBpyEA)の名前を取得する。
+ */
+function testYouTubeApi() {
+  var apiKey = getYouTubeApiKey_();
+  var testChannelId = 'UCK8sQmJBp8GCxrOtXWBpyEA'; // Google公式
+  var url = 'https://www.googleapis.com/youtube/v3/channels?part=snippet&id=' + testChannelId + '&key=' + apiKey;
+  var resp = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
+  Logger.log('HTTP ' + resp.getResponseCode());
+  var body = resp.getContentText();
+  if (resp.getResponseCode() !== 200) {
+    Logger.log('!! API失敗: ' + body.substring(0, 500));
+    return;
+  }
+  var data = JSON.parse(body);
+  if (data.items && data.items.length) {
+    Logger.log('✅ API接続OK / 取得チャンネル: ' + data.items[0].snippet.title);
+  } else {
+    Logger.log('!! 接続成功だがチャンネル見つからず');
+  }
+}
+
+/**
+ * YouTubeチャンネルURLをパースして種別とキーを返す。
+ * 対応URL:
+ *   - https://www.youtube.com/channel/UCxxx       → { type: 'id', value: 'UCxxx' }
+ *   - https://www.youtube.com/@handlename         → { type: 'handle', value: 'handlename' }
+ *   - https://www.youtube.com/c/customname        → { type: 'custom', value: 'customname' }
+ *   - https://www.youtube.com/user/oldusername    → { type: 'user', value: 'oldusername' }
+ *   - youtu.be/xxx 等の動画URLは未対応（チャンネルURLが必要）
+ */
+function parseYouTubeChannelUrl_(url) {
+  if (!url) return null;
+  var u = String(url).trim();
+  var m;
+  if ((m = u.match(/youtube\.com\/channel\/([A-Za-z0-9_-]{20,})/))) {
+    return { type: 'id', value: m[1] };
+  }
+  if ((m = u.match(/youtube\.com\/@([A-Za-z0-9._-]+)/))) {
+    return { type: 'handle', value: m[1] };
+  }
+  if ((m = u.match(/youtube\.com\/c\/([A-Za-z0-9_-]+)/))) {
+    return { type: 'custom', value: m[1] };
+  }
+  if ((m = u.match(/youtube\.com\/user\/([A-Za-z0-9_-]+)/))) {
+    return { type: 'user', value: m[1] };
+  }
+  return null;
+}
+
+/**
+ * パース結果からチャンネルID（UCxxx形式）を解決する。
+ * - id: そのまま返す（API消費 0）
+ * - handle: forHandle で取得（API消費 1 unit）
+ * - custom/user: search.list で fallback（API消費 100 units、高コスト）
+ */
+function resolveYouTubeChannelId_(parsed) {
+  if (!parsed) return null;
+  if (parsed.type === 'id') return parsed.value;
+
+  var apiKey = getYouTubeApiKey_();
+
+  if (parsed.type === 'handle') {
+    var url = 'https://www.googleapis.com/youtube/v3/channels?part=id&forHandle=@' + encodeURIComponent(parsed.value) + '&key=' + apiKey;
+    var resp = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
+    if (resp.getResponseCode() !== 200) {
+      Logger.log('forHandle失敗 HTTP ' + resp.getResponseCode() + ': ' + resp.getContentText().substring(0, 200));
+      return null;
+    }
+    var data = JSON.parse(resp.getContentText());
+    if (data.items && data.items.length) return data.items[0].id;
+    return null;
+  }
+
+  // custom/user は search で fallback
+  var searchUrl = 'https://www.googleapis.com/youtube/v3/search?part=snippet&type=channel&maxResults=1&q=' + encodeURIComponent(parsed.value) + '&key=' + apiKey;
+  var sResp = UrlFetchApp.fetch(searchUrl, { muteHttpExceptions: true });
+  if (sResp.getResponseCode() !== 200) {
+    Logger.log('search失敗 HTTP ' + sResp.getResponseCode() + ': ' + sResp.getContentText().substring(0, 200));
+    return null;
+  }
+  var sData = JSON.parse(sResp.getContentText());
+  if (sData.items && sData.items.length) return sData.items[0].snippet.channelId;
+  return null;
+}
+
+/**
+ * 指定チャンネルの「今月の投稿数」を取得する。
+ * 月境界はscript timezone (Asia/Tokyo) のカレンダー月初。
+ * uploads playlist を新しい順に走査し、publishedAt < 月初 にぶつかったら停止。
+ */
+function countYouTubeUploadsThisMonth_(channelId) {
+  if (!channelId) return null;
+  var apiKey = getYouTubeApiKey_();
+
+  var chUrl = 'https://www.googleapis.com/youtube/v3/channels?part=contentDetails&id=' + channelId + '&key=' + apiKey;
+  var chResp = UrlFetchApp.fetch(chUrl, { muteHttpExceptions: true });
+  if (chResp.getResponseCode() !== 200) {
+    Logger.log('channels.list失敗 HTTP ' + chResp.getResponseCode() + ': ' + chResp.getContentText().substring(0, 200));
+    return null;
+  }
+  var chData = JSON.parse(chResp.getContentText());
+  if (!chData.items || !chData.items.length) {
+    Logger.log('channelId に対応するチャンネルなし: ' + channelId);
+    return null;
+  }
+  var uploadsPlaylistId = chData.items[0].contentDetails.relatedPlaylists.uploads;
+
+  var now = new Date();
+  var monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
+
+  var count = 0;
+  var pageToken = null;
+  var safetyMaxPages = 20; // 月1000本超は想定しない
+
+  for (var page = 0; page < safetyMaxPages; page++) {
+    var plUrl = 'https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=' + uploadsPlaylistId + '&key=' + apiKey;
+    if (pageToken) plUrl += '&pageToken=' + pageToken;
+    var plResp = UrlFetchApp.fetch(plUrl, { muteHttpExceptions: true });
+    if (plResp.getResponseCode() !== 200) {
+      Logger.log('playlistItems.list失敗 HTTP ' + plResp.getResponseCode() + ': ' + plResp.getContentText().substring(0, 200));
+      return null;
+    }
+    var plData = JSON.parse(plResp.getContentText());
+    if (!plData.items || !plData.items.length) break;
+
+    var hitOlder = false;
+    for (var i = 0; i < plData.items.length; i++) {
+      var publishedAt = new Date(plData.items[i].snippet.publishedAt);
+      if (publishedAt >= monthStart) {
+        count++;
+      } else {
+        hitOlder = true;
+        break;
+      }
+    }
+    if (hitOlder) break;
+    if (!plData.nextPageToken) break;
+    pageToken = plData.nextPageToken;
+  }
+  return count;
+}
+
+/**
+ * 単発テスト用: URL指定で今月投稿数を取得しログ出力。
+ * 本番デプロイ前のスモークテスト。実行前に testUrl を編集する。
+ */
+function testCountYouTubeForUrl() {
+  // ↓ テスト対象のYouTubeチャンネルURLをここに書いてから実行
+  var testUrl = 'https://www.youtube.com/@GoogleDevelopers';
+
+  Logger.log('対象URL: ' + testUrl);
+  var parsed = parseYouTubeChannelUrl_(testUrl);
+  Logger.log('parsed: ' + JSON.stringify(parsed));
+  if (!parsed) { Logger.log('!! URLパース失敗'); return; }
+
+  var channelId = resolveYouTubeChannelId_(parsed);
+  Logger.log('channelId: ' + channelId);
+  if (!channelId) { Logger.log('!! channelId解決失敗'); return; }
+
+  var count = countYouTubeUploadsThisMonth_(channelId);
+  Logger.log('今月の投稿数: ' + count);
+}
