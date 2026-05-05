@@ -2214,3 +2214,76 @@ function inspectPostSheetStructureForUrlFeature() {
     Logger.log('  名前列の背景色サンプル: ' + JSON.stringify(bgSamples));
   }
 }
+
+// ============================================
+// 受講生アカウントURLシート 関連定数
+// ============================================
+var ACCOUNT_URL_SHEET_NAME = '受講生アカウントURL';
+var ACCOUNT_URL_HEADERS = ['ID', '名前', 'YouTube_URL', 'Instagram_URL', 'TikTok_URL', 'YT今月数_自動', 'YT最終取得日時', '更新日時'];
+
+/**
+ * 「受講生アカウントURL」シートを新規作成し、投稿数シートから
+ * IDかつ名前ありの行をその順序のままコピーする。
+ *
+ * 安全策:
+ * - 既存シートがあれば作成せず中断（上書き防止）
+ * - 投稿数シートからは読み取りのみ
+ * - 新シート以外への書き込みは一切なし
+ */
+function createAccountUrlSheet() {
+  var ss = SpreadsheetApp.openById(POST_APP_SS_ID);
+
+  if (ss.getSheetByName(ACCOUNT_URL_SHEET_NAME)) {
+    Logger.log('!! ' + ACCOUNT_URL_SHEET_NAME + ' シートは既に存在します。中断します。');
+    Logger.log('   再作成したい場合は手動でシートを削除してから再実行してください。');
+    return;
+  }
+
+  var postSheet = ss.getSheetByName(POST_APP_SHEET_NAME);
+  if (!postSheet) { Logger.log('!! 投稿数シートが見つかりません'); return; }
+
+  var lastRow = postSheet.getLastRow();
+  if (lastRow < 2) { Logger.log('!! 投稿数シートにデータがありません'); return; }
+
+  var idVals = postSheet.getRange(2, POST_APP_ID_COL, lastRow - 1, 1).getValues();
+  var nameVals = postSheet.getRange(2, POST_APP_NAME_COL, lastRow - 1, 1).getValues();
+
+  var rowsToCopy = [];
+  for (var i = 0; i < idVals.length; i++) {
+    var id = idVals[i][0];
+    var name = nameVals[i][0];
+    if (id && name) {
+      rowsToCopy.push([id, name, '', '', '', '', '', '']);
+    }
+  }
+  Logger.log('コピー対象 ID+名前あり: ' + rowsToCopy.length + ' 件');
+
+  var newSheet = ss.insertSheet(ACCOUNT_URL_SHEET_NAME);
+
+  newSheet.getRange(1, 1, 1, ACCOUNT_URL_HEADERS.length)
+    .setValues([ACCOUNT_URL_HEADERS])
+    .setBackground('#1e3a5f')
+    .setFontColor('#ffffff')
+    .setFontWeight('bold')
+    .setHorizontalAlignment('center');
+
+  if (rowsToCopy.length > 0) {
+    newSheet.getRange(2, 1, rowsToCopy.length, ACCOUNT_URL_HEADERS.length).setValues(rowsToCopy);
+  }
+
+  newSheet.setFrozenRows(1);
+  newSheet.setFrozenColumns(2);
+
+  newSheet.setColumnWidth(1, 70);   // A: ID
+  newSheet.setColumnWidth(2, 180);  // B: 名前
+  newSheet.setColumnWidth(3, 280);  // C: YT_URL
+  newSheet.setColumnWidth(4, 280);  // D: IG_URL
+  newSheet.setColumnWidth(5, 280);  // E: TT_URL
+  newSheet.setColumnWidth(6, 100);  // F: YT今月数_自動
+  newSheet.setColumnWidth(7, 160);  // G: YT最終取得日時
+  newSheet.setColumnWidth(8, 160);  // H: 更新日時
+
+  Logger.log('✅ ' + ACCOUNT_URL_SHEET_NAME + ' シート作成完了');
+  Logger.log('   gid: ' + newSheet.getSheetId());
+  Logger.log('   行数: 1(ヘッダー) + ' + rowsToCopy.length + '(データ) = ' + (1 + rowsToCopy.length));
+}
