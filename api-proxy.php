@@ -1005,13 +1005,19 @@ function fetchFromAggregatedSheet($month, $year) {
     return $byRawName;
 }
 
-// 当月シートを完全読込: 各メンバーの revenue + paymentNews を構築
-// return: [displayName => ['revenue' => X, 'paymentNews' => [...]]]
+// 当月シートを完全読込: 各メンバーの revenue + paymentNews + dailyPushes を構築
+// return: [
+//   'byMember' => [displayName => ['revenue' => X, 'paymentNews' => [...]]],
+//   'dailyPushTotals' => [dateKey => count],
+//   'dailyPushByMember' => [dateKey => [memberName => count]]
+// ]
 function fetchCurrentMonthSheetFull($month, $year) {
     global $CURRENT_MONTH_SHEET_ID, $CURRENT_MONTH_TABS, $CURRENT_MONTH_TAB_TO_DISPLAY;
 
     $monthPrefix = sprintf('%04d-%02d', $year, $month);
     $byMember = [];
+    $dailyPushTotals = [];
+    $dailyPushByMember = [];
 
     foreach ($CURRENT_MONTH_TABS as $tabName) {
         $url = 'https://docs.google.com/spreadsheets/d/' . $CURRENT_MONTH_SHEET_ID
@@ -1041,6 +1047,12 @@ function fetchCurrentMonthSheetFull($month, $year) {
             }
             if ($datePrefix !== $monthPrefix) continue;
 
+            // === プッシュ数（成約状況問わず全商談行をカウント） ===
+            $dailyPushTotals[$dateFormatted] = ($dailyPushTotals[$dateFormatted] ?? 0) + 1;
+            if (!isset($dailyPushByMember[$dateFormatted])) $dailyPushByMember[$dateFormatted] = [];
+            $dailyPushByMember[$dateFormatted][$displayName] = ($dailyPushByMember[$dateFormatted][$displayName] ?? 0) + 1;
+
+            // === 着金（成約のみ、CO/失注/キャンセル除外） ===
             $status = trim($row[4] ?? '');
             if (mb_strpos($status, '成約') === false) continue;
             if (mb_strpos($status, 'CO') !== false) continue;
@@ -1063,7 +1075,11 @@ function fetchCurrentMonthSheetFull($month, $year) {
             ];
         }
     }
-    return $byMember;
+    return [
+        'byMember' => $byMember,
+        'dailyPushTotals' => $dailyPushTotals,
+        'dailyPushByMember' => $dailyPushByMember
+    ];
 }
 
 // 当月シート（営業ごとタブ）から [表示名 => 着金額(万円)] を取得
@@ -1134,9 +1150,9 @@ function applyAggregatedRevenue(&$data, $month, $year) {
     $aggByDisplay = [];
 
     if ($isCurrentMonth) {
-        // 当月: 新シート（営業ごとタブ）から revenue と paymentNews を再構築
-        // → 当月商談で当月着金の分のみ（過去成約者の継続入金は含めない）
-        $byMember = fetchCurrentMonthSheetFull($month, $year);
+        // 当月: 新シートから revenue + paymentNews + dailyPushes を再構築
+        $sheetData = fetchCurrentMonthSheetFull($month, $year);
+        $byMember = $sheetData['byMember'];
 
         // paymentNews を新シート由来で上書き
         list($_, $iconMap, $__) = getMapsForMonth($month, $year);
@@ -1148,15 +1164,30 @@ function applyAggregatedRevenue(&$data, $month, $year) {
                 $newsAll[] = $n;
             }
         }
-        // 日付降順 + 金額降順
         usort($newsAll, function($a, $b) {
             if ($a['date'] !== $b['date']) return strcmp($b['date'], $a['date']);
             return $b['amount'] <=> $a['amount'];
         });
         $data['paymentNews'] = $newsAll;
 
+        // dailyPushes を新シート由来で上書き
+        $dailyPushTotals = $sheetData['dailyPushTotals'];
+        $dailyPushByMemberRaw = $sheetData['dailyPushByMember'];
+        $dailyPushByMemberFormatted = [];
+        foreach ($dailyPushByMemberRaw as $dateKey => $byMem) {
+            $arr = [];
+            foreach ($byMem as $mName => $cnt) {
+                $arr[] = ['name' => $mName, 'count' => $cnt];
+            }
+            usort($arr, function($a, $b) { return $b['count'] - $a['count']; });
+            $dailyPushByMemberFormatted[$dateKey] = $arr;
+        }
+        $data['dailyPushes'] = [
+            'totals' => empty($dailyPushTotals) ? new \stdClass() : $dailyPushTotals,
+            'byMember' => empty($dailyPushByMemberFormatted) ? new \stdClass() : $dailyPushByMemberFormatted,
+        ];
+
         if (empty($aggByDisplay)) {
-            // 新シートに当月分なし → メンバー全員 revenue=0
             foreach ($data['members'] as &$m) { $m['revenue'] = 0; }
             unset($m);
             $data['totalRevenue'] = 0;
