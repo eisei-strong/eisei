@@ -1005,6 +1005,67 @@ function fetchFromAggregatedSheet($month, $year) {
     return $byRawName;
 }
 
+// 当月シートを完全読込: 各メンバーの revenue + paymentNews を構築
+// return: [displayName => ['revenue' => X, 'paymentNews' => [...]]]
+function fetchCurrentMonthSheetFull($month, $year) {
+    global $CURRENT_MONTH_SHEET_ID, $CURRENT_MONTH_TABS, $CURRENT_MONTH_TAB_TO_DISPLAY;
+
+    $monthPrefix = sprintf('%04d-%02d', $year, $month);
+    $byMember = [];
+
+    foreach ($CURRENT_MONTH_TABS as $tabName) {
+        $url = 'https://docs.google.com/spreadsheets/d/' . $CURRENT_MONTH_SHEET_ID
+            . '/gviz/tq?tqx=out:csv&sheet=' . rawurlencode($tabName);
+        $csv = gasRequest($url);
+        if (!$csv) continue;
+        $rows = parseCsv($csv);
+        if (count($rows) < 2) continue;
+
+        $displayName = $CURRENT_MONTH_TAB_TO_DISPLAY[$tabName] ?? $tabName;
+        if (!isset($byMember[$displayName])) {
+            $byMember[$displayName] = ['revenue' => 0, 'paymentNews' => []];
+        }
+
+        foreach ($rows as $row) {
+            if (count($row) < 7) continue;
+            $no = trim($row[0] ?? '');
+            if ($no === '' || !is_numeric($no)) continue;
+
+            $dateRaw = trim($row[1] ?? '');
+            if (!$dateRaw) continue;
+            $datePrefix = '';
+            $dateFormatted = '';
+            if (preg_match('/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/', $dateRaw, $m)) {
+                $datePrefix = sprintf('%04d-%02d', $m[1], $m[2]);
+                $dateFormatted = sprintf('%04d-%02d-%02d', $m[1], $m[2], $m[3]);
+            }
+            if ($datePrefix !== $monthPrefix) continue;
+
+            $status = trim($row[4] ?? '');
+            if (mb_strpos($status, '成約') === false) continue;
+            if (mb_strpos($status, 'CO') !== false) continue;
+            if (mb_strpos($status, 'キャンセル') !== false) continue;
+            if (mb_strpos($status, '失注') !== false) continue;
+
+            $co = $row[16] ?? '';
+            if ($co === 'TRUE' || $co === true) continue;
+
+            $paid = floatval(str_replace(',', '', $row[6] ?? '0'));
+            if ($paid <= 0) continue;
+
+            $byMember[$displayName]['revenue'] += $paid;
+            $pd = explode('-', $dateFormatted);
+            $byMember[$displayName]['paymentNews'][] = [
+                'date' => $dateFormatted,
+                'dateShort' => intval($pd[1]) . '/' . intval($pd[2]),
+                'name' => $displayName,
+                'amount' => round($paid, 1)
+            ];
+        }
+    }
+    return $byMember;
+}
+
 // 当月シート（営業ごとタブ）から [表示名 => 着金額(万円)] を取得
 function fetchFromCurrentMonthSheet($month, $year) {
     global $CURRENT_MONTH_SHEET_ID, $CURRENT_MONTH_TABS, $CURRENT_MONTH_TAB_TO_DISPLAY;
@@ -1073,14 +1134,34 @@ function applyAggregatedRevenue(&$data, $month, $year) {
     $aggByDisplay = [];
 
     if ($isCurrentMonth) {
-        // 当月は paymentNews（着金速報）から商談者別合計を計算 → speed と完全整合
-        foreach (($data['paymentNews'] ?? []) as $n) {
-            $name = $n['name'] ?? '';
-            $amt = floatval($n['amount'] ?? 0);
-            if (!$name || $amt <= 0) continue;
-            $aggByDisplay[$name] = ($aggByDisplay[$name] ?? 0) + $amt;
+        // 当月: 新シート（営業ごとタブ）から revenue と paymentNews を再構築
+        // → 当月商談で当月着金の分のみ（過去成約者の継続入金は含めない）
+        $byMember = fetchCurrentMonthSheetFull($month, $year);
+
+        // paymentNews を新シート由来で上書き
+        list($_, $iconMap, $__) = getMapsForMonth($month, $year);
+        $newsAll = [];
+        foreach ($byMember as $name => $entry) {
+            $aggByDisplay[$name] = $entry['revenue'];
+            foreach ($entry['paymentNews'] as $n) {
+                $n['icon'] = $iconMap[$name] ?? '';
+                $newsAll[] = $n;
+            }
         }
-        if (empty($aggByDisplay)) return;
+        // 日付降順 + 金額降順
+        usort($newsAll, function($a, $b) {
+            if ($a['date'] !== $b['date']) return strcmp($b['date'], $a['date']);
+            return $b['amount'] <=> $a['amount'];
+        });
+        $data['paymentNews'] = $newsAll;
+
+        if (empty($aggByDisplay)) {
+            // 新シートに当月分なし → メンバー全員 revenue=0
+            foreach ($data['members'] as &$m) { $m['revenue'] = 0; }
+            unset($m);
+            $data['totalRevenue'] = 0;
+            return;
+        }
     } else {
         // 過去月は集計済みタブから取得
         $aggByRaw = fetchFromAggregatedSheet($month, $year);

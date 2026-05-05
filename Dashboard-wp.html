@@ -2622,7 +2622,8 @@
         '</div>';
       });
       row.innerHTML = html;
-      row.style.display = (mentors.length > 0) ? 'block' : 'none';
+      // display は CSS（PC=block, スマホ=flex）に任せる。非表示のみ inline で。
+      row.style.display = (mentors.length > 0) ? '' : 'none';
     }
 
     // ===== Progress Section =====
