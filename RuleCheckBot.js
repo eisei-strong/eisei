@@ -18,7 +18,6 @@ var RULE_CHECK_MIN_LENGTH = 5;  // これ以下のメッセージはスキップ
 var RULE_LOG_ROOM_ID      = '434014865';  // 指摘記録を残すルーム
 var SHEET_RULE_PENDING    = 'ルール修正待ち';
 var RULE_REMIND_INTERVAL_HOURS = 1;  // リマインド間隔（時間）
-var RULE_BOT_TOKEN = '561f22f75377bfa3c9a5c1ba18d38342';  // AI政のChatworkトークン
 
 // ============================================
 // メインポーリング
@@ -28,7 +27,7 @@ var RULE_BOT_TOKEN = '561f22f75377bfa3c9a5c1ba18d38342';  // AI政のChatworkト
  * ルールチェックポーリング（1分トリガーで呼ばれる）
  */
 function pollAndCheckRules() {
-  var token = RULE_BOT_TOKEN;
+  var token = getChatworkToken_();
   if (!token) {
     logRuleCheck_('ERROR', 'CHATWORK_API_TOKEN未設定');
     return;
@@ -558,7 +557,7 @@ function checkRuleCompletions_(messages, roomId, ss) {
  * 未完了の指摘に対してリマインド送信
  */
 function remindRulePending() {
-  var token = RULE_BOT_TOKEN;
+  var token = getChatworkToken_();
   if (!token) return;
 
   var ss = getSpreadsheet_();
