@@ -2076,3 +2076,61 @@ function migrateAddMonthlyTotalsToPost() {
 
   Logger.log('=== 投稿数 完了 ===');
 }
+
+/**
+ * 読み取り専用：ホープ数の凍結列・マージ状態確認
+ */
+function inspectHopeSheetMergeState() {
+  var ss = SpreadsheetApp.openById(POST_APP_SS_ID);
+  var sheet = ss.getSheetByName(POST_APP_HOPE_SHEET_NAME);
+  if (!sheet) { Logger.log('❌ ホープ数シートなし'); return; }
+  Logger.log('=== ホープ数: 凍結・マージ状態 ===');
+  Logger.log('凍結列: ' + sheet.getFrozenColumns());
+  Logger.log('凍結行: ' + sheet.getFrozenRows());
+  var vals = sheet.getRange(1, 1, 2, 13).getValues();
+  for (var i = 0; i < 2; i++) {
+    var row = '行' + (i + 1) + ':';
+    for (var j = 0; j < 13; j++) {
+      row += ' ' + postAppColToLetter_(j + 1) + '=' + vals[i][j];
+    }
+    Logger.log('  ' + row);
+  }
+  Logger.log('=== 確認完了 ===');
+}
+
+/**
+ * ホープ数・投稿数のクリーンアップ
+ * - ホープ数: 凍結列 → L列(12)、1行目 D〜L マージ「月別合計」
+ * - 投稿数: 凍結列 → N列(14)
+ */
+function adjustHopeAndPostFreeze() {
+  var ss = SpreadsheetApp.openById(POST_APP_SS_ID);
+
+  var hopeSheet = ss.getSheetByName(POST_APP_HOPE_SHEET_NAME);
+  if (hopeSheet) {
+    Logger.log('=== ホープ数 調整 ===');
+    Logger.log('凍結列: ' + hopeSheet.getFrozenColumns() + ' → 12 に変更');
+    hopeSheet.setFrozenColumns(12);
+    try {
+      hopeSheet.getRange(1, 4, 1, 9).breakApart();
+    } catch (e) { Logger.log('breakApart skipped: ' + e.message); }
+    hopeSheet.getRange(1, 4, 1, 9)
+      .merge()
+      .setValue('月別合計')
+      .setHorizontalAlignment('center')
+      .setFontWeight('bold')
+      .setBackground('#4A90D9')
+      .setFontColor('#FFFFFF');
+    Logger.log('✅ ホープ数 D1〜L1 を「月別合計」マージ');
+  }
+
+  var postSheet = ss.getSheetByName(POST_APP_SHEET_NAME);
+  if (postSheet) {
+    Logger.log('=== 投稿数 調整 ===');
+    Logger.log('凍結列: ' + postSheet.getFrozenColumns() + ' → 14 に変更');
+    postSheet.setFrozenColumns(14);
+    Logger.log('✅ 投稿数 凍結列 N列まで');
+  }
+
+  Logger.log('=== 完了 ===');
+}
