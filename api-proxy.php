@@ -1022,12 +1022,11 @@ function fetchFromCurrentMonthSheet($month, $year) {
 
         $displayName = $CURRENT_MONTH_TAB_TO_DISPLAY[$tabName] ?? $tabName;
         $sum = 0;
-        // row6から個別商談（0-indexed=5）
-        for ($i = 5; $i < count($rows); $i++) {
-            $row = $rows[$i];
-            if (count($row) < 17) continue;
+        // No.列が数値の行のみデータ行として扱う（タブによって集計サマリ・ヘッダー行数が違うため）
+        foreach ($rows as $row) {
+            if (count($row) < 7) continue;
             $no = trim($row[0] ?? '');
-            if ($no === '') continue;
+            if ($no === '' || !is_numeric($no)) continue;
 
             // 初回商談日 col1 → YYYY-MM 抽出
             $dateRaw = trim($row[1] ?? '');
