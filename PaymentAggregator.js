@@ -2050,3 +2050,50 @@ function paDebugScanTabs() {
     }
   }
 }
+
+// =========== トリガー設定ユーティリティ ===========
+
+/**
+ * notifyUnpaid を毎日9時〜10時のトリガーで実行するように設定
+ * 既存の同名トリガーがあれば削除してから登録（重複防止）
+ *
+ * GASエディタの関数ドロップダウンから1度実行すれば設定完了。
+ */
+function installNotifyUnpaidTrigger() {
+  var triggers = ScriptApp.getProjectTriggers();
+  var deleted = 0;
+  for (var i = 0; i < triggers.length; i++) {
+    if (triggers[i].getHandlerFunction() === 'notifyUnpaid') {
+      ScriptApp.deleteTrigger(triggers[i]);
+      deleted++;
+    }
+  }
+  Logger.log('既存 notifyUnpaid トリガーを ' + deleted + ' 件削除');
+
+  ScriptApp.newTrigger('notifyUnpaid')
+    .timeBased()
+    .everyDays(1)
+    .atHour(9)
+    .create();
+
+  Logger.log('✅ notifyUnpaid トリガーを毎日9時〜10時に設定しました');
+  listAllTriggers_();
+}
+
+/**
+ * 現在のトリガー一覧をログ出力（確認用）
+ */
+function listAllTriggers_() {
+  var triggers = ScriptApp.getProjectTriggers();
+  Logger.log('=== 現在のトリガー (' + triggers.length + '件) ===');
+  for (var i = 0; i < triggers.length; i++) {
+    var t = triggers[i];
+    var info = t.getHandlerFunction() + ' / type=' + t.getEventType();
+    if (t.getEventType() === ScriptApp.EventType.CLOCK) {
+      info += ' / source=' + t.getTriggerSource();
+    }
+    Logger.log('  [' + (i + 1) + '] ' + info);
+  }
+}
+
+function listAllTriggers() { return listAllTriggers_(); }
