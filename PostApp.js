@@ -2287,3 +2287,56 @@ function createAccountUrlSheet() {
   Logger.log('   gid: ' + newSheet.getSheetId());
   Logger.log('   行数: 1(ヘッダー) + ' + rowsToCopy.length + '(データ) = ' + (1 + rowsToCopy.length));
 }
+
+/**
+ * YouTube Data API v3 のキーを ScriptProperties に書き込む一回限りの関数。
+ *
+ * UIでスクリプトプロパティが編集できない（>50件で読み取り専用）ため、
+ * GASエディタ上でこの関数の key 行を実キーに編集 → 実行 → プレースホルダに戻す
+ * という手順で安全に保存する。
+ *
+ * 流れ:
+ *   1. GASエディタ（kuta310k）で PostApp.js を開く
+ *   2. 下記の key 変数の値 '__PASTE_HERE_THEN_REVERT__' を実際のキー(AIza...)に書き換える
+ *   3. 関数 setYouTubeApiKeyOnce を選択して実行
+ *   4. 実行ログで「✅ 保存しました」を確認
+ *   5. key の値をプレースホルダ '__PASTE_HERE_THEN_REVERT__' に戻して保存
+ *      （戻し忘れても、次回 clasp push でローカルから上書きされるので
+ *        最終的には git にキーは残らない）
+ */
+function setYouTubeApiKeyOnce() {
+  // ↓ GASエディタで実キーに書き換えて実行 → 終わったら元に戻す
+  var key = '__PASTE_HERE_THEN_REVERT__';
+
+  if (!key || key === '__PASTE_HERE_THEN_REVERT__') {
+    Logger.log('!! key がプレースホルダのままです。');
+    Logger.log('   GASエディタでこの関数の key 行を実キーに書き換えてから実行してください。');
+    return;
+  }
+  if (key.indexOf('AIza') !== 0) {
+    Logger.log('!! key が AIza で始まっていません。YouTube Data API キーの形式と違います。');
+    Logger.log('   貼り付けたキーを再確認してください。');
+    return;
+  }
+
+  PropertiesService.getScriptProperties().setProperty('YOUTUBE_API_KEY', key);
+  Logger.log('✅ YOUTUBE_API_KEY を ScriptProperties に保存しました');
+  Logger.log('   先頭4文字: ' + key.substring(0, 4) + '... 末尾4文字: ...' + key.substring(key.length - 4));
+  Logger.log('⚠️  忘れずに key 行をプレースホルダ \'__PASTE_HERE_THEN_REVERT__\' に戻してください。');
+}
+
+/**
+ * ScriptProperties に YOUTUBE_API_KEY が保存されているか確認する読み取り専用関数。
+ * 値そのものは出さず、先頭・末尾4文字と長さだけ出す。
+ */
+function checkYouTubeApiKeyStored() {
+  var key = PropertiesService.getScriptProperties().getProperty('YOUTUBE_API_KEY');
+  if (!key) {
+    Logger.log('!! YOUTUBE_API_KEY は未保存です。');
+    return;
+  }
+  Logger.log('✅ YOUTUBE_API_KEY 保存済み');
+  Logger.log('   長さ: ' + key.length);
+  Logger.log('   先頭4文字: ' + key.substring(0, 4) + '...');
+  Logger.log('   末尾4文字: ...' + key.substring(key.length - 4));
+}
