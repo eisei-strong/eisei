@@ -1031,9 +1031,11 @@ function writeUnpaidSheet_(ss, aggregated, seiyaku) {
  * - 通知後、通知履歴タブに記録
  *
  * @param {boolean} [dryRun=false] - true ならCW送信せずログ出力のみ。通知履歴も書かない
+ * @param {boolean} [allPeriods=false] - true なら当月フィルタを外して全期間対象（テスト用、本番運用ではfalse）
  */
-function notifyUnpaid(dryRun) {
+function notifyUnpaid(dryRun, allPeriods) {
   if (dryRun) Logger.log('🔬 DRY RUN モード: CW送信は行いません');
+  if (allPeriods) Logger.log('🌐 全期間モード: 当月フィルタを外します（テスト用）');
   var ss = SpreadsheetApp.openById(PA_MASTER_ID);
   var unpaidSheet = ss.getSheetByName(PA_TAB_UNPAID);
   if (!unpaidSheet) { Logger.log('未収管理タブなし、aggregatePrimaryData を先に実行してください'); return; }
@@ -1074,10 +1076,10 @@ function notifyUnpaid(dryRun) {
     var daysElapsed = Number(row[6]);
     var isCurrentMonth = String(row[7]).trim() === '当月';
 
-    if (!isCurrentMonth) continue;
+    if (!allPeriods && !isCurrentMonth) continue;
     if (daysElapsed <= PA_NOTIFY_GRACE_DAYS) continue;
     var key = pushDate + '|' + sales + '|' + name;
-    if (notifiedKeys[key]) continue;
+    if (!allPeriods && notifiedKeys[key]) continue; // allPeriodsテスト時は履歴チェックをスキップ
 
     targets.push({
       pushDate: pushDate, sales: sales, name: name,
@@ -1151,6 +1153,7 @@ function notifyUnpaid(dryRun) {
 
 // GASエディタの関数ドロップダウンから引数なしで実行できるラッパー
 function notifyUnpaidDryRun() { return notifyUnpaid(true); }
+function notifyUnpaidAllPeriodsDryRun() { return notifyUnpaid(true, true); }
 
 // =========== ヘルパー関数 ===========
 
