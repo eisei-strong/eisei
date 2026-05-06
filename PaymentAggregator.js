@@ -147,6 +147,17 @@ function aggregatePrimaryData(targetMonth) {
   }
 
   Logger.log('=== aggregatePrimaryData 完了');
+
+  // ピギーバック: 受講生アカウントURLシートのYT今月投稿数を更新
+  // 理由: GASトリガー20個上限のため独立トリガーが作れない（PostApp.js setupYouTubeNightlyTrigger 参照）
+  // try/catchで隔離し、YT更新の失敗で本処理（aggregatePrimaryData の返却）を壊さないようにする
+  try {
+    Logger.log('--- piggyback: updateYouTubeCountsForAllStudents 開始 ---');
+    updateYouTubeCountsForAllStudents();
+  } catch (e) {
+    Logger.log('!! piggyback updateYouTubeCountsForAllStudents 例外: ' + e);
+  }
+
   return {
     ok: true,
     matchedDateCount: allDates.length,
