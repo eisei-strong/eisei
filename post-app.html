@@ -289,6 +289,33 @@ a{color:#1CB0F6;font-weight:600}
 .hope-no-data{text-align:center;padding:40px;color:#AFAFAF;font-weight:700}
 .hope-loading{text-align:center;padding:40px;color:#AFAFAF;font-weight:700}
 
+/* ===== アカウントタブ ===== */
+.account-screen{display:none;padding:12px 12px 80px;max-width:420px;margin:0 auto}
+.account-screen.active{display:block}
+.account-intro{font-size:13px;color:#777;margin-bottom:14px;line-height:1.5}
+.acc-card{background:#fff;border-radius:16px;padding:14px;margin-bottom:14px;border:2px solid #E0E0E0}
+.acc-head{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.acc-icon{font-size:22px}
+.acc-title{font-size:15px;font-weight:800;color:#3C3C3C;flex:1}
+.acc-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px}
+.acc-badge.auto{background:#E3F2FD;color:#1565C0}
+.acc-badge.manual{background:#F0F0F0;color:#777}
+.acc-input{width:100%;padding:10px 12px;border:2px solid #E0E0E0;border-radius:10px;font-size:13px;font-family:inherit;box-sizing:border-box;background:#FAFAFA}
+.acc-input:focus{outline:none;border-color:#1CB0F6;background:#fff}
+.acc-help{font-size:11px;color:#9A9A9A;margin-top:6px;line-height:1.5}
+.acc-help b{color:#777}
+.acc-compare{margin-top:10px;padding:10px;border-radius:10px;background:#F8FAFC;font-size:12px}
+.acc-compare-row{display:flex;justify-content:space-between;align-items:center;font-weight:700;color:#555}
+.acc-compare-row.warn{color:#E65100}
+.acc-compare-row.match{color:#2E7D32}
+.acc-compare-note{font-size:10px;color:#999;margin-top:4px}
+.acc-save-btn{width:100%;padding:14px;border:none;border-radius:14px;background:#58CC02;color:#fff;font-size:16px;font-weight:800;cursor:pointer;box-shadow:0 4px 0 #46A302}
+.acc-save-btn:active{transform:translateY(2px);box-shadow:0 2px 0 #46A302}
+.acc-save-btn:disabled{background:#AFAFAF;box-shadow:0 4px 0 #888;cursor:not-allowed}
+.acc-msg{text-align:center;font-size:13px;font-weight:700;margin-top:10px;min-height:18px}
+.acc-msg.ok{color:#2E7D32}
+.acc-msg.err{color:#E65100}
+
 /* ===== オープニング演出 ===== */
 .opening-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:radial-gradient(ellipse at center,#1a1a3e 0%,#0f0f23 100%);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;opacity:1;transition:opacity .5s ease}
 .opening-overlay.fade-out{opacity:0;pointer-events:none}
@@ -518,6 +545,40 @@ a{color:#1CB0F6;font-weight:600}
   </div>
 </div>
 
+<!-- アカウント画面 -->
+<div id="accountScreen" class="account-screen">
+  <div class="hdr">
+    <div><div class="hdr-name"></div><div class="hdr-sub">アカウントURL</div></div>
+    <button class="logout" onclick="doLogout()">ログアウト</button>
+  </div>
+  <div class="account-intro">
+    各SNSのプロフィールURLを登録すると、YouTubeは毎朝自動で今月の投稿数を取得します。<br>
+    Instagram・TikTokはURL保管のみ（自動取得は非対応）。
+  </div>
+
+  <div class="acc-card">
+    <div class="acc-head"><span class="acc-icon">▶️</span><div class="acc-title">YouTube</div><span class="acc-badge auto">自動取得</span></div>
+    <input id="accYtInput" class="acc-input" type="url" placeholder="https://www.youtube.com/@..." inputmode="url" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+    <div class="acc-help"><b>取り方:</b> YouTubeアプリ → 自分のアイコン → チャンネル名 → 共有 → リンクをコピー</div>
+    <div id="accYtCompare" class="acc-compare" style="display:none"></div>
+  </div>
+
+  <div class="acc-card">
+    <div class="acc-head"><span class="acc-icon">📷</span><div class="acc-title">Instagram</div><span class="acc-badge manual">手入力のみ</span></div>
+    <input id="accIgInput" class="acc-input" type="url" placeholder="https://www.instagram.com/..." inputmode="url" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+    <div class="acc-help"><b>取り方:</b> Instagramアプリ → プロフィール → 右上「︙」 → プロフィールをシェア → リンクをコピー</div>
+  </div>
+
+  <div class="acc-card">
+    <div class="acc-head"><span class="acc-icon">🎵</span><div class="acc-title">TikTok</div><span class="acc-badge manual">手入力のみ</span></div>
+    <input id="accTtInput" class="acc-input" type="url" placeholder="https://www.tiktok.com/@..." inputmode="url" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+    <div class="acc-help"><b>取り方:</b> TikTokアプリ → プロフィール → 共有マーク → リンクをコピー</div>
+  </div>
+
+  <button id="accSaveBtn" class="acc-save-btn" onclick="saveAccountUrls()">保存する</button>
+  <div id="accMsg" class="acc-msg"></div>
+</div>
+
 <!-- ボトムナビ -->
 <div id="bottomNav" class="bottom-nav">
   <div class="bottom-nav-inner">
@@ -536,6 +597,10 @@ a{color:#1CB0F6;font-weight:600}
     <div class="nav-tab" id="tabLogin" onclick="switchTab('login')">
       <span class="nav-tab-icon">📊</span>
       進化表
+    </div>
+    <div class="nav-tab" id="tabAccount" onclick="switchTab('account')">
+      <span class="nav-tab-icon">🔗</span>
+      URL
     </div>
   </div>
 </div>
@@ -836,7 +901,7 @@ function api(p){
 }
 
 function show(id){
-  var els=document.querySelectorAll('.screen,.main,.login-streak,.hope-screen');
+  var els=document.querySelectorAll('.screen,.main,.login-streak,.hope-screen,.ranking-screen,.account-screen');
   // resetScreenもscreenクラスなので自動的に含まれる
   for(var i=0;i<els.length;i++) els[i].classList.remove('active');
   document.getElementById(id).classList.add('active');
@@ -974,10 +1039,12 @@ function switchTab(tab){
   document.getElementById('tabHope').className=tab==='hope'?'nav-tab active':'nav-tab';
   document.getElementById('tabRanking').className=tab==='ranking'?'nav-tab active':'nav-tab';
   document.getElementById('tabLogin').className=tab==='login'?'nav-tab active':'nav-tab';
+  document.getElementById('tabAccount').className=tab==='account'?'nav-tab active':'nav-tab';
   document.getElementById('mainScreen').classList.remove('active');
   document.getElementById('hopeScreen').classList.remove('active');
   document.getElementById('rankingScreen').classList.remove('active');
   document.getElementById('loginStreakScreen').classList.remove('active');
+  document.getElementById('accountScreen').classList.remove('active');
   if(tab==='post'){
     document.getElementById('mainScreen').classList.add('active');
   }else if(tab==='hope'){
@@ -986,10 +1053,81 @@ function switchTab(tab){
   }else if(tab==='ranking'){
     document.getElementById('rankingScreen').classList.add('active');
     loadRanking();
+  }else if(tab==='account'){
+    document.getElementById('accountScreen').classList.add('active');
+    loadAccountUrls();
   }else{
     document.getElementById('loginStreakScreen').classList.add('active');
     renderEvoTable();
   }
+}
+
+// ---- アカウントURL ----
+var accountLoading=false;
+function loadAccountUrls(){
+  if(accountLoading)return;
+  accountLoading=true;
+  document.getElementById('accMsg').textContent='読み込み中...';
+  document.getElementById('accMsg').className='acc-msg';
+  api('action=postGetAccountUrls&token='+encodeURIComponent(token)).then(function(d){
+    accountLoading=false;
+    document.getElementById('accMsg').textContent='';
+    if(d.error){
+      document.getElementById('accMsg').textContent=d.error;
+      document.getElementById('accMsg').className='acc-msg err';
+      return;
+    }
+    document.getElementById('accYtInput').value=d.ytUrl||'';
+    document.getElementById('accIgInput').value=d.igUrl||'';
+    document.getElementById('accTtInput').value=d.ttUrl||'';
+    renderYtCompare(d.ytAutoCount, d.selfReportThisMonth, d.ytFetchedAt);
+  }).catch(function(){
+    accountLoading=false;
+    document.getElementById('accMsg').textContent='通信エラー';
+    document.getElementById('accMsg').className='acc-msg err';
+  });
+}
+function renderYtCompare(autoCount, selfReport, fetchedAt){
+  var box=document.getElementById('accYtCompare');
+  if(autoCount==null){
+    box.style.display='none';
+    return;
+  }
+  var diff=autoCount-(selfReport||0);
+  var rowClass='match';
+  var icon='✓';
+  if(Math.abs(diff)>=2){rowClass='warn';icon='⚠️';}
+  var fetchedAtText='';
+  if(fetchedAt){
+    try{var dt=new Date(fetchedAt);fetchedAtText=dt.getMonth()+1+'/'+dt.getDate()+' '+('0'+dt.getHours()).slice(-2)+':'+('0'+dt.getMinutes()).slice(-2);}catch(e){}
+  }
+  box.style.display='block';
+  box.innerHTML='<div class="acc-compare-row '+rowClass+'"><span>自己申告 '+(selfReport||0)+' 本</span><span>自動取得 '+autoCount+' 本 '+icon+'</span></div>'+(fetchedAtText?'<div class="acc-compare-note">最終取得: '+fetchedAtText+'</div>':'');
+}
+function saveAccountUrls(){
+  var btn=document.getElementById('accSaveBtn');
+  var msg=document.getElementById('accMsg');
+  btn.disabled=true;
+  msg.textContent='保存中...';
+  msg.className='acc-msg';
+  var yt=document.getElementById('accYtInput').value.trim();
+  var ig=document.getElementById('accIgInput').value.trim();
+  var tt=document.getElementById('accTtInput').value.trim();
+  api('action=postSaveAccountUrls&token='+encodeURIComponent(token)+'&ytUrl='+encodeURIComponent(yt)+'&igUrl='+encodeURIComponent(ig)+'&ttUrl='+encodeURIComponent(tt)).then(function(d){
+    btn.disabled=false;
+    if(d.error){
+      msg.textContent=d.error;
+      msg.className='acc-msg err';
+      return;
+    }
+    msg.textContent='✅ 保存しました';
+    msg.className='acc-msg ok';
+    setTimeout(function(){if(msg.textContent==='✅ 保存しました')msg.textContent='';},3000);
+  }).catch(function(){
+    btn.disabled=false;
+    msg.textContent='通信エラー';
+    msg.className='acc-msg err';
+  });
 }
 
 // ---- ランキング読み込み ----
@@ -1832,6 +1970,7 @@ function doLogout(){
   document.getElementById('tabHope').style.display='none';
   document.getElementById('tabLogin').className='nav-tab';
   document.getElementById('tabRanking').className='nav-tab';
+  document.getElementById('tabAccount').className='nav-tab';
   show('idScreen');
 }
 function backToId(){doLogout()}

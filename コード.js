@@ -184,6 +184,18 @@ function doPost(e) {
         .setMimeType(ContentService.MimeType.JSON);
     }
 
+    if (action === 'postGetAccountUrls') {
+      var pgaResult = postAppGetAccountUrls_(payload.token);
+      return ContentService.createTextOutput(JSON.stringify(pgaResult))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    if (action === 'postSaveAccountUrls') {
+      var psaResult = postAppSaveAccountUrls_(payload.token, payload.ytUrl, payload.igUrl, payload.ttUrl);
+      return ContentService.createTextOutput(JSON.stringify(psaResult))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
     return ContentService.createTextOutput(JSON.stringify({ error: 'unknown action' }))
       .setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
