@@ -2660,3 +2660,112 @@ function removeYouTubeNightlyTriggers() {
   }
   Logger.log('✅ updateYouTubeCountsForAllStudents トリガー削除: ' + removed + '個');
 }
+
+// ============================================
+// アカウントURL機能 受講生API（post-appから呼ばれる）
+// ============================================
+
+/**
+ * 受講生IDから、受講生アカウントURLシート上の行番号を返す。
+ * 行が無ければ末尾に追加する（順序は崩れるが現実運用では許容）。
+ */
+function getOrCreateAccountUrlRow_(sheet, id, name) {
+  var lastRow = sheet.getLastRow();
+  if (lastRow >= 2) {
+    var ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+    var target = String(id).trim();
+    for (var i = 0; i < ids.length; i++) {
+      if (String(ids[i][0]).trim() === target) return i + 2;
+    }
+  }
+  // 末尾に追加
+  var newRow = sheet.getLastRow() + 1;
+  sheet.getRange(newRow, 1, 1, ACCOUNT_URL_HEADERS.length)
+    .setValues([[id, name || '', '', '', '', '', '', '']]);
+  return newRow;
+}
+
+/**
+ * 当月の自己申告投稿数（投稿数シートの月別合計列）を取得
+ */
+function getSelfReportThisMonth_(postSheet, memberRow) {
+  var now = new Date();
+  var months = (now.getFullYear() - POST_APP_RUN_START_YEAR) * 12 + (now.getMonth() + 1 - POST_APP_RUN_START_MONTH);
+  if (months < 0) return 0;
+  var col = POST_APP_MONTHLY_TOTAL_START_COL + months;
+  var v = postSheet.getRange(memberRow, col).getValue();
+  return Number(v) || 0;
+}
+
+/**
+ * 受講生のアカウントURL情報を取得（post-appから呼ばれる）
+ */
+function postAppGetAccountUrls_(token) {
+  var id = verifyToken_(token);
+  if (!id) return { error: 'セッション切れです。再ログインしてください。' };
+
+  var ss = SpreadsheetApp.openById(POST_APP_SS_ID);
+  var postSheet = ss.getSheetByName(POST_APP_SHEET_NAME);
+  var urlSheet = ss.getSheetByName(ACCOUNT_URL_SHEET_NAME);
+  if (!postSheet || !urlSheet) return { error: 'シートが見つかりません' };
+
+  // 投稿数シートで該当行を見つける
+  var lastRow = postSheet.getLastRow();
+  var ids = postSheet.getRange(2, POST_APP_ID_COL, lastRow - 1, 1).getValues();
+  var memberRow = -1;
+  for (var i = 0; i < ids.length; i++) {
+    if (String(ids[i][0]).trim() === String(id).trim()) { memberRow = i + 2; break; }
+  }
+  if (memberRow < 0) return { error: '受講生情報が見つかりません' };
+
+  var name = String(postSheet.getRange(memberRow, POST_APP_NAME_COL).getValue() || '');
+  var urlRow = getOrCreateAccountUrlRow_(urlSheet, id, name);
+  var rowVals = urlSheet.getRange(urlRow, 1, 1, ACCOUNT_URL_HEADERS.length).getValues()[0];
+  // [id, name, ytUrl, igUrl, ttUrl, ytAutoCount, ytFetchedAt, updatedAt]
+
+  var ytAutoCount = (rowVals[5] === '' || rowVals[5] == null) ? null : Number(rowVals[5]);
+  var ytFetchedAt = rowVals[6] instanceof Date ? rowVals[6].toISOString() : null;
+  var selfReportTotal = getSelfReportThisMonth_(postSheet, memberRow);
+
+  return {
+    ok: true,
+    id: id,
+    name: name,
+    ytUrl: String(rowVals[2] || ''),
+    igUrl: String(rowVals[3] || ''),
+    ttUrl: String(rowVals[4] || ''),
+    ytAutoCount: ytAutoCount,
+    ytFetchedAt: ytFetchedAt,
+    selfReportThisMonth: selfReportTotal
+  };
+}
+
+/**
+ * 受講生のアカウントURL情報を保存（post-appから呼ばれる）
+ */
+function postAppSaveAccountUrls_(token, ytUrl, igUrl, ttUrl) {
+  var id = verifyToken_(token);
+  if (!id) return { error: 'セッション切れです。再ログインしてください。' };
+
+  var ss = SpreadsheetApp.openById(POST_APP_SS_ID);
+  var postSheet = ss.getSheetByName(POST_APP_SHEET_NAME);
+  var urlSheet = ss.getSheetByName(ACCOUNT_URL_SHEET_NAME);
+  if (!postSheet || !urlSheet) return { error: 'シートが見つかりません' };
+
+  var lastRow = postSheet.getLastRow();
+  var ids = postSheet.getRange(2, POST_APP_ID_COL, lastRow - 1, 1).getValues();
+  var memberRow = -1;
+  for (var i = 0; i < ids.length; i++) {
+    if (String(ids[i][0]).trim() === String(id).trim()) { memberRow = i + 2; break; }
+  }
+  if (memberRow < 0) return { error: '受講生情報が見つかりません' };
+  var name = String(postSheet.getRange(memberRow, POST_APP_NAME_COL).getValue() || '');
+
+  var urlRow = getOrCreateAccountUrlRow_(urlSheet, id, name);
+
+  // C/D/E/H 更新（F/G は触らない=自動取得結果を保持）
+  urlSheet.getRange(urlRow, 3, 1, 3).setValues([[String(ytUrl || '').trim(), String(igUrl || '').trim(), String(ttUrl || '').trim()]]);
+  urlSheet.getRange(urlRow, ACCOUNT_URL_UPDATED_AT_COL).setValue(new Date());
+
+  return { ok: true };
+}
