@@ -1668,7 +1668,7 @@ function renderMain(){
   var dows=['月','火','水','木','金','土','日'];
   for(var w=0;w<7;w++) html+='<div class="cal-dow">'+dows[w]+'</div>';
 
-  var firstDay=new Date(2026,3,1).getDay();
+  var firstDay=new Date(currentYear,currentMonth-1,1).getDay();
   var offset=(firstDay===0)?6:firstDay-1;
   for(var e=0;e<offset;e++) html+='<div class="cal-day empty"></div>';
 
