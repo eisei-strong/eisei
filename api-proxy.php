@@ -1005,75 +1005,79 @@ function fetchFromAggregatedSheet($month, $year) {
     return $byRawName;
 }
 
-// 当月シートを完全読込: 各メンバーの revenue + paymentNews + dailyPushes を構築
-// return: [
-//   'byMember' => [displayName => ['revenue' => X, 'paymentNews' => [...]]],
-//   'dailyPushTotals' => [dateKey => count],
-//   'dailyPushByMember' => [dateKey => [memberName => count]]
-// ]
+// 当月シートを完全読込: 「全体数値」タブから revenue + paymentNews + dailyPushes を構築
+// 列マッピング:
+//   col0: No.
+//   col1: 担当者（営業名）
+//   col2: 初回商談日
+//   col3: 本名 / col4: LINE名 / col5: 成約状況
+//   col6: 成約金額 / col7: 着金額（万円）
+//   col17: CO（チェックボックス）
 function fetchCurrentMonthSheetFull($month, $year) {
-    global $CURRENT_MONTH_SHEET_ID, $CURRENT_MONTH_TABS, $CURRENT_MONTH_TAB_TO_DISPLAY;
+    global $CURRENT_MONTH_SHEET_ID, $CURRENT_MONTH_TAB_TO_DISPLAY;
 
     $monthPrefix = sprintf('%04d-%02d', $year, $month);
     $byMember = [];
     $dailyPushTotals = [];
     $dailyPushByMember = [];
 
-    foreach ($CURRENT_MONTH_TABS as $tabName) {
-        $url = 'https://docs.google.com/spreadsheets/d/' . $CURRENT_MONTH_SHEET_ID
-            . '/gviz/tq?tqx=out:csv&sheet=' . rawurlencode($tabName);
-        $csv = gasRequest($url);
-        if (!$csv) continue;
-        $rows = parseCsv($csv);
-        if (count($rows) < 2) continue;
+    // 「全体数値」タブを1回だけ取得
+    $url = 'https://docs.google.com/spreadsheets/d/' . $CURRENT_MONTH_SHEET_ID
+        . '/gviz/tq?tqx=out:csv&sheet=' . rawurlencode('全体数値');
+    $csv = gasRequest($url);
+    if (!$csv) {
+        return ['byMember' => [], 'dailyPushTotals' => [], 'dailyPushByMember' => []];
+    }
+    $rows = parseCsv($csv);
 
+    foreach ($rows as $row) {
+        if (count($row) < 8) continue;
+        $no = trim($row[0] ?? '');
+        if ($no === '' || !is_numeric($no)) continue;
+
+        $tabName = trim($row[1] ?? '');
+        if (!$tabName) continue;
         $displayName = $CURRENT_MONTH_TAB_TO_DISPLAY[$tabName] ?? $tabName;
+
+        $dateRaw = trim($row[2] ?? '');
+        if (!$dateRaw) continue;
+        $datePrefix = '';
+        $dateFormatted = '';
+        if (preg_match('/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/', $dateRaw, $m)) {
+            $datePrefix = sprintf('%04d-%02d', $m[1], $m[2]);
+            $dateFormatted = sprintf('%04d-%02d-%02d', $m[1], $m[2], $m[3]);
+        }
+        if ($datePrefix !== $monthPrefix) continue;
+
+        // === プッシュ数（成約状況問わず全商談行をカウント） ===
+        $dailyPushTotals[$dateFormatted] = ($dailyPushTotals[$dateFormatted] ?? 0) + 1;
+        if (!isset($dailyPushByMember[$dateFormatted])) $dailyPushByMember[$dateFormatted] = [];
+        $dailyPushByMember[$dateFormatted][$displayName] = ($dailyPushByMember[$dateFormatted][$displayName] ?? 0) + 1;
+
+        // === 着金（成約のみ、CO/失注/キャンセル除外） ===
+        $status = trim($row[5] ?? '');
+        if (mb_strpos($status, '成約') === false) continue;
+        if (mb_strpos($status, 'CO') !== false) continue;
+        if (mb_strpos($status, 'キャンセル') !== false) continue;
+        if (mb_strpos($status, '失注') !== false) continue;
+
+        $co = $row[17] ?? '';
+        if ($co === 'TRUE' || $co === true) continue;
+
+        $paid = floatval(str_replace(',', '', $row[7] ?? '0'));
+        if ($paid <= 0) continue;
+
         if (!isset($byMember[$displayName])) {
             $byMember[$displayName] = ['revenue' => 0, 'paymentNews' => []];
         }
-
-        foreach ($rows as $row) {
-            if (count($row) < 7) continue;
-            $no = trim($row[0] ?? '');
-            if ($no === '' || !is_numeric($no)) continue;
-
-            $dateRaw = trim($row[1] ?? '');
-            if (!$dateRaw) continue;
-            $datePrefix = '';
-            $dateFormatted = '';
-            if (preg_match('/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/', $dateRaw, $m)) {
-                $datePrefix = sprintf('%04d-%02d', $m[1], $m[2]);
-                $dateFormatted = sprintf('%04d-%02d-%02d', $m[1], $m[2], $m[3]);
-            }
-            if ($datePrefix !== $monthPrefix) continue;
-
-            // === プッシュ数（成約状況問わず全商談行をカウント） ===
-            $dailyPushTotals[$dateFormatted] = ($dailyPushTotals[$dateFormatted] ?? 0) + 1;
-            if (!isset($dailyPushByMember[$dateFormatted])) $dailyPushByMember[$dateFormatted] = [];
-            $dailyPushByMember[$dateFormatted][$displayName] = ($dailyPushByMember[$dateFormatted][$displayName] ?? 0) + 1;
-
-            // === 着金（成約のみ、CO/失注/キャンセル除外） ===
-            $status = trim($row[4] ?? '');
-            if (mb_strpos($status, '成約') === false) continue;
-            if (mb_strpos($status, 'CO') !== false) continue;
-            if (mb_strpos($status, 'キャンセル') !== false) continue;
-            if (mb_strpos($status, '失注') !== false) continue;
-
-            $co = $row[16] ?? '';
-            if ($co === 'TRUE' || $co === true) continue;
-
-            $paid = floatval(str_replace(',', '', $row[6] ?? '0'));
-            if ($paid <= 0) continue;
-
-            $byMember[$displayName]['revenue'] += $paid;
-            $pd = explode('-', $dateFormatted);
-            $byMember[$displayName]['paymentNews'][] = [
-                'date' => $dateFormatted,
-                'dateShort' => intval($pd[1]) . '/' . intval($pd[2]),
-                'name' => $displayName,
-                'amount' => round($paid, 1)
-            ];
-        }
+        $byMember[$displayName]['revenue'] += $paid;
+        $pd = explode('-', $dateFormatted);
+        $byMember[$displayName]['paymentNews'][] = [
+            'date' => $dateFormatted,
+            'dateShort' => intval($pd[1]) . '/' . intval($pd[2]),
+            'name' => $displayName,
+            'amount' => round($paid, 1)
+        ];
     }
     return [
         'byMember' => $byMember,
