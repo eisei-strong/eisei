@@ -2727,6 +2727,15 @@ function postAppGetAccountUrls_(token) {
   var ytFetchedAt = rowVals[6] instanceof Date ? rowVals[6].toISOString() : null;
   var selfReportTotal = getSelfReportThisMonth_(postSheet, memberRow);
 
+  // 契約日（投稿数シートB列）からの経過日数を計算
+  // 契約日が日付型でない場合（テスト行など）は null
+  var contractDate = postSheet.getRange(memberRow, 2).getValue();
+  var daysFromContract = null;
+  if (contractDate instanceof Date) {
+    var msSince = Date.now() - contractDate.getTime();
+    daysFromContract = Math.floor(msSince / (24 * 60 * 60 * 1000));
+  }
+
   return {
     ok: true,
     id: id,
@@ -2736,7 +2745,8 @@ function postAppGetAccountUrls_(token) {
     ttUrl: String(rowVals[4] || ''),
     ytAutoCount: ytAutoCount,
     ytFetchedAt: ytFetchedAt,
-    selfReportThisMonth: selfReportTotal
+    selfReportThisMonth: selfReportTotal,
+    daysFromContract: daysFromContract
   };
 }
 
