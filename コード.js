@@ -570,6 +570,28 @@ function doGet(e) {
     }
   }
 
+  if (params.action === 'postGetAccountUrls') {
+    try {
+      var pgaResult = postAppGetAccountUrls_(params.token);
+      return ContentService.createTextOutput(JSON.stringify(pgaResult))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService.createTextOutput(JSON.stringify({ error: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  if (params.action === 'postSaveAccountUrls') {
+    try {
+      var psaResult = postAppSaveAccountUrls_(params.token, params.ytUrl, params.igUrl, params.ttUrl);
+      return ContentService.createTextOutput(JSON.stringify(psaResult))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService.createTextOutput(JSON.stringify({ error: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
   // ===== 万バズ台本 API =====
   if (params.action === 'manbazu') {
     try {
