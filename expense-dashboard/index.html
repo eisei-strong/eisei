@@ -215,6 +215,39 @@ tbody tr:hover { background: #F8FAFC; }
   .personnel-bar-label { width: 90px; }
   .personnel-sub { padding-left: 98px; }
 }
+
+/* ===== TOC Sticky Bottom Bar ===== */
+.toc-bar {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: rgba(255,255,255,0.96);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid #E2E8F0;
+  z-index: 50; padding: 8px 0;
+  box-shadow: 0 -2px 12px rgba(0,0,0,0.06);
+}
+.toc-pills {
+  display: flex; gap: 8px;
+  overflow-x: auto; -webkit-overflow-scrolling: touch;
+  padding: 0 12px;
+  scrollbar-width: none;
+}
+.toc-pills::-webkit-scrollbar { display: none; }
+.toc-pill {
+  flex-shrink: 0; padding: 8px 14px;
+  border-radius: 20px;
+  background: #F1F5F9; color: #1E293B;
+  font-size: 13px; font-weight: 600;
+  text-decoration: none; white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+  cursor: pointer; min-height: 36px;
+  display: inline-flex; align-items: center;
+}
+.toc-pill:hover, .toc-pill:active { background: #059669; color: #FFF; }
+#app { padding-bottom: 72px; }
+@media (max-width: 768px) {
+  .toc-pill { padding: 8px 12px; font-size: 12px; min-height: 34px; }
+  #app { padding-bottom: 64px; }
+}
 </style>
 </head>
 <body>
@@ -278,7 +311,7 @@ tbody tr:hover { background: #F8FAFC; }
   </div>
 
   <!-- Income Breakdown -->
-  <div class="section">
+  <div class="section" id="section-income">
     <div class="section-title"><span class="section-icon">&#x1F4B0;</span> 着金内訳</div>
     <div class="table-wrap">
       <table id="incomeTable">
@@ -297,7 +330,7 @@ tbody tr:hover { background: #F8FAFC; }
   </div>
 
   <!-- Personnel Cost Breakdown -->
-  <div class="section">
+  <div class="section" id="section-personnel">
     <div class="section-title"><span class="section-icon">&#x1F465;</span> 人件費リソース配分</div>
     <div class="personnel-grid">
       <div class="personnel-chart-wrap">
@@ -309,7 +342,7 @@ tbody tr:hover { background: #F8FAFC; }
   </div>
 
   <!-- Category Bar Chart -->
-  <div class="section">
+  <div class="section" id="section-categories">
     <div class="section-title"><span class="section-icon">&#x1F4CA;</span> カテゴリ別経費（詳細）</div>
     <div style="position:relative; height:520px;">
       <canvas id="barChart"></canvas>
@@ -317,7 +350,7 @@ tbody tr:hover { background: #F8FAFC; }
   </div>
 
   <!-- Monthly Trends -->
-  <div class="section">
+  <div class="section" id="section-trends">
     <div class="section-title"><span class="section-icon">&#x1F4C8;</span> 月次推移</div>
     <div class="trend-wrap">
       <canvas id="trendChart"></canvas>
@@ -331,7 +364,7 @@ tbody tr:hover { background: #F8FAFC; }
   </div>
 
   <!-- Top Expenses Table -->
-  <div class="section">
+  <div class="section" id="section-ranking">
     <div class="section-title"><span class="section-icon">&#x1F4CB;</span> 経費ランキング（全件）</div>
     <div class="table-wrap">
       <table id="topTable">
@@ -351,7 +384,7 @@ tbody tr:hover { background: #F8FAFC; }
   </div>
 
   <!-- 代理店報酬（常時表示・最下部） -->
-  <div class="section">
+  <div class="section" id="section-agency-reward">
     <div class="section-title"><span class="section-icon">&#x1F4CC;</span> 代理店報酬</div>
     <div class="modal-total" id="agencyRewardTotal"></div>
     <div class="table-wrap">
@@ -886,9 +919,15 @@ function updateTrendChart(data) {
 function updateWastefulAlerts(data) {
   var items = data.wasteful || [];
   var section = document.getElementById('wastefulSection');
-  if (items.length === 0) { section.style.display = 'none'; return; }
+  var tocPill = document.getElementById('tocWasteful');
+  if (items.length === 0) {
+    section.style.display = 'none';
+    if (tocPill) tocPill.style.display = 'none';
+    return;
+  }
 
   section.style.display = 'block';
+  if (tocPill) tocPill.style.display = 'inline-flex';
   var html = '';
   for (var i = 0; i < items.length; i++) {
     var w = items[i];
@@ -1051,5 +1090,40 @@ function truncate(str, max) {
   return str.length > max ? str.substring(0, max) + '...' : str;
 }
 </script>
+<!-- 目次（sticky bottom） -->
+<nav class="toc-bar" id="tocBar">
+  <div class="toc-pills">
+    <a href="#" class="toc-pill" data-target="top">&#x1F3E0; TOP</a>
+    <a href="#section-income" class="toc-pill" data-target="section-income">&#x1F4B0; 着金</a>
+    <a href="#section-personnel" class="toc-pill" data-target="section-personnel">&#x1F465; 人件費</a>
+    <a href="#section-categories" class="toc-pill" data-target="section-categories">&#x1F4CA; カテゴリ</a>
+    <a href="#section-trends" class="toc-pill" data-target="section-trends">&#x1F4C8; 推移</a>
+    <a href="#wastefulSection" class="toc-pill" id="tocWasteful" data-target="wastefulSection" style="display:none;">&#x26A0;&#xFE0F; 削減</a>
+    <a href="#section-ranking" class="toc-pill" data-target="section-ranking">&#x1F4CB; ランキング</a>
+    <a href="#section-agency-reward" class="toc-pill" data-target="section-agency-reward">&#x1F4CC; 代理店</a>
+  </div>
+</nav>
+
+<script>
+// ===== 目次バー =====
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('.toc-pill').forEach(function(pill) {
+    pill.addEventListener('click', function(e) {
+      e.preventDefault();
+      var target = pill.getAttribute('data-target');
+      if (target === 'top') {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        var el = document.getElementById(target);
+        if (el) {
+          var y = el.getBoundingClientRect().top + window.pageYOffset - 16;
+          window.scrollTo({ top: y, behavior: 'smooth' });
+        }
+      }
+    });
+  });
+});
+</script>
+
 </body>
 </html>
