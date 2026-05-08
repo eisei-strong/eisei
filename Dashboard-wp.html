@@ -1593,15 +1593,9 @@
       background: radial-gradient(ellipse 70% 60% at 50% 55%, rgba(251,146,60,0.05) 0%, transparent 70%);
       overflow: visible;
     }
-    /* 上段ベースラインを「見えるか見えないか」レベルで */
+    /* 上段ベースライン（オレンジ横線）— 非表示 */
     .mentors-row::after {
-      content: '';
-      position: absolute;
-      left: 14%; right: 14%;
-      bottom: 6px;
-      height: 1px;
-      background: linear-gradient(90deg, transparent 0%, rgba(251,146,60,0.18) 35%, rgba(251,146,60,0.22) 50%, rgba(251,146,60,0.18) 65%, transparent 100%);
-      pointer-events: none;
+      display: none;
     }
 
     .mentor-row-item {
