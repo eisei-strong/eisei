@@ -453,12 +453,12 @@ a{color:#1CB0F6;font-weight:600}
     <button class="logout" onclick="doLogout()">ログアウト</button>
   </div>
 
-  <!-- YT URL未登録バナー（契約30日経過 & YT URL空 のときだけ表示） -->
+  <!-- アカウントURL未登録バナー（契約30日経過 & YT/IG/TTいずれかが空のとき表示） -->
   <div id="ytMissingBanner" class="yt-banner" onclick="switchTab('account')" style="display:none">
     <div class="yt-banner-icon">🔗</div>
     <div class="yt-banner-body">
-      <div class="yt-banner-title">YouTubeのURL未登録</div>
-      <div class="yt-banner-sub">登録すると、今月の投稿数を自動で記録します</div>
+      <div class="yt-banner-title" id="ytBannerTitle">アカウントURL未登録</div>
+      <div class="yt-banner-sub">登録するとYouTubeは今月の投稿数を自動で記録します</div>
     </div>
     <div class="yt-banner-arrow">›</div>
   </div>
@@ -1083,15 +1083,23 @@ function switchTab(tab){
 
 // ---- アカウントURL ----
 var accountLoading=false;
-// YT URL未登録バナーの表示判定。ログイン後と保存後に呼ぶ。
+// アカウントURL未登録バナーの表示判定。ログイン後と保存後に呼ぶ。
+// 契約30日経過 & YT/IG/TTいずれかが空 のとき表示。タイトルは欠けてるSNS名を動的表示。
 function refreshYtMissingBanner(){
   var banner=document.getElementById('ytMissingBanner');
+  var titleEl=document.getElementById('ytBannerTitle');
   if(!banner||!token)return;
   api('action=postGetAccountUrls&token='+encodeURIComponent(token)).then(function(d){
     if(!d||d.error){banner.style.display='none';return}
-    var noYt=!d.ytUrl||!String(d.ytUrl).trim();
     var pastMonth=(typeof d.daysFromContract==='number')&&d.daysFromContract>=30;
-    banner.style.display=(noYt&&pastMonth)?'flex':'none';
+    if(!pastMonth){banner.style.display='none';return}
+    var missing=[];
+    if(!d.ytUrl||!String(d.ytUrl).trim())missing.push('YouTube');
+    if(!d.igUrl||!String(d.igUrl).trim())missing.push('Instagram');
+    if(!d.ttUrl||!String(d.ttUrl).trim())missing.push('TikTok');
+    if(missing.length===0){banner.style.display='none';return}
+    if(titleEl)titleEl.textContent=missing.join('・')+'のURL未登録';
+    banner.style.display='flex';
   }).catch(function(){banner.style.display='none'});
 }
 function loadAccountUrls(){
