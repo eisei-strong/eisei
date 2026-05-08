@@ -1897,7 +1897,6 @@
           <div id="rankingTabs" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px;">
             <button class="rank-tab active glow" data-tab="revenue" onclick="switchRankTab('revenue')">💰着金額</button>
             <button class="rank-tab" data-tab="closeRate" onclick="switchRankTab('closeRate')">🎯成約率</button>
-            <button class="rank-tab" data-tab="kyoso" onclick="switchRankTab('kyoso')">🤝共創</button>
             <button class="rank-tab" data-tab="attendance" onclick="switchRankTab('attendance')">📅出勤</button>
             <button class="rank-tab" data-tab="creditCard" onclick="switchRankTab('creditCard')">💳クレカ</button>
             <button class="rank-tab" data-tab="avgPrice" onclick="switchRankTab('avgPrice')">📈平均単価</button>
@@ -1926,7 +1925,7 @@
               <th rowspan="2">継続</th><th rowspan="2">成約率</th><th rowspan="2">平均着金額</th>
               <th rowspan="2">CO数</th><th rowspan="2">CO額</th><th rowspan="2">クレカ着金</th><th rowspan="2">信販着金</th>
               <th colspan="2" style="border-bottom:1px solid #E2E8F0;">当月</th>
-              <th rowspan="2">CBS</th><th rowspan="2">ライフティ</th><th rowspan="2">休み</th><th rowspan="2" style="background:#FFF7ED;color:#EA580C;">共創pt</th><th rowspan="2">売上</th>
+              <th rowspan="2">CBS</th><th rowspan="2">ライフティ</th><th rowspan="2">休み</th><th rowspan="2">売上</th>
             </tr>
             <tr>
               <th style="font-size:10px;">合計</th>
@@ -3445,7 +3444,6 @@
           '<td>' + escapeHtml(m.cbs) + '</td>' +
           '<td class="' + lfClass + '">' + escapeHtml(m.lifety) + lfWarn + '</td>' +
           '<td' + ((m.holidays || 0) > 8 ? ' class="val-negative"' : '') + '>' + formatHolidays(m.holidays) + '</td>' +
-          '<td style="background:#FFF7ED;font-weight:700;color:#EA580C;">' + ((cwPoints[m.name] || 0) === 0 ? '<span style="color:#EF4444;">0 ⚠️</span>' : cwPoints[m.name]) + '</td>' +
           '<td>' + formatManYen(m.sales) + '</td>' +
         '</tr>';
         totals.goalTotal += (memberKgi[m.name] || 2000);
@@ -3498,7 +3496,6 @@
         '<td>' + totals.cbsApplied + '件</td>' +
         '<td>' + totals.lfApplied + '件</td>' +
         '<td>' + (totals.holidays % 1 === 0 ? totals.holidays : totals.holidays.toFixed(1)) + '日</td>' +
-        '<td style="background:#FFF7ED;font-weight:700;color:#EA580C;">' + (function(){ var t=0; for(var k in cwPoints) t+=cwPoints[k]; return t; })() + '</td>' +
         '<td>' + formatManYen(totals.sales) + '</td>' +
       '</tr>';
     }
