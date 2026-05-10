@@ -1671,15 +1671,10 @@
     /* ===== スマホ最適化（メンター司令塔ステージ）===== */
     @media (max-width: 768px) {
       .mentors-row {
-        /* メンター8人を横1行で全員表示（折り返さない） */
-        display: flex;
-        flex-wrap: nowrap;
-        justify-content: space-between;
-        align-items: flex-start;
-        gap: 2px;
-        height: auto;
-        min-height: 64px;
-        padding: 6px 2px 8px;
+        /* PCと同じabsolute配置（メンターを本人の真上に動的left計算）*/
+        position: relative;
+        height: 70px;
+        padding: 6px 4px 8px;
         margin-bottom: 10px;
         border-radius: 10px;
       }
@@ -1688,13 +1683,10 @@
         bottom: 4px;
       }
       .mentor-row-item {
-        position: relative; /* PCのabsoluteを解除 */
-        top: auto;
-        left: auto !important; /* JSの自動left配置を上書き */
-        flex: 1 1 0;
-        min-width: 0;
-        max-width: 13%;
-        width: auto;
+        /* PCと同じ position: absolute を維持。JS が本人の真上に left を計算 */
+        position: absolute;
+        top: 6px;
+        width: 40px;
       }
       .mentor-row-item img {
         width: 30px; height: 30px;
@@ -3031,11 +3023,11 @@
         // 上段メンターを「担当メンバーの平均X位置」に再配置（PCのみ。スマホはflex-wrapに任せる）
         var mentorRow = document.getElementById('mentorsRow');
         var isMobileLayout = window.innerWidth <= 768;
-        if (mentorRow && !isMobileLayout) {
+        if (mentorRow) {
           var rowRect = mentorRow.getBoundingClientRect();
           var rowWidth = rowRect.width;
-          var ITEM_W = 68;
-          var PAD = 8;  // 左右最小余白
+          var ITEM_W = isMobileLayout ? 40 : 68;
+          var PAD = isMobileLayout ? 2 : 8;
           mentorRow.querySelectorAll('.mentor-row-item').forEach(function(item) {
             var name = item.getAttribute('data-mentor-name');
             var pulleds = [];
@@ -3049,11 +3041,6 @@
             // 左右の余白を担保（はみ出し防止）
             leftPx = Math.max(PAD, Math.min(rowWidth - ITEM_W - PAD, leftPx));
             item.style.left = leftPx + 'px';
-          });
-        } else if (mentorRow && isMobileLayout) {
-          // スマホで前回PC幅で設定された inline left をクリア（リサイズ越境用）
-          mentorRow.querySelectorAll('.mentor-row-item').forEach(function(item) {
-            item.style.left = '';
           });
         }
 
