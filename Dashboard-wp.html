@@ -612,24 +612,31 @@
     @media (max-width: 768px) {
       .members-bar { padding: 12px 8px; }
       .members-bar h3 { font-size: 12px; margin-bottom: 12px; }
-      /* スマホは横スクロールせず全員 wrap で表示（5列固定） */
-      .members-list-wrap { overflow-x: visible; }
+      /* スマホは横スクロールでPCと同じ1行表示（折り返し無し）→ 綱が綺麗 */
+      .members-list-wrap {
+        overflow-x: auto;
+        overflow-y: visible;
+        -webkit-overflow-scrolling: touch;
+      }
+      .members-list-wrap > .mentors-row,
+      .members-list-wrap > .members-list {
+        min-width: 700px; /* 14人を1行で並べる幅 */
+      }
       .members-list {
         display: flex;
-        flex-wrap: wrap;
-        justify-content: center;
-        align-items: flex-start;
-        gap: 10px 4px;
-        padding-top: 12px;
-        min-width: 0;
+        flex-wrap: nowrap;
+        justify-content: space-around;
+        align-items: flex-end;
+        gap: 4px;
+        padding-top: 20px;
       }
       .member-item {
-        flex: 0 0 calc(20% - 4px);
+        flex: 0 0 auto;
         min-width: 0;
-        margin: 0 !important; /* odd/even ジグザグ無効化 */
       }
-      .member-item-avatar { width: 42px; height: 42px; border-width: 2px; }
-      .member-item-name { font-size: 8.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      /* ジグザグはPC通り維持 */
+      .member-item-avatar { width: 40px; height: 40px; border-width: 2px; }
+      .member-item-name { font-size: 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .member-item-bubble { font-size: 7px; padding: 1px 4px; top: -18px; }
     }
 
