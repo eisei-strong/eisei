@@ -1,33 +1,40 @@
 // ============================================
 // CelebrateNotifier.js
-// 当月シート（PA_CURRENT_MONTH_SHEET_ID）のG列「着金額」が
-// 0/空 → 正の数 に変わったら、line-ai-bot の /api/celebrate を叩いて
+// 当月シート（PA_CURRENT_MONTH_SHEET_ID）の「全体数値」タブで
+// H列「着金額」に値が入った瞬間に line-ai-bot の /api/celebrate を叩いて
 // すべかがくんが営業グループに祝福メッセージをpushする。
 //
 // セットアップ手順（一度だけ実行）：
 //   1. Script Properties に CELEBRATE_SECRET を登録
 //      （line-ai-bot の Vercel環境変数と完全一致させる）
-//   2. setupCelebrateTrigger() を実行（onEditトリガーを当月シートに対して作成）
+//   2. setupCelebrateTrigger() を実行（onEditトリガーをスプシに対して作成）
 //
 // 検出ロジック：
 //   - 編集対象 = 当月シート（PA_CURRENT_MONTH_SHEET_ID）
-//   - 編集タブ = 営業タブ（PA_CURRENT_MONTH_SKIP_TABS は除外）
-//   - 編集セル = G列（着金額、1-indexed=7）
-//   - 行 >= PA_CURRENT_MONTH_DATA_START_ROW
+//   - 編集タブ = 「全体数値」のみ
+//   - 編集セル = H列（着金額、1-indexed=8）
+//   - 行 >= データ開始行（ヘッダー除外）
 //   - 旧値が空/0、新値が正の数（既登録の修正は通知しない）
 // ============================================
 
 var CELEBRATE_API_URL = 'https://line-ai-bot2.vercel.app/api/celebrate';
 
-// 当月シートの列構成（1-indexed）:
+// 監視対象のタブ名（このタブ以外は完全に無視する）
+var CELEBRATE_WATCH_SHEET = '全体数値';
+
+// 「全体数値」タブの列構成（1-indexed）:
 // A=1 No. / B=2 担当者 / C=3 初回商談日 / D=4 本名 / E=5 LINE名
 // F=6 成約状況 / G=7 成約金額 / H=8 着金額 / I=9 クレカ/銀振 ...
-var CELEBRATE_AMOUNT_COL = 8;    // H列：着金額
-var CELEBRATE_CUSTOMER_COL = 4;  // D列：本名
+var CELEBRATE_SALESPERSON_COL = 2; // B列：担当者
+var CELEBRATE_CUSTOMER_COL    = 4; // D列：本名
+var CELEBRATE_AMOUNT_COL      = 8; // H列：着金額
+
+// データ開始行（ヘッダー＝行5、データは行6から）
+var CELEBRATE_DATA_START_ROW = 6;
 
 /**
  * onEdit トリガーから呼ばれる本体。
- * 当月シートのG列に着金額が新規入力された時のみ祝福APIを叩く。
+ * 「全体数値」タブのH列に着金額が新規入力された時のみ祝福APIを叩く。
  */
 function onEdit_celebrateCheck(e) {
   if (!e || !e.range) return;
@@ -36,15 +43,15 @@ function onEdit_celebrateCheck(e) {
   var sheet = range.getSheet();
   var sheetName = sheet.getName();
 
-  // 営業タブ以外（全体数値、テンプレ等）はスキップ
-  if (PA_CURRENT_MONTH_SKIP_TABS && PA_CURRENT_MONTH_SKIP_TABS[sheetName]) return;
+  // 監視対象タブ以外は完全スキップ
+  if (sheetName !== CELEBRATE_WATCH_SHEET) return;
 
   // 着金額セル以外の編集はスキップ
   if (range.getColumn() !== CELEBRATE_AMOUNT_COL) return;
 
   // ヘッダー行・サマリ行への編集はスキップ
   var row = range.getRow();
-  if (row < PA_CURRENT_MONTH_DATA_START_ROW) return;
+  if (row < CELEBRATE_DATA_START_ROW) return;
 
   // 範囲編集（複数セル一括ペースト等）はスキップ（e.value が undefined になる）
   if (range.getNumRows() !== 1 || range.getNumColumns() !== 1) return;
@@ -59,17 +66,27 @@ function onEdit_celebrateCheck(e) {
     return;
   }
 
-  // 顧客名（本名 = C列）
+  // 営業名（B列：担当者）
+  var salesperson = '';
+  try {
+    var sv = sheet.getRange(row, CELEBRATE_SALESPERSON_COL).getValue();
+    salesperson = sv ? String(sv).trim() : '';
+  } catch (err) {
+    Logger.log('[celebrate] salesperson read failed: ' + err);
+  }
+  if (!salesperson) {
+    Logger.log('[celebrate] salesperson is empty at row ' + row + ', skipping');
+    return;
+  }
+
+  // 顧客名（D列：本名）— 任意。空でも続行する
   var customerName = '';
   try {
     var cv = sheet.getRange(row, CELEBRATE_CUSTOMER_COL).getValue();
-    customerName = cv ? String(cv) : '';
+    customerName = cv ? String(cv).trim() : '';
   } catch (err) {
     Logger.log('[celebrate] customer read failed: ' + err);
   }
-
-  // 営業名（タブ名 → 表示名マッピング）
-  var salesperson = (PA_CURRENT_MONTH_TAB_TO_DISPLAY && PA_CURRENT_MONTH_TAB_TO_DISPLAY[sheetName]) || sheetName;
 
   // 万円 → 円
   var amountYen = Math.round(newAmount * 10000);
