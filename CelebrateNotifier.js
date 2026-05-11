@@ -19,8 +19,8 @@
 
 var CELEBRATE_API_URL = 'https://line-ai-bot2.vercel.app/api/celebrate';
 
-// 着金額カラム（1-indexed）。当月シートでG列＝7
-var CELEBRATE_AMOUNT_COL = 7;
+// 着金額カラム（1-indexed）。当月シートでH列＝8
+var CELEBRATE_AMOUNT_COL = 8;
 
 // 顧客名カラム（1-indexed）。当月シートでC列＝3（本名）
 var CELEBRATE_CUSTOMER_COL = 3;
