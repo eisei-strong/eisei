@@ -326,6 +326,46 @@ if (count($qaHistory) > 1000) {
 
 file_put_contents($historyFile, json_encode($qaHistory, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
 
+// === 営業切り返しマスター(AI) の学習提出ログ書き込み ===
+// kirigaeshi.html から category='ai_kirigaeshi' で来た場合、GAS Web App 経由で
+// スプシ「学習提出ログ」タブに記録 (KirigaeshiSubmit.js)
+if (($input['category'] ?? '') === 'ai_kirigaeshi' || $type === 'grade') {
+    $gasUrlFile = '/home/kodaidai/.kirigaeshi_gas_url';
+    if (file_exists($gasUrlFile)) {
+        $gasUrl = trim(file_get_contents($gasUrlFile));
+        if ($gasUrl) {
+            // grade テキストから判定抽出 (S/A/B/C)
+            $gradeMatch = '';
+            if (preg_match('/[SABC]/u', $grade, $m)) {
+                $gradeMatch = $m[0];
+            }
+            $logPayload = [
+                'userName'         => $userName,
+                'scriptNo'         => $input['scriptNo'] ?? ($input['stepTitle'] ?? ''),
+                'questionCategory' => $input['questionCategory'] ?? ($stepTitle ?? ''),
+                'submissionText'   => $message,
+                'loomUrl'          => $input['loomUrl'] ?? '',
+                'aiGrade'          => $gradeMatch,
+                'aiFeedback'       => $aiAnswer,
+                'missingPoints'    => $input['missingPoints'] ?? [],
+                'ngPoints'         => $input['ngPoints'] ?? [],
+            ];
+            $ch = curl_init($gasUrl);
+            curl_setopt_array($ch, [
+                CURLOPT_POST => true,
+                CURLOPT_POSTFIELDS => json_encode($logPayload, JSON_UNESCAPED_UNICODE),
+                CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT => 10,
+                CURLOPT_CONNECTTIMEOUT => 5,
+            ]);
+            // 結果は気にしない (best effort、学習体験を止めない)
+            @curl_exec($ch);
+            curl_close($ch);
+        }
+    }
+}
+
 echo json_encode([
     'success' => true,
     'answer' => $aiAnswer,
