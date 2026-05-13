@@ -1020,6 +1020,12 @@
         <span class="nav-dot" style="background:var(--accent-copy)"></span>
         <span class="nav-count">18</span>
       </a>
+      <a href="#sales" class="sidebar-link" data-section="sales">
+        <span class="nav-icon">🤝</span>
+        <span>営業</span>
+        <span class="nav-dot" style="background:var(--accent-sales)"></span>
+        <span class="nav-count">0</span>
+      </a>
       <a href="#leader" class="sidebar-link" data-section="leader">
         <span class="nav-icon">👑</span>
         <span>リーダー</span>
@@ -1558,6 +1564,17 @@
         </div>
       </div>
 
+    </div>
+  </section>
+
+  <!-- ========== 営業 ========== -->
+  <section class="section sales-sec" id="sales">
+    <div class="section-header">
+      <span class="section-icon">🤝</span>
+      <span class="section-title">営業</span>
+      <span class="section-count">0 items</span>
+    </div>
+    <div class="card-grid">
     </div>
   </section>
 
@@ -2138,6 +2155,7 @@ const SECTION_META = {
   strat:  { cls: 'strat-sec',  icon: '🗺', title: '戦略',               color: 'var(--accent-strat)' },
   mind:   { cls: 'mind-sec',   icon: '🧠', title: '考え方',             color: 'var(--accent-mind)' },
   copy:   { cls: 'copy-sec',   icon: '✍️', title: 'コピーライティング', color: 'var(--accent-copy)' },
+  sales:  { cls: 'sales-sec',  icon: '🤝', title: '営業',               color: 'var(--accent-sales)' },
   leader: { cls: 'leader-sec', icon: '👑', title: 'リーダー',           color: 'var(--accent-leader)' }
 };
 
@@ -2211,7 +2229,7 @@ function buildCardsFromSheet(rows) {
     });
   });
 
-  ['goal','prod','strat','mind','copy','leader'].forEach(cat => {
+  ['goal','prod','strat','mind','copy','sales','leader'].forEach(cat => {
     const section = document.querySelector('#' + cat);
     if (!section) return;
     const cards = groups[cat] || [];
