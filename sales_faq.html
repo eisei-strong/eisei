@@ -94,6 +94,63 @@ function updateTOCActive(){var sb=document.getElementById('tocSidebar');if(!sb)r
 window.addEventListener('scroll',function(){requestAnimationFrame(updateTOCActive);});
 var _origBuild=buildStepsUI;buildStepsUI=function(){_origBuild();buildTOC();updateTOCActive();};
 
-window.addEventListener('beforeunload',function(e){if(adminDirty){e.preventDefault();e.returnValue='未保存の変更があります';}});</script>
+window.addEventListener('beforeunload',function(e){if(adminDirty){e.preventDefault();e.returnValue='未保存の変更があります';}});
+
+// === 営業切り返しマスター(AI) 社内向け: ログイン認証バイパス ===
+// 社内営業マン専用URL /sales-faq/ なので、認証なしで即利用可能にする。
+// userName だけ「営業社員」固定でAI採点/学習提出ログにそのまま使う。
+(function() {
+  function applyBypass() {
+    try {
+      // 社員モードの仮想ユーザー
+      var bypassUser = { userId: 'sales-team', realName: '営業社員', name: '営業社員' };
+
+      // localStorage に既存セッションがなければ書き込み (scripts.htmlの仕組みに準拠)
+      var keys = ['currentUser', 'user', 'loggedInUser', 'authUser', 'sessionUser'];
+      keys.forEach(function(k) {
+        if (!localStorage.getItem(k)) {
+          try { localStorage.setItem(k, JSON.stringify(bypassUser)); } catch(e){}
+        }
+      });
+
+      // ログインモーダルを隠す
+      var loginModal = document.getElementById('loginModal');
+      if (loginModal) loginModal.style.display = 'none';
+
+      // 既存の showLogin() を no-op に上書き (ログインボタン押されても何もしない)
+      if (typeof window.showLogin === 'function') {
+        window.showLogin = function() {};
+      }
+
+      // ヘッダーの「未ログイン / ログイン」ボタンを差し替え
+      var userNameDisplay = document.getElementById('userNameDisplay');
+      if (userNameDisplay) userNameDisplay.textContent = '営業社員';
+      var userActionBtn = document.getElementById('userActionBtn');
+      if (userActionBtn) userActionBtn.style.display = 'none';
+
+      // currentUser グローバル変数があれば社員モードで上書き
+      if (typeof window.currentUser !== 'undefined') {
+        try { window.currentUser = bypassUser; } catch(e){}
+      }
+
+      // ステップ描画を強制実行 (scripts.html ベースで未ログイン時に隠す仕様の場合)
+      if (typeof window.renderSteps === 'function') {
+        try { window.renderSteps(); } catch(e){ console.warn('renderSteps:', e); }
+      }
+      if (typeof window.buildStepsUI === 'function') {
+        try { window.buildStepsUI(); } catch(e){ console.warn('buildStepsUI:', e); }
+      }
+    } catch(e) {
+      console.warn('sales-faq bypass failed:', e);
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() { setTimeout(applyBypass, 300); });
+  } else {
+    setTimeout(applyBypass, 300);
+  }
+})();
+</script>
 </body>
 </html>
