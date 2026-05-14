@@ -327,43 +327,89 @@ if (count($qaHistory) > 1000) {
 file_put_contents($historyFile, json_encode($qaHistory, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
 
 // === 営業切り返しマスター(AI) の学習提出ログ書き込み ===
-// kirigaeshi.html から category='ai_kirigaeshi' で来た場合、GAS Web App 経由で
-// スプシ「学習提出ログ」タブに記録 (KirigaeshiSubmit.js)
+// kirigaeshi.html から category='ai_kirigaeshi' で来た場合、Google Sheets API を
+// 直接叩いてスプシ「学習提出ログ」タブに記録 (サービスアカウント JWT 認証経由、GAS不要)
 if (($input['category'] ?? '') === 'ai_kirigaeshi' || $type === 'grade') {
-    $gasUrlFile = '/home/kodaidai/.kirigaeshi_gas_url';
-    if (file_exists($gasUrlFile)) {
-        $gasUrl = trim(file_get_contents($gasUrlFile));
-        if ($gasUrl) {
-            // grade テキストから判定抽出 (S/A/B/C)
-            $gradeMatch = '';
-            if (preg_match('/[SABC]/u', $grade, $m)) {
-                $gradeMatch = $m[0];
-            }
-            $logPayload = [
-                'userName'         => $userName,
-                'scriptNo'         => $input['scriptNo'] ?? ($input['stepTitle'] ?? ''),
-                'questionCategory' => $input['questionCategory'] ?? ($stepTitle ?? ''),
-                'submissionText'   => $message,
-                'loomUrl'          => $input['loomUrl'] ?? '',
-                'aiGrade'          => $gradeMatch,
-                'aiFeedback'       => $aiAnswer,
-                'missingPoints'    => $input['missingPoints'] ?? [],
-                'ngPoints'         => $input['ngPoints'] ?? [],
-            ];
-            $ch = curl_init($gasUrl);
-            curl_setopt_array($ch, [
-                CURLOPT_POST => true,
-                CURLOPT_POSTFIELDS => json_encode($logPayload, JSON_UNESCAPED_UNICODE),
-                CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_TIMEOUT => 10,
-                CURLOPT_CONNECTTIMEOUT => 5,
-            ]);
-            // 結果は気にしない (best effort、学習体験を止めない)
-            @curl_exec($ch);
-            curl_close($ch);
-        }
+    appendToKirigaeshiLogSheet($userName, $grade, $aiAnswer, $message, $stepTitle, $input);
+}
+
+function appendToKirigaeshiLogSheet($userName, $grade, $aiAnswer, $message, $stepTitle, $input) {
+    $saFile = '/home/kodaidai/.kirigaeshi_sa.json';
+    if (!file_exists($saFile)) return;
+    $sa = json_decode(file_get_contents($saFile), true);
+    if (!$sa || empty($sa['private_key']) || empty($sa['client_email'])) return;
+
+    // JWT 生成 (RS256)
+    $now = time();
+    $b64u = function($s) { return rtrim(strtr(base64_encode($s), '+/', '-_'), '='); };
+    $header = $b64u(json_encode(['alg' => 'RS256', 'typ' => 'JWT']));
+    $claim = $b64u(json_encode([
+        'iss'   => $sa['client_email'],
+        'scope' => 'https://www.googleapis.com/auth/spreadsheets',
+        'aud'   => 'https://oauth2.googleapis.com/token',
+        'iat'   => $now,
+        'exp'   => $now + 3600,
+    ]));
+    $signInput = "$header.$claim";
+    $pkey = openssl_pkey_get_private($sa['private_key']);
+    if (!$pkey) return;
+    openssl_sign($signInput, $sig, $pkey, 'sha256WithRSAEncryption');
+    $jwt = "$signInput." . $b64u($sig);
+
+    // アクセストークン取得
+    $ch = curl_init('https://oauth2.googleapis.com/token');
+    curl_setopt_array($ch, [
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => http_build_query([
+            'grant_type' => 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+            'assertion'  => $jwt,
+        ]),
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 10,
+    ]);
+    $resp = curl_exec($ch);
+    curl_close($ch);
+    $tokenData = json_decode($resp, true);
+    $accessToken = $tokenData['access_token'] ?? '';
+    if (!$accessToken) return;
+
+    // grade から S/A/B/C を抽出
+    $gradeMatch = '';
+    if (preg_match('/[SABC]/u', (string)$grade, $m)) {
+        $gradeMatch = $m[0];
     }
+
+    // Sheets API append
+    $spreadsheetId = '1MqoJiyn8syUQP3SCvdFogqJ_iyLCxIfZl8oEfJwpMk0';
+    $range = urlencode("'学習提出ログ'!A:Z");
+    $url = "https://sheets.googleapis.com/v4/spreadsheets/$spreadsheetId/values/$range:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS";
+
+    $row = [
+        date('c'),
+        (string)$userName,
+        (string)($input['scriptNo'] ?? ''),
+        (string)($input['questionCategory'] ?? $stepTitle ?? ''),
+        (string)$message,
+        (string)($input['loomUrl'] ?? ''),
+        $gradeMatch,
+        (string)$aiAnswer,
+        implode("\n", (array)($input['missingPoints'] ?? [])),
+        implode("\n", (array)($input['ngPoints'] ?? [])),
+    ];
+
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => json_encode(['values' => [$row]], JSON_UNESCAPED_UNICODE),
+        CURLOPT_HTTPHEADER => [
+            'Authorization: Bearer ' . $accessToken,
+            'Content-Type: application/json',
+        ],
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 10,
+    ]);
+    @curl_exec($ch);
+    curl_close($ch);
 }
 
 echo json_encode([
