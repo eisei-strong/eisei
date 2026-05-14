@@ -102,16 +102,17 @@ window.addEventListener('beforeunload',function(e){if(adminDirty){e.preventDefau
 (function() {
   function applyBypass() {
     try {
-      // 社員モードの仮想ユーザー
-      var bypassUser = { userId: 'sales-team', realName: '営業社員', name: '営業社員' };
-
-      // localStorage に既存セッションがなければ書き込み (scripts.htmlの仕組みに準拠)
-      var keys = ['currentUser', 'user', 'loggedInUser', 'authUser', 'sessionUser'];
-      keys.forEach(function(k) {
-        if (!localStorage.getItem(k)) {
-          try { localStorage.setItem(k, JSON.stringify(bypassUser)); } catch(e){}
-        }
-      });
+      // 社員モードの仮想ユーザー (scripts.html の STORE_USER_ID / STORE_USER に準拠)
+      var SALES_USER_ID = 'sales-team';
+      var SALES_USER_NAME = '営業社員';
+      // 既存セッションがなければ書き込み
+      if (!localStorage.getItem('30day_user_id')) {
+        try { localStorage.setItem('30day_user_id', SALES_USER_ID); } catch(e){}
+      }
+      if (!localStorage.getItem('30day_user')) {
+        try { localStorage.setItem('30day_user', JSON.stringify({ userId: SALES_USER_ID, realName: SALES_USER_NAME })); } catch(e){}
+      }
+      var bypassUser = { userId: SALES_USER_ID, realName: SALES_USER_NAME, name: SALES_USER_NAME };
 
       // ログインモーダルを隠す
       var loginModal = document.getElementById('loginModal');
@@ -128,17 +129,21 @@ window.addEventListener('beforeunload',function(e){if(adminDirty){e.preventDefau
       var userActionBtn = document.getElementById('userActionBtn');
       if (userActionBtn) userActionBtn.style.display = 'none';
 
-      // currentUser グローバル変数があれば社員モードで上書き
-      if (typeof window.currentUser !== 'undefined') {
-        try { window.currentUser = bypassUser; } catch(e){}
-      }
+      // currentUser グローバル変数を強制上書き (undefined でも上書き)
+      try { window.currentUser = bypassUser; } catch(e){}
+      try { currentUser = bypassUser; } catch(e){}
 
-      // ステップ描画を強制実行 (scripts.html ベースで未ログイン時に隠す仕様の場合)
-      if (typeof window.renderSteps === 'function') {
-        try { window.renderSteps(); } catch(e){ console.warn('renderSteps:', e); }
+      // データを再ロードしてステップ描画を強制実行
+      function rerender() {
+        try { if (typeof window.renderSteps === 'function') window.renderSteps(); } catch(e){ console.warn(e); }
+        try { if (typeof window.buildStepsUI === 'function') window.buildStepsUI(); } catch(e){ console.warn(e); }
+        try { if (typeof window.updateProgress === 'function') window.updateProgress(); } catch(e){}
       }
-      if (typeof window.buildStepsUI === 'function') {
-        try { window.buildStepsUI(); } catch(e){ console.warn('buildStepsUI:', e); }
+      if (typeof window.loadCourseConfig === 'function') {
+        try { window.loadCourseConfig().then(rerender).catch(rerender); }
+        catch(e){ rerender(); }
+      } else {
+        rerender();
       }
     } catch(e) {
       console.warn('sales-faq bypass failed:', e);
