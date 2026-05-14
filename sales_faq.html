@@ -118,6 +118,12 @@ window.addEventListener('beforeunload',function(e){if(adminDirty){e.preventDefau
       var loginModal = document.getElementById('loginModal');
       if (loginModal) loginModal.style.display = 'none';
 
+      // sales-faq では Q&A セクション不要なので非表示
+      var qaSection = document.getElementById('qaSection');
+      if (qaSection) qaSection.style.display = 'none';
+      var recordsSection = document.getElementById('recordsSection');
+      if (recordsSection) recordsSection.style.display = 'none';
+
       // 既存の showLogin() を no-op に上書き (ログインボタン押されても何もしない)
       if (typeof window.showLogin === 'function') {
         window.showLogin = function() {};
