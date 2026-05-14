@@ -163,11 +163,18 @@ window.addEventListener('beforeunload',function(e){if(adminDirty){e.preventDefau
           card.className = 'sales-faq-card';
           card.style.cssText = 'background:#fff;border:1px solid #e0e0e0;border-radius:12px;padding:24px 28px;margin:20px 0;box-shadow:0 1px 3px rgba(0,0,0,.05)';
 
-          var title = escapeHtml(String(step.title || '').replace(/「|」/g, ''));
+          var questions = Array.isArray(step.customerQuestionExamples) ? step.customerQuestionExamples : [];
+          // タイトル: 代表質問例があればそれ、なければ category (具体化)
+          var rawTitle = questions[0] || String(step.title || '').replace(/「|」/g, '');
+          var title = escapeHtml(rawTitle);
           var scriptNo = escapeHtml(step.scriptNo || '');
           var approval = escapeHtml(step.approvalStatus || 'draft');
-          var fullScript = escapeHtml(step.fullScript || '').replace(/\n/g, '<br>');
-          var questions = Array.isArray(step.customerQuestionExamples) ? step.customerQuestionExamples : [];
+          var category = escapeHtml(String(step.title || '').replace(/「|」/g, ''));
+          // 正解の台本: 「。」ごとに段落分け (2行改行)
+          var fullScript = escapeHtml(step.fullScript || '')
+            .replace(/\n+/g, ' ')                              // 既存の改行はスペースに
+            .replace(/。\s*/g, '。<br><br>')                     // 句点後に空行
+            .replace(/(<br><br>)+$/, '');                       // 末尾の余分な改行削除
 
           var questionsHtml = '';
           if (questions.length > 0) {
@@ -181,10 +188,10 @@ window.addEventListener('beforeunload',function(e){if(adminDirty){e.preventDefau
           }
 
           card.innerHTML =
-            '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;gap:12px;flex-wrap:wrap">' +
+            '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;gap:12px;flex-wrap:wrap">' +
               '<div style="flex:1;min-width:200px">' +
-                '<div style="font-size:11px;color:#999;margin-bottom:6px;letter-spacing:.5px">' + scriptNo + '</div>' +
-                '<div style="font-size:20px;font-weight:700;color:#1a1a1a;line-height:1.4">' + title + '</div>' +
+                '<div style="font-size:11px;color:#999;margin-bottom:6px;letter-spacing:.5px">' + scriptNo + ' · ' + category + '</div>' +
+                '<div style="font-size:19px;font-weight:700;color:#1a1a1a;line-height:1.5">' + title + '</div>' +
               '</div>' +
               '<div style="font-size:10px;padding:4px 12px;background:#fff3cd;color:#856404;border-radius:12px;white-space:nowrap;font-weight:600">' + approval + '</div>' +
             '</div>' +
