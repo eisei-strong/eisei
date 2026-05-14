@@ -139,17 +139,61 @@ window.addEventListener('beforeunload',function(e){if(adminDirty){e.preventDefau
       try { window.currentUser = bypassUser; } catch(e){}
       try { currentUser = bypassUser; } catch(e){}
 
-      // データを再ロードしてステップ描画を強制実行
-      function rerender() {
-        try { if (typeof window.renderSteps === 'function') window.renderSteps(); } catch(e){ console.warn(e); }
-        try { if (typeof window.buildStepsUI === 'function') window.buildStepsUI(); } catch(e){ console.warn(e); }
-        try { if (typeof window.updateProgress === 'function') window.updateProgress(); } catch(e){}
+      // sales-faq 専用カードレンダラー (既存 renderSteps を完全bypass)
+      function salesFaqRender() {
+        var container = document.getElementById('stepsContainer');
+        if (!container) return;
+        if (!Array.isArray(window.ALL_STEPS) || window.ALL_STEPS.length === 0) {
+          // ALL_STEPS がまだ空なら fetch 自体まだ未完了、リトライ
+          setTimeout(salesFaqRender, 500);
+          return;
+        }
+        // ai_kirigaeshi の17ステップのみフィルタ
+        var steps = window.ALL_STEPS.filter(function(s) { return s.phase === 'ai_kirigaeshi'; });
+        if (steps.length === 0) steps = window.ALL_STEPS;
+
+        container.innerHTML = '';
+        var heading = document.createElement('div');
+        heading.style.cssText = 'background:#fff8e7;border-left:4px solid #c9a84c;padding:14px 18px;margin:24px 0 12px;font-size:13px;color:#5f4b16;line-height:1.7;border-radius:6px';
+        heading.innerHTML = '🤖 <b>AI抽出 営業切り返しマスター</b> ' + steps.length + '本<br>' +
+          '実商談動画から AI が抽出・生成。各カードは「🪞 一言で覚える」→「⏱ 短縮版(20-30秒)」→「📖 全文(深く理解)」の3層構造。';
+        container.appendChild(heading);
+
+        steps.forEach(function(step, idx) {
+          var card = document.createElement('div');
+          card.className = 'sales-faq-card';
+          card.style.cssText = 'background:#fff;border:1px solid #e0e0e0;border-radius:12px;padding:22px 26px;margin:16px 0;box-shadow:0 1px 3px rgba(0,0,0,.05)';
+          var title = String(step.title || '').replace(/「|」/g, '');
+          var desc = String(step.desc || '').replace(/</g, '&lt;');
+          // YouTube URL をリンク化
+          desc = desc.replace(/(https?:\/\/[^\s\n]+)/g, '<a href="$1" target="_blank" style="color:#1a73e8;word-break:break-all">$1</a>');
+          // 改行 → <br>
+          desc = desc.replace(/\n/g, '<br>');
+          card.innerHTML =
+            '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;gap:12px;flex-wrap:wrap">' +
+              '<div style="flex:1;min-width:200px">' +
+                '<div style="font-size:11px;color:#999;margin-bottom:4px">' + (step.scriptNo || '') + ' / ' + (step.priority || '') + '</div>' +
+                '<div style="font-size:18px;font-weight:700;color:#1a1a1a;line-height:1.4">' + title + '</div>' +
+              '</div>' +
+              '<div style="font-size:10px;padding:4px 10px;background:#fff3cd;color:#856404;border-radius:12px;white-space:nowrap">' + (step.approvalStatus || 'draft') + '</div>' +
+            '</div>' +
+            '<div style="font-size:14px;line-height:1.8;color:#333">' + desc + '</div>';
+          container.appendChild(card);
+        });
+
+        // 進捗カウント更新
+        var pt = document.getElementById('progressText');
+        if (pt) pt.textContent = '0 / ' + steps.length;
+        var ptm = document.getElementById('progressTextMobile');
+        if (ptm) ptm.textContent = '0 / ' + steps.length;
       }
+
+      // 初回ロード待ち
+      setTimeout(salesFaqRender, 800);
+      // fetch 完了をフックしてリロード
       if (typeof window.loadCourseConfig === 'function') {
-        try { window.loadCourseConfig().then(rerender).catch(rerender); }
-        catch(e){ rerender(); }
-      } else {
-        rerender();
+        try { window.loadCourseConfig().then(salesFaqRender).catch(salesFaqRender); }
+        catch(e){ salesFaqRender(); }
       }
     } catch(e) {
       console.warn('sales-faq bypass failed:', e);
