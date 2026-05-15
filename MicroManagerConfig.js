@@ -3,9 +3,14 @@
 // ============================================
 
 // --- 投稿先ルーム ---
-// ※ Chatwork で「マイクロマネジメント全体」ルームを作成後、roomId をここに入れる
-//   未設定の間は pollMicroManager() / microDeadlineCheck() は早期 return する
+// ※ 招待リンク https://www.chatwork.com/g/j35f6ai00udio7 → 数値の roomId を入れる
+//   roomId取得方法: Chatworkでルームを開く → URLの末尾「#!rid12345」の数値部分
+//   または bot をルームに招待後、microListBotRooms_() を実行してログから取得
+//   未設定の間は pollMicroManager() / microCheckXxxDeadline() は早期 return する
 var MICRO_ROOM_ID = '';  // TODO: 専用ルームのroomIdを設定
+
+// --- 招待リンク（参考、自動解決のヒント） ---
+var MICRO_ROOM_INVITE_URL = 'https://www.chatwork.com/g/j35f6ai00udio7';
 
 // --- 監視対象メンバー（5月以降の現役営業15人） ---
 // account_id → 表示名
@@ -84,6 +89,24 @@ var MICRO_AI_MAX_TOKENS = 1024;
 
 // --- レート制御 ---
 var MICRO_POLL_MIN = 5;  // 5分ポーリング
+
+// --- KPI警告（ペナなし、詰めDMのみ） ---
+var MICRO_KPI_ENABLED = true;
+// 17:00 当日アポ0警告: 当日アポ数がこの数値以下で発火（0=完全ゼロ）
+var MICRO_KPI_DAILY_THRESHOLD = 0;
+// 水曜12:00 週次アポ警告: 月〜火のアポ合計がこの数値以下で発火
+var MICRO_KPI_WEEKLY_THRESHOLD = 1;
+// 月の21日以降 月次着金警告: 月初〜現在の着金がこの数値以下で発火（万円）
+var MICRO_KPI_MONTHLY_REVENUE_THRESHOLD = 0;
+
+// --- 表示名 → 内部v2名 マッピング（API突合用） ---
+// MICRO_MEMBERS の表示名と api-proxy.php / Config の v2名のズレを吸収
+var MICRO_DISPLAY_TO_V2 = {
+  '1日1more':     'スクリプト通りに営業するくん',
+  '言い切り':     'ゴン',
+  '週1休みくん':  'トニー'
+  // 一致する名前はマップ不要（意思決定/ヒトコト/ありのまま/ポジティブ/けつだん/ぜんぶり/ゴジータ/夜神月/悟空）
+};
 
 // ============================================
 // ヘルパー

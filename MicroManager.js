@@ -201,6 +201,201 @@ function microCheckDeadline_(type, windowFn) {
 }
 
 // ============================================
+// KPI リアルタイム警告（ペナなし・詰めDMのみ）
+// ============================================
+/**
+ * 17:00: 当日アポ0のメンバーに警告
+ * トリガー: 毎日 17:00
+ */
+function microKpiCheck1700() {
+  if (!MICRO_KPI_ENABLED) return;
+  if (!microRoomReady_()) return;
+  var token = (typeof getChatworkToken_ === 'function') ? getChatworkToken_() : null;
+  if (!token) { microBotLog_('ERROR', '17時警告: token未設定'); return; }
+
+  var api = microFetchDashboardApi_();
+  if (!api || !api.dailyPushes || !api.dailyPushes.byMember) {
+    microBotLog_('ERROR', '17時警告: API取得失敗');
+    return;
+  }
+
+  var today = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd');
+  var todayArr = api.dailyPushes.byMember[today] || [];
+  var countMap = {};
+  for (var i = 0; i < todayArr.length; i++) {
+    countMap[todayArr[i].name] = todayArr[i].count;
+  }
+
+  var triggered = 0;
+  for (var accountId in MICRO_MEMBERS) {
+    var displayName = MICRO_MEMBERS[accountId];
+    var v2Name = MICRO_DISPLAY_TO_V2[displayName] || displayName;
+    var apoCount = countMap[v2Name] || 0;
+    if (apoCount > MICRO_KPI_DAILY_THRESHOLD) continue;
+
+    var body = MICRO_BOT_LABEL + ' [To:' + accountId + '] ' + displayName + 'さん\n' +
+      '17時 今日のアポ ' + apoCount + '\n' +
+      '残り5時間で何やる\n' +
+      '今日の最終アポ数 + 明日リカバリの動き、30分以内に返事\n' +
+      '※KPI警告（ペナなし）';
+    microPostMessage_(MICRO_ROOM_ID, body, token);
+    triggered++;
+    Utilities.sleep(2000);
+  }
+  microBotLog_('INFO', '17時KPI警告: ' + triggered + '人に発火');
+}
+
+/**
+ * 水曜12:00: 週初〜火曜のアポ合計が閾値以下の人に警告
+ */
+function microKpiCheckWednesday() {
+  if (!MICRO_KPI_ENABLED) return;
+  if (!microRoomReady_()) return;
+  if (new Date().getDay() !== 3) {  // 水曜=3
+    microBotLog_('INFO', '週次KPI: 水曜以外のためスキップ');
+    return;
+  }
+  var token = (typeof getChatworkToken_ === 'function') ? getChatworkToken_() : null;
+  if (!token) { microBotLog_('ERROR', '週次KPI: token未設定'); return; }
+
+  var api = microFetchDashboardApi_();
+  if (!api || !api.dailyPushes || !api.dailyPushes.byMember) {
+    microBotLog_('ERROR', '週次KPI: API取得失敗'); return;
+  }
+
+  var now = new Date();
+  // 月曜0:00〜火曜23:59のキー2日分を合算
+  var monday = new Date(now.getTime());
+  monday.setDate(monday.getDate() - (monday.getDay() === 0 ? 6 : monday.getDay() - 1));
+  monday.setHours(0, 0, 0, 0);
+  var tuesday = new Date(monday.getTime() + 24 * 60 * 60 * 1000);
+  var monKey = Utilities.formatDate(monday,  'Asia/Tokyo', 'yyyy-MM-dd');
+  var tueKey = Utilities.formatDate(tuesday, 'Asia/Tokyo', 'yyyy-MM-dd');
+
+  var sumByName = {};
+  [monKey, tueKey].forEach(function (k) {
+    var arr = api.dailyPushes.byMember[k] || [];
+    for (var i = 0; i < arr.length; i++) {
+      sumByName[arr[i].name] = (sumByName[arr[i].name] || 0) + (arr[i].count || 0);
+    }
+  });
+
+  var triggered = 0;
+  for (var accountId in MICRO_MEMBERS) {
+    var displayName = MICRO_MEMBERS[accountId];
+    var v2Name = MICRO_DISPLAY_TO_V2[displayName] || displayName;
+    var weekCount = sumByName[v2Name] || 0;
+    if (weekCount > MICRO_KPI_WEEKLY_THRESHOLD) continue;
+
+    var body = MICRO_BOT_LABEL + ' [To:' + accountId + '] ' + displayName + 'さん\n' +
+      '水曜昼 今週ここまで月火合計アポ ' + weekCount + '\n' +
+      'このペースだと週末詰む\n' +
+      '今週どう巻き返すか、本数とどこに架けるか、30分以内に返事\n' +
+      '※KPI警告（ペナなし）';
+    microPostMessage_(MICRO_ROOM_ID, body, token);
+    triggered++;
+    Utilities.sleep(2000);
+  }
+  microBotLog_('INFO', '水曜KPI警告: ' + triggered + '人に発火');
+}
+
+/**
+ * 月の21日以降: 当月着金が閾値以下の人に警告
+ * トリガー: 毎日 12:00（21日以降のみ実行）
+ */
+function microKpiCheckMonthly() {
+  if (!MICRO_KPI_ENABLED) return;
+  if (!microRoomReady_()) return;
+  var day = new Date().getDate();
+  if (day < 21) {
+    microBotLog_('INFO', '月次KPI: 21日未満のためスキップ day=' + day);
+    return;
+  }
+  var token = (typeof getChatworkToken_ === 'function') ? getChatworkToken_() : null;
+  if (!token) { microBotLog_('ERROR', '月次KPI: token未設定'); return; }
+
+  var api = microFetchDashboardApi_();
+  if (!api || !api.members) { microBotLog_('ERROR', '月次KPI: API取得失敗'); return; }
+
+  var revByName = {};
+  for (var i = 0; i < api.members.length; i++) {
+    revByName[api.members[i].name] = api.members[i].revenue || 0;
+  }
+
+  var triggered = 0;
+  for (var accountId in MICRO_MEMBERS) {
+    var displayName = MICRO_MEMBERS[accountId];
+    var v2Name = MICRO_DISPLAY_TO_V2[displayName] || displayName;
+    var rev = revByName[v2Name] || 0;
+    if (rev > MICRO_KPI_MONTHLY_REVENUE_THRESHOLD) continue;
+
+    var body = MICRO_BOT_LABEL + ' [To:' + accountId + '] ' + displayName + 'さん\n' +
+      day + '日 今月着金 ' + rev + '万円\n' +
+      '残り10日で何取りに行く\n' +
+      '残り商談の確度と着金見込み、1時間以内に返事\n' +
+      '※KPI警告（ペナなし）';
+    microPostMessage_(MICRO_ROOM_ID, body, token);
+    triggered++;
+    Utilities.sleep(2000);
+  }
+  microBotLog_('INFO', '月次KPI警告(' + day + '日): ' + triggered + '人に発火');
+}
+
+/**
+ * ダッシュボードAPIを取得
+ */
+function microFetchDashboardApi_() {
+  var url = 'https://giver.work/sales-dashboard/api-proxy.php?action=api';
+  try {
+    var res = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
+    if (res.getResponseCode() !== 200) {
+      microBotLog_('ERROR', 'API HTTP code=' + res.getResponseCode());
+      return null;
+    }
+    return JSON.parse(res.getContentText());
+  } catch (e) {
+    microBotLog_('ERROR', 'API取得例外: ' + e.message);
+    return null;
+  }
+}
+
+// ============================================
+// ルームID解決ヘルパー
+// ============================================
+/**
+ * Bot が参加している全ルームを一覧表示（Logger + ログシート）
+ * MICRO_ROOM_ID 設定時の参照用。bot を招待後にこれを実行 → ログから roomId を取得
+ */
+function microListBotRooms_() {
+  var token = (typeof getChatworkToken_ === 'function') ? getChatworkToken_() : null;
+  if (!token) { microBotLog_('ERROR', 'token未設定'); return; }
+
+  try {
+    var res = UrlFetchApp.fetch('https://api.chatwork.com/v2/rooms', {
+      method: 'get',
+      headers: { 'X-ChatWorkToken': token },
+      muteHttpExceptions: true
+    });
+    if (res.getResponseCode() !== 200) {
+      microBotLog_('ERROR', 'rooms取得失敗 code=' + res.getResponseCode());
+      return;
+    }
+    var rooms = JSON.parse(res.getContentText());
+    rooms.sort(function (a, b) { return (b.last_update_time || 0) - (a.last_update_time || 0); });
+    var lines = ['===== Bot参加ルーム一覧（更新順） ====='];
+    for (var i = 0; i < Math.min(rooms.length, 30); i++) {
+      var r = rooms[i];
+      lines.push('roomId=' + r.room_id + '  ' + (r.name || '(no name)'));
+    }
+    var msg = lines.join('\n');
+    Logger.log(msg);
+    microBotLog_('INFO', msg);
+  } catch (e) {
+    microBotLog_('ERROR', 'rooms取得例外: ' + e.message);
+  }
+}
+
+// ============================================
 // 月次ペナ集計レポート
 // ============================================
 function microMonthlyReport() {
@@ -413,6 +608,9 @@ function installMicroManagerTriggers() {
     'microCheckMorningPlanDeadline',
     'microCheckDailyReportDeadline',
     'microCheckWeeklyReviewDeadline',
+    'microKpiCheck1700',
+    'microKpiCheckWednesday',
+    'microKpiCheckMonthly',
     'microMonthlyReportWrapper'
   ];
   for (var i = 0; i < triggers.length; i++) {
@@ -440,6 +638,21 @@ function installMicroManagerTriggers() {
     .timeBased().atHour(18).nearMinute(30).everyDays(1)
     .inTimezone('Asia/Tokyo').create();
 
+  // KPI: 17:00 当日アポ0警告（毎日）
+  ScriptApp.newTrigger('microKpiCheck1700')
+    .timeBased().atHour(17).nearMinute(0).everyDays(1)
+    .inTimezone('Asia/Tokyo').create();
+
+  // KPI: 水曜12:00 週次警告（毎日実行・水曜のみ発火）
+  ScriptApp.newTrigger('microKpiCheckWednesday')
+    .timeBased().atHour(12).nearMinute(0).everyDays(1)
+    .inTimezone('Asia/Tokyo').create();
+
+  // KPI: 月次警告（毎日12:30、21日以降のみ発火）
+  ScriptApp.newTrigger('microKpiCheckMonthly')
+    .timeBased().atHour(12).nearMinute(30).everyDays(1)
+    .inTimezone('Asia/Tokyo').create();
+
   // 月次レポート: 毎日 23:58（月末だけ実行）
   ScriptApp.newTrigger('microMonthlyReportWrapper')
     .timeBased().atHour(23).nearMinute(58).everyDays(1)
@@ -459,6 +672,9 @@ function uninstallMicroManagerTriggers() {
     'microCheckMorningPlanDeadline',
     'microCheckDailyReportDeadline',
     'microCheckWeeklyReviewDeadline',
+    'microKpiCheck1700',
+    'microKpiCheckWednesday',
+    'microKpiCheckMonthly',
     'microMonthlyReportWrapper'
   ];
   var removed = 0;
