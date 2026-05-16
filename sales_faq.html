@@ -229,7 +229,30 @@ window.addEventListener('beforeunload',function(e){if(adminDirty){e.preventDefau
           card.id = 'card-' + (step.scriptNo || '');
           card.style.cssText = 'background:#fff;border:1px solid #e0e0e0;border-radius:12px;padding:24px 28px;margin:20px 0;box-shadow:0 1px 3px rgba(0,0,0,.05);scroll-margin-top:80px';
 
-          var questions = Array.isArray(step.customerQuestionExamples) ? step.customerQuestionExamples : [];
+          // 質問例のクリーンアップ: 途中で切れた発言を整形
+          function cleanQ(q) {
+            if (!q) return '';
+            q = String(q).trim();
+            // 句末が接続助詞・不完全形なら「…」を付ける
+            var incomplete = ['が', 'を', 'に', 'と', 'て', 'で', 'は', 'も', 'ので', 'から', 'なって', 'って', 'けど', 'けれど', 'なんですけど', 'んですけど', 'ですけど', 'み', 'ま', 'なんか', 'なん'];
+            var matched = false;
+            for (var i = 0; i < incomplete.length; i++) {
+              if (q.endsWith(incomplete[i])) { q = q + '…'; matched = true; break; }
+            }
+            // 句末記号なし → 質問形「？」追加
+            if (!matched && !/[。？！?!…]$/.test(q)) {
+              // 質問っぽい場合は ?
+              if (/(です|ます|でしょう|ですか|ますか|なの|？)$/.test(q)) {
+                q = q + '？';
+              } else {
+                q = q + '。';
+              }
+            }
+            return q;
+          }
+
+          var rawQuestions = Array.isArray(step.customerQuestionExamples) ? step.customerQuestionExamples : [];
+          var questions = rawQuestions.map(cleanQ).filter(function(q) { return q && q.length > 3; }).slice(0, 5);
           // タイトル: 代表質問例があればそれ、なければ category (具体化)
           var rawTitle = questions[0] || String(step.title || '').replace(/「|」/g, '');
           var title = escapeHtml(rawTitle);
