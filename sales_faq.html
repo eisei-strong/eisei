@@ -108,6 +108,7 @@ window.addEventListener('beforeunload',function(e){if(adminDirty){e.preventDefau
         styleEl.id = 'sales-faq-responsive-css';
         styleEl.textContent = [
           '.toc-mobile-inline{display:none}',
+          '#qaSection,#recordsSection{display:none !important}',
           '@media (min-width:769px){.toc-sidebar{display:block !important}}',
           '@media (max-width:768px){.toc-mobile-inline{display:block !important;margin:16px 0 24px;background:#fff;border:1px solid #e0e0e0;border-radius:12px;padding:16px 18px;box-shadow:0 1px 3px rgba(0,0,0,.05)}.toc-sidebar{display:none !important}}'
         ].join('');
