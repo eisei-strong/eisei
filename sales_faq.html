@@ -26,6 +26,13 @@
 .toc-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 @media(max-width:1280px){.toc-sidebar{display:none}}
 </style>
+<style>
+/* sales-faq 専用: Q&Aセクションと記録一覧を HTML パース時から完全非表示 */
+#qaSection,#recordsSection{display:none !important}
+.toc-mobile-inline{display:none}
+@media (min-width:769px){.toc-sidebar{display:block !important}}
+@media (max-width:768px){.toc-mobile-inline{display:block !important;margin:16px 0 24px;background:#fff;border:1px solid #e0e0e0;border-radius:12px;padding:16px 18px;box-shadow:0 1px 3px rgba(0,0,0,.05)}.toc-sidebar{display:none !important}}
+</style>
 </head>
 <body>
 <div class="login-overlay" id="loginModal" style="display:none"><div class="login-box"><h2>30日間で300万円を着金する講座</h2><p id="loginSubtitle">IDとパスワードを入力してログイン</p><input type="text" id="loginUserIdInput" placeholder="ユーザーIDを入力..." autofocus><input type="text" id="loginRealNameInput" placeholder="本名（漢字フルネーム）を入力..." style="display:none"><input type="password" id="loginPasswordInput" placeholder="パスワードを入力..."><button class="login-btn" id="loginBtn" onclick="doLogin()">ログイン</button><div class="login-error" id="loginError"></div><div class="login-toggle" id="loginToggle">はじめての方は <a onclick="toggleLoginMode()">新規登録</a></div></div></div>
