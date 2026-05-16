@@ -157,6 +157,25 @@ window.addEventListener('beforeunload',function(e){if(adminDirty){e.preventDefau
           return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c];
         });
       }
+      // 表示モード: 'category' (カテゴリ別) or 'numbered' (No.順)
+      var SALES_FAQ_VIEW_MODE = (function() {
+        var p = new URLSearchParams(window.location.search);
+        return p.get('view') === 'numbered' ? 'numbered' : 'category';
+      })();
+
+      function buildModeToggle() {
+        var cat = SALES_FAQ_VIEW_MODE === 'category';
+        var btnStyle = function(active) {
+          return 'flex:1;padding:8px 12px;font-size:12px;font-weight:600;cursor:pointer;border-radius:6px;border:1px solid ' +
+            (active ? '#c9a84c' : '#ddd') + ';background:' + (active ? '#fff8e7' : '#fff') +
+            ';color:' + (active ? '#5f4b16' : '#666') + ';text-align:center;text-decoration:none';
+        };
+        return '<div style="display:flex;gap:6px;margin-bottom:14px">' +
+          '<a href="?view=category" style="' + btnStyle(cat) + '">📑 カテゴリ別</a>' +
+          '<a href="?view=numbered" style="' + btnStyle(!cat) + '">1️⃣ No順</a>' +
+        '</div>';
+      }
+
       function buildTOC(steps) {
         // group を ">" で分割して大カテゴリでまとめる
         var tree = {};
@@ -168,7 +187,8 @@ window.addEventListener('beforeunload',function(e){if(adminDirty){e.preventDefau
         });
         var sortedCats = Object.entries(tree).sort(function(a, b) { return b[1].length - a[1].length; });
 
-        var html = '<div style="font-size:15px;font-weight:700;color:#1a1a1a;margin:16px 0 12px;padding-bottom:8px;border-bottom:2px solid #c9a84c">📑 目次</div>' +
+        var html = buildModeToggle() +
+          '<div style="font-size:15px;font-weight:700;color:#1a1a1a;margin:16px 0 12px;padding-bottom:8px;border-bottom:2px solid #c9a84c">📑 目次</div>' +
           '<div style="font-size:11px;color:#999;margin-bottom:12px">全' + steps.length + 'スクリプト · ' + sortedCats.length + 'カテゴリ</div>' +
           '<div style="display:flex;gap:6px;margin-bottom:12px">' +
             '<button onclick="document.querySelectorAll(\'.sales-faq-toc details\').forEach(function(d){d.open=true})" style="flex:1;font-size:10px;padding:5px 8px;background:#fff;border:1px solid #ddd;border-radius:4px;cursor:pointer">全開く</button>' +
@@ -205,6 +225,15 @@ window.addEventListener('beforeunload',function(e){if(adminDirty){e.preventDefau
         }
         var steps = window.ALL_STEPS.filter(function(s) { return s.phase === 'ai_kirigaeshi'; });
         if (steps.length === 0) steps = window.ALL_STEPS;
+
+        // 表示モードに応じてソート
+        if (SALES_FAQ_VIEW_MODE === 'numbered') {
+          steps = steps.slice().sort(function(a, b) {
+            var na = parseInt(String(a.scriptNo || '').replace(/[^0-9]/g, '')) || 0;
+            var nb = parseInt(String(b.scriptNo || '').replace(/[^0-9]/g, '')) || 0;
+            return na - nb;
+          });
+        }
 
         var tocHTML = buildTOC(steps);
 
