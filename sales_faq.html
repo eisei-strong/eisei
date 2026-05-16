@@ -183,7 +183,7 @@ window.addEventListener('beforeunload',function(e){if(adminDirty){e.preventDefau
           items.forEach(function(s) {
             var parts = (s.group || '').split('>');
             var sub = parts.length > 1 ? parts.slice(1).join('>').trim() : (s.title || '');
-            html += '<li style="margin:2px 0"><a href="#card-' + encodeURIComponent(s.scriptNo) + '" style="color:#333;text-decoration:none;font-size:11px;line-height:1.5;display:block;padding:2px 4px;border-radius:3px" onmouseover="this.style.color=\'#c9a84c\';this.style.background=\'#fff8e7\'" onmouseout="this.style.color=\'#333\';this.style.background=\'transparent\'">' + escapeHtml(sub) + '</a></li>';
+            html += '<li style="margin:2px 0"><a href="#card-' + encodeURIComponent(s.scriptNo) + '" style="color:#333;text-decoration:none;font-size:11px;line-height:1.5;display:block;padding:2px 4px;border-radius:3px" onmouseover="this.style.color=\'#c9a84c\';this.style.background=\'#fff8e7\'" onmouseout="this.style.color=\'#333\';this.style.background=\'transparent\'"><span style="color:#c9a84c;font-weight:600;margin-right:4px">[' + escapeHtml(s.scriptNo || '') + ']</span>' + escapeHtml(sub) + '</a></li>';
           });
           html += '</ul></details>';
         });
