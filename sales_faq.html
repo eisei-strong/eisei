@@ -331,10 +331,43 @@ window.addEventListener('beforeunload',function(e){if(adminDirty){e.preventDefau
               questionsHtml +
             '</div>' +
 
-            '<div>' +
+            '<div style="margin-bottom:18px">' +
               '<div style="font-size:13px;color:#c9a84c;font-weight:700;margin-bottom:10px;letter-spacing:.5px">✅ 正解の台本</div>' +
               '<div style="font-size:15px;line-height:1.95;color:#1a1a1a;background:linear-gradient(135deg,#fffaeb 0%,#fff5d4 100%);padding:22px 24px;border-radius:12px;border:2px solid #f0c75e;box-shadow:0 2px 8px rgba(201,168,76,0.2);font-weight:500">' + fullScript + '</div>' +
             '</div>';
+
+          // 📺 関連商談動画 (relatedVideos)
+          var relatedVideos = Array.isArray(step.relatedVideos) ? step.relatedVideos : [];
+          if (relatedVideos.length > 0) {
+            var videosHtml = relatedVideos.map(function(v) {
+              return '<a href="' + escapeHtml(v.review_clip_url || v.timestamp_url || '') + '" target="_blank" style="display:block;padding:10px 12px;margin:6px 0;background:#f8f9fa;border-radius:6px;border-left:3px solid #2196F3;color:#1a1a1a;text-decoration:none;font-size:12px;line-height:1.5;transition:background .15s" onmouseover="this.style.background=\'#e8f4fd\'" onmouseout="this.style.background=\'#f8f9fa\'">' +
+                '<div style="display:flex;justify-content:space-between;gap:8px"><span style="font-weight:600;color:#1976D2">▶ ' + escapeHtml(v.sales_rep || '') + '</span><span style="font-size:10px;color:#999">' + escapeHtml(v.video_id || '') + '</span></div>' +
+                '<div style="margin-top:4px;color:#555">' + escapeHtml(v.customer_question || '') + '</div>' +
+              '</a>';
+            }).join('');
+            card.innerHTML += '<div style="margin-bottom:18px">' +
+              '<div style="font-size:12px;color:#1976D2;font-weight:700;margin-bottom:8px;letter-spacing:.5px">📺 実際の商談動画 (' + relatedVideos.length + '本)</div>' +
+              videosHtml +
+            '</div>';
+          }
+
+          // 🎯 実際の営業の回答例 (realSalesAnswers)
+          var realAnswers = Array.isArray(step.realSalesAnswers) ? step.realSalesAnswers : [];
+          if (realAnswers.length > 0) {
+            var answersHtml = realAnswers.map(function(a, idx) {
+              return '<div style="padding:14px 16px;margin:8px 0;background:#f0f8f4;border-radius:8px;border-left:3px solid #4CAF50">' +
+                '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">' +
+                  '<span style="font-size:11px;font-weight:700;color:#2E7D32">営業: ' + escapeHtml(a.sales_rep || '') + '</span>' +
+                  '<a href="' + escapeHtml(a.timestamp_url || '') + '" target="_blank" style="font-size:10px;color:#1976D2;text-decoration:none">▶ 該当場面</a>' +
+                '</div>' +
+                '<div style="font-size:13px;line-height:1.7;color:#1a1a1a">' + escapeHtml(a.answer || '') + '</div>' +
+              '</div>';
+            }).join('');
+            card.innerHTML += '<div>' +
+              '<div style="font-size:12px;color:#2E7D32;font-weight:700;margin-bottom:8px;letter-spacing:.5px">🎯 実際の営業の回答例 (' + realAnswers.length + '本)</div>' +
+              answersHtml +
+            '</div>';
+          }
 
           container.appendChild(card);
         });
