@@ -102,6 +102,13 @@ window.addEventListener('beforeunload',function(e){if(adminDirty){e.preventDefau
 (function() {
   function applyBypass() {
     try {
+      // モバイル時に左サイドバーが消えるので、メインコンテンツ内に目次を出す用のCSS
+      if (!document.getElementById('sales-faq-responsive-css')) {
+        var styleEl = document.createElement('style');
+        styleEl.id = 'sales-faq-responsive-css';
+        styleEl.textContent = '.toc-mobile-inline{display:none}@media (max-width:768px){.toc-mobile-inline{display:block !important;margin:16px 0 24px;background:#fff;border:1px solid #e0e0e0;border-radius:12px;padding:16px 18px;box-shadow:0 1px 3px rgba(0,0,0,.05)}}';
+        document.head.appendChild(styleEl);
+      }
       // 社員モードの仮想ユーザー (scripts.html の STORE_USER_ID / STORE_USER に準拠)
       var SALES_USER_ID = 'sales-team';
       var SALES_USER_NAME = '営業社員';
@@ -195,20 +202,26 @@ window.addEventListener('beforeunload',function(e){if(adminDirty){e.preventDefau
         var steps = window.ALL_STEPS.filter(function(s) { return s.phase === 'ai_kirigaeshi'; });
         if (steps.length === 0) steps = window.ALL_STEPS;
 
-        // 左サイドバー(tocSidebar) に目次を挿入
+        var tocHTML = buildTOC(steps);
+
+        // PC: 左サイドバー(tocSidebar) に目次を挿入
         var tocSidebar = document.getElementById('tocSidebar');
         if (tocSidebar) {
-          // 既存の.page-nav(ヘッダーリンク)は残し、それ以降を目次で置き換える
           var pageNav = tocSidebar.querySelector('.page-nav');
-          // 既存サイドバーをクリアして再構築
           tocSidebar.innerHTML = '';
           if (pageNav) tocSidebar.appendChild(pageNav);
           var tocWrap = document.createElement('div');
-          tocWrap.innerHTML = buildTOC(steps);
+          tocWrap.innerHTML = tocHTML;
           tocSidebar.appendChild(tocWrap);
         }
 
         container.innerHTML = '';
+
+        // モバイル: メインコンテンツ先頭にも目次 (CSSでPCは非表示)
+        var mobileTOCDiv = document.createElement('div');
+        mobileTOCDiv.className = 'toc-mobile-inline';
+        mobileTOCDiv.innerHTML = tocHTML;
+        container.appendChild(mobileTOCDiv);
 
         steps.forEach(function(step) {
           var card = document.createElement('div');
