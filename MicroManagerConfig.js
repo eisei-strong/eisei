@@ -3,11 +3,16 @@
 // ============================================
 
 // --- 投稿先ルーム ---
-// ※ 招待リンク https://www.chatwork.com/g/j35f6ai00udio7 → 数値の roomId を入れる
-//   roomId取得方法: Chatworkでルームを開く → URLの末尾「#!rid12345」の数値部分
-//   または bot をルームに招待後、microListBotRooms_() を実行してログから取得
-//   未設定の間は pollMicroManager() / microCheckXxxDeadline() は早期 return する
-var MICRO_ROOM_ID = '';  // TODO: 専用ルームのroomIdを設定
+// ScriptProperties の 'MICRO_ROOM_ID' から取得（コード変更不要）
+// 設定方法: microSetupAll() を1回実行 → 自動検出してScriptPropertiesに保存
+// 手動で設定する場合: microSetRoomId('xxxxx')
+var MICRO_ROOM_ID = (function () {
+  try {
+    return PropertiesService.getScriptProperties().getProperty('MICRO_ROOM_ID') || '';
+  } catch (e) {
+    return '';
+  }
+})();
 
 // --- 招待リンク（参考、自動解決のヒント） ---
 var MICRO_ROOM_INVITE_URL = 'https://www.chatwork.com/g/j35f6ai00udio7';

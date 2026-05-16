@@ -360,7 +360,165 @@ function microFetchDashboardApi_() {
 }
 
 // ============================================
-// ルームID解決ヘルパー
+// ワンショットセットアップ
+// ============================================
+/**
+ * これ1つでセットアップ完了:
+ *   1. Bot参加ルームを取得 → 「マイクロ」を含むルームを自動検出して MICRO_ROOM_ID を ScriptProperties に保存
+ *   2. 営業全員ルーム(rid349937583)からメンバー一覧を取得 → MICRO_MEMBERS に未登録の account_id をログ出力
+ *   3. installMicroManagerTriggers() でトリガー一括設定
+ *   4. testMicroManager() でテスト投稿
+ * 失敗時はログで指示を出すので、それに従って microSetRoomId('xxx') を実行
+ */
+function microSetupAll() {
+  var token = (typeof getChatworkToken_ === 'function') ? getChatworkToken_() : null;
+  if (!token) {
+    var msg1 = 'CHATWORK_API_TOKEN が ScriptProperties に未設定。先に設定してください。';
+    Logger.log(msg1); microBotLog_('ERROR', 'setup: ' + msg1);
+    return;
+  }
+
+  // --- Step 1: roomId 自動検出 ---
+  var rooms = microFetchBotRooms_(token);
+  if (!rooms) {
+    Logger.log('rooms取得失敗。ネットワーク or token を確認');
+    return;
+  }
+  // 名前に「マイクロ」を含むルームを候補に
+  var candidates = rooms.filter(function (r) {
+    var name = String(r.name || '');
+    return name.indexOf('マイクロ') >= 0 || name.indexOf('micro') >= 0 || name.indexOf('Micro') >= 0;
+  });
+
+  var current = PropertiesService.getScriptProperties().getProperty('MICRO_ROOM_ID') || '';
+  var resolvedRoomId = '';
+
+  if (candidates.length === 1) {
+    resolvedRoomId = String(candidates[0].room_id);
+    PropertiesService.getScriptProperties().setProperty('MICRO_ROOM_ID', resolvedRoomId);
+    Logger.log('✅ ルーム自動検出: ' + candidates[0].name + ' (roomId=' + resolvedRoomId + ')');
+    microBotLog_('INFO', 'setup: roomId自動検出=' + resolvedRoomId + ' (' + candidates[0].name + ')');
+  } else if (candidates.length === 0) {
+    Logger.log('⚠️ 「マイクロ」を含むルームが見つかりません。bot がルームに招待されていない可能性。');
+    Logger.log('--- 直近30ルーム一覧（手動で選んでください） ---');
+    rooms.sort(function (a, b) { return (b.last_update_time || 0) - (a.last_update_time || 0); });
+    for (var i = 0; i < Math.min(rooms.length, 30); i++) {
+      Logger.log('  microSetRoomId(\'' + rooms[i].room_id + '\')  // ' + rooms[i].name);
+    }
+    if (!current) {
+      microBotLog_('WARN', 'setup: roomId検出失敗。ログから microSetRoomId() を実行してください');
+      return;
+    }
+    resolvedRoomId = current;
+    Logger.log('既存ScriptProperty MICRO_ROOM_ID=' + current + ' を使用して継続');
+  } else {
+    Logger.log('⚠️ 「マイクロ」を含むルームが複数 (' + candidates.length + '件)。下記から選んで microSetRoomId() を実行:');
+    for (var j = 0; j < candidates.length; j++) {
+      Logger.log('  microSetRoomId(\'' + candidates[j].room_id + '\')  // ' + candidates[j].name);
+    }
+    if (!current) return;
+    resolvedRoomId = current;
+  }
+
+  // GAS グローバル var の再評価のため、MICRO_ROOM_ID を上書き
+  MICRO_ROOM_ID = resolvedRoomId;
+
+  // --- Step 2: 新メンバー account_id 抽出 ---
+  try {
+    var teamMembers = microFetchRoomMembers_(349937583, token);
+    if (teamMembers) {
+      var known = MICRO_MEMBERS;
+      var unmapped = [];
+      for (var k = 0; k < teamMembers.length; k++) {
+        var m = teamMembers[k];
+        if (!known[String(m.account_id)]) {
+          unmapped.push(m);
+        }
+      }
+      if (unmapped.length > 0) {
+        Logger.log('--- 営業全員ルームに居て MICRO_MEMBERS 未登録のメンバー ---');
+        Logger.log('必要なら MicroManagerConfig.js の MICRO_MEMBERS に追記してください:');
+        for (var l = 0; l < unmapped.length; l++) {
+          Logger.log("  '" + unmapped[l].account_id + "': '" + (unmapped[l].name || '?') + "',");
+        }
+        microBotLog_('INFO', 'setup: 未登録メンバー ' + unmapped.length + '人 (詳細はLogger)');
+      } else {
+        Logger.log('✅ 営業全員ルームのメンバー全員が MICRO_MEMBERS に登録済み');
+      }
+    }
+  } catch (e) {
+    Logger.log('メンバー抽出スキップ: ' + e.message);
+  }
+
+  // --- Step 3: トリガー設定 ---
+  try {
+    installMicroManagerTriggers();
+    Logger.log('✅ トリガー設定完了');
+  } catch (e) {
+    Logger.log('❌ トリガー設定失敗: ' + e.message);
+    microBotLog_('ERROR', 'setup: トリガー設定失敗 ' + e.message);
+    return;
+  }
+
+  // --- Step 4: テスト投稿 ---
+  try {
+    if (typeof testMicroManager === 'function') {
+      testMicroManager();
+      Logger.log('✅ テスト投稿実行');
+    }
+  } catch (e) {
+    Logger.log('テスト投稿スキップ: ' + e.message);
+  }
+
+  Logger.log('===== microSetupAll 完了 =====');
+  Logger.log('MICRO_ROOM_ID = ' + resolvedRoomId);
+  Logger.log('Chatworkルームを確認してテストメッセージが投稿されていればOK');
+}
+
+/**
+ * 手動で MICRO_ROOM_ID を設定（コード変更不要）
+ */
+function microSetRoomId(roomId) {
+  PropertiesService.getScriptProperties().setProperty('MICRO_ROOM_ID', String(roomId));
+  MICRO_ROOM_ID = String(roomId);
+  Logger.log('✅ MICRO_ROOM_ID を ScriptProperties に保存: ' + roomId);
+  microBotLog_('INFO', 'roomId手動設定=' + roomId);
+}
+
+function microFetchBotRooms_(token) {
+  try {
+    var res = UrlFetchApp.fetch('https://api.chatwork.com/v2/rooms', {
+      method: 'get',
+      headers: { 'X-ChatWorkToken': token },
+      muteHttpExceptions: true
+    });
+    if (res.getResponseCode() !== 200) {
+      microBotLog_('ERROR', 'rooms取得失敗 code=' + res.getResponseCode());
+      return null;
+    }
+    return JSON.parse(res.getContentText());
+  } catch (e) {
+    microBotLog_('ERROR', 'rooms取得例外: ' + e.message);
+    return null;
+  }
+}
+
+function microFetchRoomMembers_(roomId, token) {
+  try {
+    var res = UrlFetchApp.fetch('https://api.chatwork.com/v2/rooms/' + roomId + '/members', {
+      method: 'get',
+      headers: { 'X-ChatWorkToken': token },
+      muteHttpExceptions: true
+    });
+    if (res.getResponseCode() !== 200) return null;
+    return JSON.parse(res.getContentText());
+  } catch (e) {
+    return null;
+  }
+}
+
+// ============================================
+// ルームID解決ヘルパー（手動用）
 // ============================================
 /**
  * Bot が参加している全ルームを一覧表示（Logger + ログシート）
