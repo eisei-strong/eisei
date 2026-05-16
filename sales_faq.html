@@ -146,6 +146,48 @@ window.addEventListener('beforeunload',function(e){if(adminDirty){e.preventDefau
           return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c];
         });
       }
+      function buildTOC(steps) {
+        // group を ">" で分割して大カテゴリでまとめる
+        var tree = {};
+        steps.forEach(function(step) {
+          var parts = (step.group || '').split('>').map(function(s) { return s.trim(); });
+          var cat = parts[0] || 'その他';
+          if (!tree[cat]) tree[cat] = [];
+          tree[cat].push(step);
+        });
+
+        // カテゴリを件数順
+        var sortedCats = Object.entries(tree).sort(function(a, b) { return b[1].length - a[1].length; });
+
+        var html = '<div style="background:#fff;border:1px solid #e0e0e0;border-radius:12px;padding:24px 28px;margin:20px 0 32px;box-shadow:0 1px 3px rgba(0,0,0,.05);position:sticky;top:64px;z-index:50;max-height:75vh;overflow-y:auto">' +
+          '<div style="font-size:18px;font-weight:700;color:#1a1a1a;margin-bottom:18px;display:flex;align-items:center;gap:8px;border-bottom:2px solid #c9a84c;padding-bottom:10px">' +
+            '📑 目次' +
+            '<span style="font-size:13px;color:#999;font-weight:400;margin-left:6px">全' + steps.length + 'スクリプト · ' + sortedCats.length + 'カテゴリ</span>' +
+            '<button onclick="document.querySelectorAll(\'.sales-faq-toc details\').forEach(function(d){d.open=true})" style="margin-left:auto;font-size:11px;padding:4px 10px;background:#f5f5f5;border:1px solid #ddd;border-radius:6px;cursor:pointer">全開く</button>' +
+            '<button onclick="document.querySelectorAll(\'.sales-faq-toc details\').forEach(function(d){d.open=false})" style="font-size:11px;padding:4px 10px;background:#f5f5f5;border:1px solid #ddd;border-radius:6px;cursor:pointer">全閉じる</button>' +
+          '</div>' +
+          '<div class="sales-faq-toc">';
+
+        sortedCats.forEach(function(entry) {
+          var cat = entry[0], items = entry[1];
+          html += '<details style="margin-bottom:6px;border-left:3px solid #c9a84c;background:#fffdf5;border-radius:4px;padding:8px 14px">' +
+            '<summary style="cursor:pointer;font-weight:700;color:#5f4b16;font-size:14px;display:flex;justify-content:space-between;align-items:center;list-style:none">' +
+              '<span>▸ ' + escapeHtml(cat) + '</span>' +
+              '<span style="font-size:12px;color:#999;font-weight:400">' + items.length + '件</span>' +
+            '</summary>' +
+            '<ul style="margin:10px 0 4px 0;padding-left:20px;list-style:none">';
+          items.forEach(function(s) {
+            var parts = (s.group || '').split('>');
+            var sub = parts.length > 1 ? parts.slice(1).join('>').trim() : (s.title || '');
+            html += '<li style="margin:4px 0"><a href="#card-' + encodeURIComponent(s.scriptNo) + '" style="color:#333;text-decoration:none;font-size:13px;line-height:1.6;display:block;padding:3px 6px;border-radius:4px" onmouseover="this.style.color=\'#c9a84c\';this.style.background=\'#fff8e7\'" onmouseout="this.style.color=\'#333\';this.style.background=\'transparent\'">' + escapeHtml(sub) + '</a></li>';
+          });
+          html += '</ul></details>';
+        });
+
+        html += '</div></div>';
+        return html;
+      }
+
       function salesFaqRender() {
         var container = document.getElementById('stepsContainer');
         if (!container) return;
@@ -156,12 +198,13 @@ window.addEventListener('beforeunload',function(e){if(adminDirty){e.preventDefau
         var steps = window.ALL_STEPS.filter(function(s) { return s.phase === 'ai_kirigaeshi'; });
         if (steps.length === 0) steps = window.ALL_STEPS;
 
-        container.innerHTML = '';
+        container.innerHTML = buildTOC(steps);
 
         steps.forEach(function(step) {
           var card = document.createElement('div');
           card.className = 'sales-faq-card';
-          card.style.cssText = 'background:#fff;border:1px solid #e0e0e0;border-radius:12px;padding:24px 28px;margin:20px 0;box-shadow:0 1px 3px rgba(0,0,0,.05)';
+          card.id = 'card-' + (step.scriptNo || '');
+          card.style.cssText = 'background:#fff;border:1px solid #e0e0e0;border-radius:12px;padding:24px 28px;margin:20px 0;box-shadow:0 1px 3px rgba(0,0,0,.05);scroll-margin-top:80px';
 
           var questions = Array.isArray(step.customerQuestionExamples) ? step.customerQuestionExamples : [];
           // タイトル: 代表質問例があればそれ、なければ category (具体化)
