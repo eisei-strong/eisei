@@ -1006,13 +1006,13 @@ function fetchFromAggregatedSheet($month, $year) {
 }
 
 // 当月シートを完全読込: 「全体数値」タブから revenue + paymentNews + dailyPushes を構築
-// 列マッピング:
+// 列マッピング (2026-05 以降、F列「年収」追加で +1 右シフト後):
 //   col0: No.
 //   col1: 担当者（営業名）
 //   col2: 初回商談日
-//   col3: 本名 / col4: LINE名 / col5: 成約状況
-//   col6: 成約金額 / col7: 着金額（万円）
-//   col17: CO（チェックボックス）
+//   col3: 本名 / col4: LINE名 / col5: 年収
+//   col6: 成約状況 / col7: 成約金額 / col8: 着金額（万円）
+//   col18: CO（チェックボックス）
 function fetchCurrentMonthSheetFull($month, $year) {
     global $CURRENT_MONTH_SHEET_ID, $CURRENT_MONTH_TAB_TO_DISPLAY;
 
@@ -1055,16 +1055,16 @@ function fetchCurrentMonthSheetFull($month, $year) {
         $dailyPushByMember[$dateFormatted][$displayName] = ($dailyPushByMember[$dateFormatted][$displayName] ?? 0) + 1;
 
         // === 着金（成約のみ、CO/失注/キャンセル除外） ===
-        $status = trim($row[5] ?? '');
+        $status = trim($row[6] ?? '');
         if (mb_strpos($status, '成約') === false) continue;
         if (mb_strpos($status, 'CO') !== false) continue;
         if (mb_strpos($status, 'キャンセル') !== false) continue;
         if (mb_strpos($status, '失注') !== false) continue;
 
-        $co = $row[17] ?? '';
+        $co = $row[18] ?? '';
         if ($co === 'TRUE' || $co === true) continue;
 
-        $paid = floatval(str_replace(',', '', $row[7] ?? '0'));
+        $paid = floatval(str_replace(',', '', $row[8] ?? '0'));
         if ($paid <= 0) continue;
 
         if (!isset($byMember[$displayName])) {
