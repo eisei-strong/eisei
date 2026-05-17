@@ -30,8 +30,39 @@
 /* sales-faq 専用: Q&Aセクションと記録一覧を HTML パース時から完全非表示 */
 #qaSection,#recordsSection{display:none !important}
 .toc-mobile-inline{display:none}
-@media (min-width:769px){.toc-sidebar{display:block !important}}
-@media (max-width:768px){.toc-mobile-inline{display:block !important;margin:16px 0 24px;background:#fff;border:1px solid #e0e0e0;border-radius:12px;padding:16px 18px;box-shadow:0 1px 3px rgba(0,0,0,.05)}.toc-sidebar{display:none !important}}
+
+/* PC レイアウト: 左サイドバー(目次)を広く、メインを右寄せ */
+@media (min-width:769px){
+  .toc-sidebar{
+    display:block !important;
+    width:280px !important;
+    left:16px !important;
+    padding:18px 16px !important;
+    font-size:13px !important;
+    max-height:calc(100vh - var(--header-h) - 32px) !important;
+  }
+  main{
+    margin-left:312px !important;
+    margin-right:auto !important;
+    max-width:calc(100vw - 340px) !important;
+    width:auto !important;
+    padding-left:16px !important;
+    padding-right:24px !important;
+  }
+}
+/* 超ワイド画面: 目次もメインも余裕 */
+@media (min-width:1400px){
+  main{
+    max-width:1100px !important;
+    margin-left:312px !important;
+  }
+}
+
+/* モバイル */
+@media (max-width:768px){
+  .toc-mobile-inline{display:block !important;margin:16px 0 24px;background:#fff;border:1px solid #e0e0e0;border-radius:12px;padding:16px 18px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+  .toc-sidebar{display:none !important}
+}
 </style>
 </head>
 <body>
