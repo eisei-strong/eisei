@@ -1037,6 +1037,8 @@ function fetchCurrentMonthSheetFull($month, $year) {
 
         $tabName = trim($row[1] ?? '');
         if (!$tabName) continue;
+        // 「（継続込み）」行は通常行と同じ着金が二重記入されているためスキップ（着金速報・プッシュ数の重複防止）
+        if (mb_strpos($tabName, '継続込み') !== false) continue;
         $displayName = $CURRENT_MONTH_TAB_TO_DISPLAY[$tabName] ?? $tabName;
 
         $dateRaw = trim($row[2] ?? '');
