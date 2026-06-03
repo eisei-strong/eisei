@@ -2097,6 +2097,9 @@ function pickValue(el){
     toast('記録しました');
   }
 
+  // デバッグ用: 送信値の文字コードもconsoleに残す（受講生スクショから手がかり取得用）
+  try{console.log('[postSave] val="'+val+'" len='+val.length+' codes='+Array.from(val).map(function(c){return c.charCodeAt(0)}).join(','));}catch(e){}
+
   api('action=postSave&token='+encodeURIComponent(token)+'&value='+encodeURIComponent(val)+'&col='+selectedCol+'&year='+currentYear+'&month='+currentMonth)
     .then(function(d){
       if(d.error){
@@ -2106,7 +2109,12 @@ function pickValue(el){
         localStorage.setItem(getMonthCacheKey(currentYear,currentMonth),JSON.stringify(monthDays));
         renderMain();
         if(d.error.indexOf('セッション')>=0){handleSessionExpired();return}
-        toast('保存失敗: '+d.error);
+        // 詳細toast: 「無効な値」系エラーには送信した値とcol/月の情報も付ける（受講生スクショから即原因特定）
+        var detail='保存失敗: '+d.error;
+        if(d.error.indexOf('無効な値')>=0||d.error.indexOf('日付が無効')>=0){
+          detail+=' [送信値="'+val+'" col='+selectedCol+' '+currentYear+'/'+currentMonth+']';
+        }
+        toast(detail);
       }
     }).catch(function(){
       monthDays[selectedCol].value=oldVal;

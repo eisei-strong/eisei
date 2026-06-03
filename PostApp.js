@@ -367,21 +367,86 @@ function getMonthData_(sheet, row, year, month) {
 
 // ---- 保存（任意の月の日付を指定可能） ----
 
+// 文字コードを取得（無効値デバッグ用）
+function getCharCodes_(s) {
+  if (!s) return '(empty)';
+  var codes = [];
+  for (var i = 0; i < s.length; i++) codes.push(s.charCodeAt(i));
+  return codes.join(',');
+}
+
+// postAppSave_ のエラーをスプシに記録（受講生クレーム再現の永続ログ）
+function logPostAppSaveError_(id, errorType, details) {
+  try {
+    var ss = SpreadsheetApp.openById(POST_APP_SS_ID);
+    var sheet = ss.getSheetByName('postapp_errors');
+    if (!sheet) {
+      sheet = ss.insertSheet('postapp_errors');
+      sheet.appendRow(['timestamp', 'id', 'errorType', 'value', 'valueLen', 'valueCharCodes', 'col', 'year', 'month', 'rawDetails']);
+      sheet.setFrozenRows(1);
+    }
+    sheet.appendRow([
+      new Date(),
+      String(id || ''),
+      errorType,
+      details.value !== undefined ? String(details.value) : '',
+      details.value !== undefined ? String(details.value).length : '',
+      details.value !== undefined ? getCharCodes_(String(details.value)) : '',
+      details.col !== undefined ? String(details.col) : '',
+      details.year !== undefined ? String(details.year) : '',
+      details.month !== undefined ? String(details.month) : '',
+      JSON.stringify(details)
+    ]);
+  } catch (e) {
+    // ログ失敗してもメイン処理は継続（保存失敗時のログ取得が壊れても本処理は影響させない）
+    Logger.log('logPostAppSaveError_ 失敗: ' + e.message);
+  }
+}
+
 function postAppSave_(token, value, col, year, month) {
   var id = verifyToken_(token);
   if (!id) return { error: 'セッション切れです。再ログインしてください。' };
 
+  // 値の正規化: 全角・半角・前後空白・改行のゆれを吸収（受講生環境のIME問題対策）
+  var rawValue = value;
+  var normalized = String(value || '').trim();
+  // 全角数字→半角に正規化（５本 → 5本）
+  normalized = normalized.replace(/[０-９]/g, function(c) { return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); });
+
   var validValues = ['❌', '1本', '2本', '3本', '4本', '5本', '6本', '7本', '8本', '9本', '10本'];
-  if (validValues.indexOf(value) < 0) return { error: '無効な値です: ' + value };
+  if (validValues.indexOf(normalized) < 0) {
+    // 詳細ログ: スプシに永続化 + デバッグ可能なエラーメッセージを返す
+    logPostAppSaveError_(id, 'invalid_value', {
+      value: rawValue,
+      normalized: normalized,
+      col: col,
+      year: year,
+      month: month
+    });
+    return {
+      error: '無効な値です: "' + rawValue + '" (長さ=' + String(rawValue || '').length + ', 文字コード=' + getCharCodes_(String(rawValue || '')) + ')'
+    };
+  }
+  // 以降は正規化済みの値で処理
+  value = normalized;
 
   var ss = SpreadsheetApp.openById(POST_APP_SS_ID);
   var sheet = ss.getSheetByName(POST_APP_SHEET_NAME);
-  if (!sheet) return { error: 'シートが見つかりません' };
+  if (!sheet) {
+    logPostAppSaveError_(id, 'sheet_not_found', { value: value, col: col, year: year, month: month });
+    return { error: 'シートが見つかりません' };
+  }
 
   // col = 指定月の日数内の0始まりインデックス
   var colNum = parseInt(col);
   var range = getMonthColRange_(year ? parseInt(year) : null, month ? parseInt(month) : null);
-  if (isNaN(colNum) || colNum < 0 || colNum >= range.monthDays) return { error: '日付が無効です' };
+  if (isNaN(colNum) || colNum < 0 || colNum >= range.monthDays) {
+    logPostAppSaveError_(id, 'invalid_col', {
+      value: value, col: col, year: year, month: month,
+      monthDays: range.monthDays, parsedCol: colNum
+    });
+    return { error: '日付が無効です (col=' + col + ', 月日数=' + range.monthDays + ')' };
+  }
   var targetCol = range.startCol + colNum;
 
   var lastRow = sheet.getLastRow();
@@ -390,13 +455,23 @@ function postAppSave_(token, value, col, year, month) {
   for (var i = 0; i < ids.length; i++) {
     if (String(ids[i][0]).trim() === String(id).trim()) { rowIdx = i; break; }
   }
-  if (rowIdx < 0) return { error: 'IDが見つかりません' };
+  if (rowIdx < 0) {
+    logPostAppSaveError_(id, 'id_not_found', { value: value, col: col, year: year, month: month });
+    return { error: 'IDが見つかりません' };
+  }
 
   var row = rowIdx + 2;
   var cell = sheet.getRange(row, targetCol);
-  cell.clearDataValidations();
-  cell.setValue(value);
-  SpreadsheetApp.flush();
+  try {
+    cell.clearDataValidations();
+    cell.setValue(value);
+    SpreadsheetApp.flush();
+  } catch (e) {
+    logPostAppSaveError_(id, 'setvalue_exception', {
+      value: value, col: col, year: year, month: month, exception: e.message
+    });
+    return { error: '保存中にエラー: ' + e.message };
+  }
   var total = sheet.getRange(row, POST_APP_TOTAL_COL).getValue();
 
   return { ok: true, saved: value, col: colNum, total: total };
@@ -2894,6 +2969,114 @@ function inspectListPublicSetting() {
     var r2 = deniedList[b];
     Logger.log('  row' + r2.row + ' | ' + (r2.name || '(名前空)') + ' | ID=' + r2.id + ' | bg=' + r2.bg);
   }
+  Logger.log('');
+  Logger.log('========== 終了 ==========');
+}
+
+// ===== 読み取り専用: postapp_errors シートから直近の保存失敗ログを取得 =====
+// 使い方: GASエディタから inspectPostAppSaveErrors() を実行 → ログをClaude Codeに貼る
+function inspectPostAppSaveErrors() {
+  var ss = SpreadsheetApp.openById(POST_APP_SS_ID);
+  var sheet = ss.getSheetByName('postapp_errors');
+  if (!sheet) {
+    Logger.log('postapp_errors シートはまだ作成されていない（=エラー発生実績なし）');
+    return;
+  }
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) {
+    Logger.log('postapp_errors シートにデータなし（=エラー発生実績なし）');
+    return;
+  }
+
+  Logger.log('========== postAppSave_ エラーログ ==========');
+  Logger.log('総件数: ' + (lastRow - 1));
+
+  // 直近50件を新しい順に表示
+  var startRow = Math.max(2, lastRow - 49);
+  var data = sheet.getRange(startRow, 1, lastRow - startRow + 1, 10).getValues();
+  data.reverse();
+
+  // エラータイプ別の集計
+  var byType = {};
+  for (var i = 0; i < data.length; i++) {
+    var et = String(data[i][2] || '?');
+    byType[et] = (byType[et] || 0) + 1;
+  }
+  Logger.log('');
+  Logger.log('▼ エラータイプ別件数（直近50件）');
+  for (var key in byType) Logger.log('  ' + key + ': ' + byType[key]);
+  Logger.log('');
+
+  Logger.log('▼ 直近エラーログ（新しい順）');
+  for (var j = 0; j < data.length; j++) {
+    var r = data[j];
+    var ts = r[0] instanceof Date ? Utilities.formatDate(r[0], 'Asia/Tokyo', 'MM/dd HH:mm') : String(r[0]);
+    Logger.log('[' + ts + '] id=' + r[1] + ' / type=' + r[2] + ' / value="' + r[3] + '" / len=' + r[4] + ' / charCodes=' + r[5] + ' / col=' + r[6] + ' / year=' + r[7] + ' / month=' + r[8]);
+  }
+  Logger.log('========== 終了 ==========');
+}
+
+// ===== 読み取り専用: Chatwork エラー報告ルームの直近メッセージを取得 =====
+// 使い方: GASエディタから inspectChatworkErrors() を実行 → ログをClaude Codeに貼る
+// 取得先: ルームID 434019583 (post-appのエラー報告チャット)
+function inspectChatworkErrors() {
+  var roomId = '434019583';
+  var token = PropertiesService.getScriptProperties().getProperty('CHATWORK_BOT_TOKEN')
+           || PropertiesService.getScriptProperties().getProperty('CHATWORK_API_TOKEN');
+  if (!token) {
+    Logger.log('❌ CHATWORK_BOT_TOKEN / CHATWORK_API_TOKEN が ScriptProperties に未設定');
+    return;
+  }
+
+  // 直近メッセージ取得（force=1で既読でも取れる）
+  var url = 'https://api.chatwork.com/v2/rooms/' + roomId + '/messages?force=1';
+  var res;
+  try {
+    res = UrlFetchApp.fetch(url, {
+      method: 'get',
+      headers: { 'X-ChatWorkToken': token },
+      muteHttpExceptions: true
+    });
+  } catch (e) {
+    Logger.log('❌ Chatwork API リクエスト失敗: ' + e.message);
+    return;
+  }
+
+  var code = res.getResponseCode();
+  if (code !== 200) {
+    Logger.log('❌ Chatwork API エラー HTTP=' + code + ' / body=' + res.getContentText().substring(0, 300));
+    return;
+  }
+
+  var messages;
+  try {
+    messages = JSON.parse(res.getContentText());
+  } catch (e) {
+    Logger.log('❌ JSON parse失敗: ' + res.getContentText().substring(0, 300));
+    return;
+  }
+
+  if (!messages || !messages.length) {
+    Logger.log('（メッセージなし or 既読のみ）');
+    return;
+  }
+
+  Logger.log('========== Chatworkエラー報告 ルーム' + roomId + ' ==========');
+  Logger.log('取得件数: ' + messages.length);
+  Logger.log('');
+
+  // 新しい順に並べ替え
+  messages.sort(function(a, b) { return b.send_time - a.send_time; });
+
+  for (var i = 0; i < messages.length; i++) {
+    var m = messages[i];
+    var date = new Date(m.send_time * 1000);
+    var dateStr = Utilities.formatDate(date, 'Asia/Tokyo', 'MM/dd HH:mm');
+    var account = m.account ? (m.account.name || '?') : '?';
+    var body = (m.body || '').replace(/\n/g, ' / ').substring(0, 300);
+    Logger.log('[' + dateStr + '] ' + account + ': ' + body);
+  }
+
   Logger.log('');
   Logger.log('========== 終了 ==========');
 }
