@@ -22,7 +22,7 @@
  *   }
  */
 
-const SPREADSHEET_ID = '1MqoJiyn8syUQP3SCvdFogqJ_iyLCxIfZl8oEfJwpMk0';
+const KIRIGAESHI_SS_ID = '1MqoJiyn8syUQP3SCvdFogqJ_iyLCxIfZl8oEfJwpMk0';
 const SHEET_NAME = '学習提出ログ';
 
 function doPost(e) {
@@ -32,7 +32,7 @@ function doPost(e) {
     }
     const data = JSON.parse(e.postData.contents);
 
-    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const ss = SpreadsheetApp.openById(KIRIGAESHI_SS_ID);
     const sheet = ss.getSheetByName(SHEET_NAME);
     if (!sheet) {
       return jsonResponse({success: false, error: 'sheet not found: ' + SHEET_NAME});

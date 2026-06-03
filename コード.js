@@ -570,6 +570,17 @@ function doGet(e) {
     }
   }
 
+  if (params.action === 'postGetPush') {
+    try {
+      var pgpResult = postAppGetPush_(params.token, params.year, params.month);
+      return ContentService.createTextOutput(JSON.stringify(pgpResult))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch (err) {
+      return ContentService.createTextOutput(JSON.stringify({ error: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
   if (params.action === 'postGetAccountUrls') {
     try {
       var pgaResult = postAppGetAccountUrls_(params.token);
