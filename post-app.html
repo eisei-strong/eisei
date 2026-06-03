@@ -1002,7 +1002,9 @@ var LOGIN_MSGS=[
 function api(p,_retry){
   var ctrl=new AbortController();
   var tid=setTimeout(function(){ctrl.abort()},25000);
-  return fetch(API+'?'+p,{redirect:'follow',signal:ctrl.signal,cache:'no-store'}).then(function(r){
+  // 注意: cache:'no-store' は LINEアプリ内ブラウザ等で fetch が即座に失敗するケースあり → 指定しない
+  // HTML側の <meta cache-control> で代替制御
+  return fetch(API+'?'+p,{redirect:'follow',signal:ctrl.signal}).then(function(r){
     clearTimeout(tid);
     return r.text().then(function(t){
       // ① 正常JSON
@@ -2018,9 +2020,14 @@ function renderLoginStreak(){
 
 // ---- モーダル ----
 function openModal(col){
-  // 未来日ブロック（当日までのみ入力可能）
+  // 未来日ブロック（当日までのみ入力可能、過去月は全日入力OK）
+  // ⚠ 以前のバグ: col>=now.getDate() だと、過去月の「今日の日付以降」もブロックされていた
+  //   例: 今日6/4で4月15日(col=14)をタップ → 14>=4でreturn → モーダル開かず
+  // 修正: 実際の日付で比較する
   var now=new Date();
-  if(col>=now.getDate()) return;
+  var dayDate=new Date(currentYear,currentMonth-1,col+1);
+  var todayDate=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  if(dayDate>todayDate) return; // 未来日のみブロック
   selectedCol=col;
   var day=monthDays[col];
   document.getElementById('modalDate').textContent=normLabel(day.label,day.col);
