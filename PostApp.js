@@ -1003,8 +1003,11 @@ function postAppRanking_() {
   return { ranking: members };
 }
 
+// リスト数公開の判定色（水色 = リスト数タブを表示する受講生に塗る）
+var POST_APP_LIST_ALLOWED_BG = '#00ffff';
+
 // ---- ホープ数（リスト数）取得API ----
-// 権限判定: 「投稿数」シートD列背景色 ≠ 白 → allowed:true
+// 権限判定: 「投稿数」シートD列背景色 === POST_APP_LIST_ALLOWED_BG (水色) → allowed:true
 // データ取得: 「ホープ数」シートから指定月の列範囲を読む
 // 合計: days[] の sum を合算（C列の数式に依存しない、月跨ぎでもズレない）
 function postAppGetHope_(token, year, month) {
@@ -1028,7 +1031,7 @@ function postAppGetHope_(token, year, month) {
   if (myIdx < 0) return { allowed: false };
 
   var bg = String(postNameBgs[myIdx][0] || '').toLowerCase();
-  if (!bg || bg === '#ffffff' || bg === 'white') return { allowed: false };
+  if (bg !== POST_APP_LIST_ALLOWED_BG) return { allowed: false };
 
   // 指定月のホープ列範囲を計算
   var hRange = getCurrentMonthHopeColRange_(POST_APP_HOPE_SHEET_NAME,
@@ -1069,6 +1072,73 @@ function postAppGetHope_(token, year, month) {
   }
 
   return { allowed: true, year: hRange.year, month: hRange.month, total: total, days: days };
+}
+
+// ---- プッシュ数（商談数）取得API ----
+// 権限判定: リスト数と同じ「投稿数」シートD列背景色 === POST_APP_LIST_ALLOWED_BG (水色) → allowed:true
+// データ取得: 「プッシュ数」シートから指定月の列範囲を読む（L列起点、1日3列 YT/IG/TT）
+function postAppGetPush_(token, year, month) {
+  var id = verifyToken_(token);
+  if (!id) return { error: 'セッション切れです。再ログインしてください。' };
+
+  var ss = SpreadsheetApp.openById(POST_APP_SS_ID);
+
+  // ① 権限判定（リスト数と同じ：投稿数シートD列が水色）
+  var postSheet = ss.getSheetByName(POST_APP_SHEET_NAME);
+  if (!postSheet) return { allowed: false };
+  var postLastRow = postSheet.getLastRow();
+  if (postLastRow < 2) return { allowed: false };
+
+  var postIds = postSheet.getRange(2, POST_APP_ID_COL, postLastRow - 1, 1).getValues();
+  var postNameBgs = postSheet.getRange(2, POST_APP_NAME_COL, postLastRow - 1, 1).getBackgrounds();
+  var myIdx = -1;
+  for (var i = 0; i < postIds.length; i++) {
+    if (String(postIds[i][0]).trim() === String(id).trim()) { myIdx = i; break; }
+  }
+  if (myIdx < 0) return { allowed: false };
+
+  var bg = String(postNameBgs[myIdx][0] || '').toLowerCase();
+  if (bg !== POST_APP_LIST_ALLOWED_BG) return { allowed: false };
+
+  // ② プッシュ数の当月列範囲計算（getCurrentMonthHopeColRange_はシート名でL列/M列起点を分岐）
+  var pRange = getCurrentMonthHopeColRange_(POST_APP_PUSH_SHEET_NAME,
+    year ? parseInt(year) : null,
+    month ? parseInt(month) : null);
+
+  // ③ プッシュ数シートから指定月データ取得
+  var pushSheet = ss.getSheetByName(POST_APP_PUSH_SHEET_NAME);
+  if (!pushSheet) {
+    return { allowed: true, year: pRange.year, month: pRange.month, total: 0, days: [] };
+  }
+  var pushLastRow = pushSheet.getLastRow();
+  if (pushLastRow < 3) {
+    return { allowed: true, year: pRange.year, month: pRange.month, total: 0, days: [] };
+  }
+
+  var pushIds = pushSheet.getRange(3, 1, pushLastRow - 2, 1).getValues();
+  var pushRowIdx = -1;
+  for (var j = 0; j < pushIds.length; j++) {
+    if (String(pushIds[j][0]).trim() === String(id).trim()) { pushRowIdx = j; break; }
+  }
+  if (pushRowIdx < 0) {
+    return { allowed: true, year: pRange.year, month: pRange.month, total: 0, days: [] };
+  }
+
+  var row = pushRowIdx + 3;
+  var values = pushSheet.getRange(row, pRange.startCol, 1, pRange.totalCols).getValues()[0];
+
+  var days = [];
+  var total = 0;
+  for (var d = 0; d < pRange.monthDays; d++) {
+    var yt = parseInt(values[d * 3] || 0) || 0;
+    var ig = parseInt(values[d * 3 + 1] || 0) || 0;
+    var tt = parseInt(values[d * 3 + 2] || 0) || 0;
+    var sum = yt + ig + tt;
+    days.push({ day: d + 1, yt: yt, ig: ig, tt: tt, sum: sum });
+    total += sum;
+  }
+
+  return { allowed: true, year: pRange.year, month: pRange.month, total: total, days: days };
 }
 
 // ---- D列の名前をLPスプシから復元 ----
@@ -2778,4 +2848,52 @@ function postAppSaveAccountUrls_(token, ytUrl, igUrl, ttUrl) {
   urlSheet.getRange(urlRow, ACCOUNT_URL_UPDATED_AT_COL).setValue(new Date());
 
   return { ok: true };
+}
+
+// ===== 読み取り専用: リスト数公開設定の監査 =====
+// 「投稿数」シートD列の背景色をチェックして、
+// 各受講生の allowed:true/false を全件ログ出力する。
+// 破壊なし・書き込みなし。GASエディタから手動で実行する。
+function inspectListPublicSetting() {
+  var ss = SpreadsheetApp.openById(POST_APP_SS_ID);
+  var sheet = ss.getSheetByName(POST_APP_SHEET_NAME);
+  if (!sheet) { Logger.log('シート「' + POST_APP_SHEET_NAME + '」が見つかりません'); return; }
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) { Logger.log('データ行なし'); return; }
+
+  var ids = sheet.getRange(2, POST_APP_ID_COL, lastRow - 1, 1).getValues();
+  var names = sheet.getRange(2, POST_APP_NAME_COL, lastRow - 1, 1).getValues();
+  var bgs = sheet.getRange(2, POST_APP_NAME_COL, lastRow - 1, 1).getBackgrounds();
+
+  var allowedList = [];
+  var deniedList = [];
+
+  for (var i = 0; i < ids.length; i++) {
+    var id = String(ids[i][0] || '').trim();
+    var name = String(names[i][0] || '').trim();
+    var bg = String(bgs[i][0] || '').toLowerCase();
+    var isAllowed = (bg === POST_APP_LIST_ALLOWED_BG);
+    var rowNo = i + 2;
+    var rec = { row: rowNo, id: id, name: name, bg: bg || '(空)' };
+    if (isAllowed) allowedList.push(rec); else deniedList.push(rec);
+  }
+
+  Logger.log('========== リスト数公開設定 監査 ==========');
+  Logger.log('シート: ' + POST_APP_SHEET_NAME + ' / 対象 ' + (lastRow - 1) + '名');
+  Logger.log('判定列: D列(' + POST_APP_NAME_COL + ') 背景色');
+  Logger.log('公開判定色: ' + POST_APP_LIST_ALLOWED_BG + ' (これ以外は全部非公開)');
+  Logger.log('');
+  Logger.log('▼ allowed:true (色あり → リスト数タブ表示) = ' + allowedList.length + '名');
+  for (var a = 0; a < allowedList.length; a++) {
+    var r1 = allowedList[a];
+    Logger.log('  row' + r1.row + ' | ' + (r1.name || '(名前空)') + ' | ID=' + r1.id + ' | bg=' + r1.bg);
+  }
+  Logger.log('');
+  Logger.log('▼ allowed:false (白 or 空 → 非表示) = ' + deniedList.length + '名');
+  for (var b = 0; b < deniedList.length; b++) {
+    var r2 = deniedList[b];
+    Logger.log('  row' + r2.row + ' | ' + (r2.name || '(名前空)') + ' | ID=' + r2.id + ' | bg=' + r2.bg);
+  }
+  Logger.log('');
+  Logger.log('========== 終了 ==========');
 }

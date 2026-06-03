@@ -3,6 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<!-- ブラウザキャッシュ無効化（GASデプロイ更新時にユーザーが古いHTMLにハマるのを防ぐ） -->
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>投稿記録</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -289,6 +293,45 @@ a{color:#1CB0F6;font-weight:600}
 .hope-no-data{text-align:center;padding:40px;color:#AFAFAF;font-weight:700}
 .hope-loading{text-align:center;padding:40px;color:#AFAFAF;font-weight:700}
 
+/* ===== 商談数（プッシュ数） ===== */
+.push-screen{display:none;padding:12px 12px 80px;max-width:420px;margin:0 auto}
+.push-screen.active{display:block}
+.push-hero{background:linear-gradient(135deg,#E8F5E9 0%,#A5D6A7 50%,#66BB6A 100%);border-radius:20px;padding:24px 16px;text-align:center;margin-bottom:16px;border:2px solid #43A047;position:relative;overflow:hidden}
+.push-hero::before{content:'';position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:radial-gradient(circle,rgba(67,160,71,.08) 0%,transparent 70%);pointer-events:none}
+.push-hero-icon{font-size:48px;line-height:1;margin-bottom:4px}
+.push-hero-num{font-size:52px;font-weight:900;color:#2E7D32;line-height:1.1}
+.push-hero-label{font-size:14px;color:#1B5E20;margin-top:4px;font-weight:700}
+.push-month-switcher{display:flex;align-items:center;justify-content:center;gap:16px;margin-top:8px}
+.push-month-display{font-size:14px;font-weight:700;color:#3C3C3C;min-width:36px;text-align:center}
+.push-nav{background:none;border:none;font-size:24px;color:#43A047;cursor:pointer;padding:4px 12px;font-weight:700;-webkit-tap-highlight-color:transparent}
+.push-nav:disabled{color:#E0E0E0;cursor:not-allowed}
+.push-nav:active{transform:scale(0.9)}
+.push-stats{display:flex;gap:8px;margin-bottom:12px}
+.push-stat{flex:1;background:#fff;border-radius:16px;padding:12px 8px;text-align:center;border:2px solid #E0E0E0}
+.push-stat-num{font-size:22px;font-weight:900}
+.push-stat-num.yt{color:#FF0000}
+.push-stat-num.ig{color:#C13584}
+.push-stat-num.tt{color:#000}
+.push-stat-label{font-size:10px;color:#AFAFAF;margin-top:2px;font-weight:700}
+.push-chart{background:#fff;border-radius:16px;padding:16px;margin-bottom:12px;border:2px solid #E0E0E0}
+.push-chart-title{font-size:15px;font-weight:800;margin-bottom:12px;color:#3C3C3C}
+.push-bar-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.push-bar-day{width:32px;font-size:12px;font-weight:700;color:#777;text-align:right;flex-shrink:0}
+.push-bar-wrap{flex:1;display:flex;height:18px;border-radius:4px;overflow:hidden;background:#F0F0F0}
+.push-bar-seg{height:100%;transition:width .3s}
+.push-bar-seg.yt{background:#FF4444}
+.push-bar-seg.ig{background:#C13584}
+.push-bar-seg.tt{background:#333}
+.push-bar-num{width:28px;font-size:12px;font-weight:800;color:#3C3C3C;text-align:right;flex-shrink:0}
+.push-legend{display:flex;gap:16px;justify-content:center;margin-bottom:12px}
+.push-legend-item{display:flex;align-items:center;gap:4px;font-size:12px;font-weight:700;color:#777}
+.push-legend-dot{width:10px;height:10px;border-radius:3px}
+.push-legend-dot.yt{background:#FF4444}
+.push-legend-dot.ig{background:#C13584}
+.push-legend-dot.tt{background:#333}
+.push-no-data{text-align:center;padding:40px;color:#AFAFAF;font-weight:700}
+.push-loading{text-align:center;padding:40px;color:#AFAFAF;font-weight:700}
+
 /* ===== アカウントタブ ===== */
 .account-screen{display:none;padding:12px 12px 80px;max-width:420px;margin:0 auto}
 .account-screen.active{display:block}
@@ -564,6 +607,38 @@ a{color:#1CB0F6;font-weight:600}
   </div>
 </div>
 
+<!-- 商談数画面 -->
+<div id="pushScreen" class="push-screen">
+  <div class="hdr">
+    <div><div class="hdr-name"></div><div class="hdr-sub">商談数</div></div>
+    <button class="logout" onclick="doLogout()">ログアウト</button>
+  </div>
+  <div class="push-hero">
+    <div class="push-hero-icon">🤝</div>
+    <div class="push-hero-num" id="pushTotalNum">0</div>
+    <div class="push-hero-label" id="pushTotalLabel">今月の合計商談数</div>
+    <div class="push-month-switcher">
+      <button class="push-nav prev" onclick="changePushMonth(-1)">‹</button>
+      <span class="push-month-display" id="pushMonthDisplay">5月</span>
+      <button class="push-nav next" onclick="changePushMonth(1)">›</button>
+    </div>
+  </div>
+  <div class="push-stats">
+    <div class="push-stat"><div class="push-stat-num yt" id="pushYtTotal">0</div><div class="push-stat-label">YouTube</div></div>
+    <div class="push-stat"><div class="push-stat-num ig" id="pushIgTotal">0</div><div class="push-stat-label">Instagram</div></div>
+    <div class="push-stat"><div class="push-stat-num tt" id="pushTtTotal">0</div><div class="push-stat-label">TikTok</div></div>
+  </div>
+  <div class="push-legend">
+    <div class="push-legend-item"><div class="push-legend-dot yt"></div>YT</div>
+    <div class="push-legend-item"><div class="push-legend-dot ig"></div>IG</div>
+    <div class="push-legend-item"><div class="push-legend-dot tt"></div>TT</div>
+  </div>
+  <div class="push-chart" id="pushChart">
+    <div class="push-chart-title">日別商談数</div>
+    <div id="pushBars"></div>
+  </div>
+</div>
+
 <!-- アカウント画面 -->
 <div id="accountScreen" class="account-screen">
   <div class="hdr">
@@ -608,6 +683,10 @@ a{color:#1CB0F6;font-weight:600}
     <div class="nav-tab" id="tabHope" onclick="switchTab('hope')" style="display:none">
       <span class="nav-tab-icon">👤</span>
       リスト数
+    </div>
+    <div class="nav-tab" id="tabPush" onclick="switchTab('push')" style="display:none">
+      <span class="nav-tab-icon">🤝</span>
+      商談数
     </div>
     <div class="nav-tab" id="tabRanking" onclick="switchTab('ranking')">
       <span class="nav-tab-icon">🏆</span>
@@ -776,13 +855,17 @@ var currentYear=new Date().getFullYear();
 var currentMonth=new Date().getMonth()+1;
 var hopeYear=new Date().getFullYear();
 var hopeMonth=new Date().getMonth()+1;
+var pushYear=new Date().getFullYear();
+var pushMonth=new Date().getMonth()+1;
 var RUN_START_YEAR=2026;
 var RUN_START_MONTH=4;
 function getMonthCacheKey(y,m){return 'pa_month_'+y+'_'+(m<10?'0'+m:m)}
 function getHopeCacheKey(y,m){return 'pa_hope_'+y+'_'+(m<10?'0'+m:m)}
+function getPushCacheKey(y,m){return 'pa_push_'+y+'_'+(m<10?'0'+m:m)}
 var prevCharaIdx=-1; // レベルアップ検出用
 var streak=0; // 連続投稿日数（renderEvoTableからも参照）
 var hopeData=null; // リスト数データ（権限ある人のみ）
+var pushData=null; // 商談数データ（権限ある人のみ、リスト数と同じ判定）
 
 // キャラクター進化テーブル
 var CHARA=[
@@ -913,14 +996,35 @@ var LOGIN_MSGS=[
   {min:30,msgs:['30日！あなたは伝説！','1ヶ月完走！偉業達成！','30日...言葉が出ない。すごい']}
 ];
 
-function api(p){
+// ---- API呼び出し（エラー耐性強化版） ----
+// 認証要求HTML（GASの権限障害中の応答）を検出して、自動で1回リトライする
+// それでもダメなら「サーバー側障害です」を明示
+function api(p,_retry){
   var ctrl=new AbortController();
   var tid=setTimeout(function(){ctrl.abort()},25000);
-  return fetch(API+'?'+p,{redirect:'follow',signal:ctrl.signal}).then(function(r){clearTimeout(tid);return r.text().then(function(t){try{return JSON.parse(t)}catch(e){return{error:'サーバーエラー。再試行してください'}}})}).catch(function(e){clearTimeout(tid);if(e.name==='AbortError')return{error:'タイムアウト。再試行してください'};return{error:'通信エラー。再試行してください'}})
+  return fetch(API+'?'+p,{redirect:'follow',signal:ctrl.signal,cache:'no-store'}).then(function(r){
+    clearTimeout(tid);
+    return r.text().then(function(t){
+      // ① 正常JSON
+      try{return JSON.parse(t)}catch(e){}
+      // ② 認証要求HTML検出（GASのアクセス権限が壊れてる時に返ってくる）
+      if(t.indexOf('accounts.google.com')>=0||t.indexOf('ServiceLogin')>=0||t.indexOf('<title>サインイン')>=0){
+        // 自動リトライ1回（権限復旧直後など過渡的状態）
+        if(!_retry){return new Promise(function(res){setTimeout(function(){res(api(p,true))},1500)})}
+        return{error:'サーバーがメンテナンス中です。1分後に再試行してください。'};
+      }
+      // ③ その他の非JSON応答
+      return{error:'サーバー応答異常。再試行してください。'};
+    })
+  }).catch(function(e){
+    clearTimeout(tid);
+    if(e.name==='AbortError')return{error:'タイムアウト。再試行してください'};
+    return{error:'通信エラー。再試行してください'};
+  })
 }
 
 function show(id){
-  var els=document.querySelectorAll('.screen,.main,.login-streak,.hope-screen,.ranking-screen,.account-screen');
+  var els=document.querySelectorAll('.screen,.main,.login-streak,.hope-screen,.push-screen,.ranking-screen,.account-screen');
   // resetScreenもscreenクラスなので自動的に含まれる
   for(var i=0;i<els.length;i++) els[i].classList.remove('active');
   document.getElementById(id).classList.add('active');
@@ -1056,11 +1160,13 @@ function switchTab(tab){
   currentTab=tab;
   document.getElementById('tabPost').className=tab==='post'?'nav-tab active':'nav-tab';
   document.getElementById('tabHope').className=tab==='hope'?'nav-tab active':'nav-tab';
+  document.getElementById('tabPush').className=tab==='push'?'nav-tab active':'nav-tab';
   document.getElementById('tabRanking').className=tab==='ranking'?'nav-tab active':'nav-tab';
   document.getElementById('tabLogin').className=tab==='login'?'nav-tab active':'nav-tab';
   document.getElementById('tabAccount').className=tab==='account'?'nav-tab active':'nav-tab';
   document.getElementById('mainScreen').classList.remove('active');
   document.getElementById('hopeScreen').classList.remove('active');
+  document.getElementById('pushScreen').classList.remove('active');
   document.getElementById('rankingScreen').classList.remove('active');
   document.getElementById('loginStreakScreen').classList.remove('active');
   document.getElementById('accountScreen').classList.remove('active');
@@ -1069,6 +1175,9 @@ function switchTab(tab){
   }else if(tab==='hope'){
     document.getElementById('hopeScreen').classList.add('active');
     renderHope();
+  }else if(tab==='push'){
+    document.getElementById('pushScreen').classList.add('active');
+    renderPush();
   }else if(tab==='ranking'){
     document.getElementById('rankingScreen').classList.add('active');
     loadRanking();
@@ -1314,13 +1423,15 @@ function handleSessionExpired(){
   localStorage.removeItem('pa_t');
   localStorage.removeItem('pa_month');
   localStorage.removeItem('pa_login');
-  token='';monthDays=[];loginData=null;currentTab='post';prevCharaIdx=-1;hopeData=null;
+  token='';monthDays=[];loginData=null;currentTab='post';prevCharaIdx=-1;hopeData=null;pushData=null;
   document.getElementById('bottomNav').classList.remove('active');
   document.getElementById('mainScreen').classList.remove('active');
   document.getElementById('loginStreakScreen').classList.remove('active');
   document.getElementById('rankingScreen').classList.remove('active');
   document.getElementById('hopeScreen').classList.remove('active');
+  document.getElementById('pushScreen').classList.remove('active');
   document.getElementById('tabHope').style.display='none';
+  document.getElementById('tabPush').style.display='none';
   if(userId){
     autoRelogin();
   }else{
@@ -1381,6 +1492,7 @@ function initApp(){
         renderLoginStreak();
       }
       loadHope();
+      loadPush();
       // 隣接月を裏でプリフェッチ（月切替を高速化）
       setTimeout(prefetchAdjacentMonths,500);
       // YT URL未登録バナーの表示判定
@@ -1459,6 +1571,8 @@ function doLoginWith(pw){
     currentMonth=new Date().getMonth()+1;
     hopeYear=currentYear;
     hopeMonth=currentMonth;
+    pushYear=currentYear;
+    pushMonth=currentMonth;
     localStorage.setItem('pa_t',token);
     localStorage.setItem('pa_id',userId);
     localStorage.setItem('pa_name',userName);
@@ -1474,6 +1588,7 @@ function doLoginWith(pw){
     loadIconFromServer(userId);
     renderMain();
     loadHope();
+    loadPush();
     if(loginData){
       renderLoginStreak();
       showLoginStreakCelebration(loginData.streak);
@@ -2001,8 +2116,15 @@ function doLogout(){
   localStorage.removeItem('pa_name');localStorage.removeItem('pa_month');localStorage.removeItem('pa_contract');
   localStorage.removeItem('pa_login');localStorage.removeItem('pa_has_pw');localStorage.removeItem('pa_icon');localStorage.removeItem('pa_goal');
   localStorage.removeItem('pa_hope');
+  // 商談数（プッシュ数）キャッシュも全削除
+  try{
+    for(var lk=localStorage.length-1;lk>=0;lk--){
+      var lkey=localStorage.key(lk);
+      if(lkey&&(lkey.indexOf('pa_push_')===0||lkey.indexOf('pa_hope_')===0))localStorage.removeItem(lkey);
+    }
+  }catch(e){}
   token='';userId='';userName='';monthDays=[];loginData=null;currentTab='post';userGoal=0;
-  prevCharaIdx=-1;rankingCache=null;hopeData=null;
+  prevCharaIdx=-1;rankingCache=null;hopeData=null;pushData=null;
   document.getElementById('inputId').value='';
   document.getElementById('loginPw').value='';
   document.getElementById('regPw1').value='';
@@ -2011,6 +2133,8 @@ function doLogout(){
   document.getElementById('tabPost').className='nav-tab active';
   document.getElementById('tabHope').className='nav-tab';
   document.getElementById('tabHope').style.display='none';
+  document.getElementById('tabPush').className='nav-tab';
+  document.getElementById('tabPush').style.display='none';
   document.getElementById('tabLogin').className='nav-tab';
   document.getElementById('tabRanking').className='nav-tab';
   document.getElementById('tabAccount').className='nav-tab';
@@ -2154,6 +2278,96 @@ function renderHope(){
   }
   if(!html)html='<div class="hope-no-data">まだリスト数の記録がありません</div>';
   document.getElementById('hopeBars').innerHTML=html;
+}
+
+// ---- 商談数（プッシュ数）読み込み（月切替対応） ----
+function loadPush(){
+  if(!token)return;
+  var cacheKey=getPushCacheKey(pushYear,pushMonth);
+  var cached=localStorage.getItem(cacheKey);
+  if(cached){try{pushData=JSON.parse(cached);document.getElementById('tabPush').style.display='';updatePushMonthDisplay();if(currentTab==='push')renderPush()}catch(e){}}
+  api('action=postGetPush&token='+encodeURIComponent(token)+'&year='+pushYear+'&month='+pushMonth).then(function(d){
+    if(d.error||!d.allowed){pushData=null;document.getElementById('tabPush').style.display='none';return}
+    if(d.days){
+      var actualTotal=0;
+      for(var i=0;i<d.days.length;i++)actualTotal+=(d.days[i].sum||0);
+      d.total=actualTotal;
+    }
+    pushData=d;
+    localStorage.setItem(cacheKey,JSON.stringify(pushData));
+    document.getElementById('tabPush').style.display='';
+    updatePushMonthDisplay();
+    if(currentTab==='push')renderPush();
+  }).catch(function(){});
+}
+
+function changePushMonth(delta){
+  if(!token)return;
+  var ym=pushYear*12+(pushMonth-1)+delta;
+  var startYm=RUN_START_YEAR*12+(RUN_START_MONTH-1);
+  var n=new Date();
+  var nowYm=n.getFullYear()*12+n.getMonth();
+  if(ym<startYm||ym>nowYm)return;
+  pushYear=Math.floor(ym/12);
+  pushMonth=(ym%12)+1;
+  loadPush();
+}
+
+function updatePushMonthDisplay(){
+  var d=document.getElementById('pushMonthDisplay');
+  if(d)d.textContent=pushMonth+'月';
+  var l=document.getElementById('pushTotalLabel');
+  if(l)l.textContent=pushMonth+'月の合計商談数';
+  var ym=pushYear*12+(pushMonth-1);
+  var startYm=RUN_START_YEAR*12+(RUN_START_MONTH-1);
+  var n=new Date();
+  var nowYm=n.getFullYear()*12+n.getMonth();
+  var p=document.querySelector('.push-nav.prev');
+  var nx=document.querySelector('.push-nav.next');
+  if(p)p.disabled=(ym<=startYm);
+  if(nx)nx.disabled=(ym>=nowYm);
+}
+
+function renderPush(){
+  if(!pushData||!pushData.days||!pushData.days.length){
+    document.getElementById('pushBars').innerHTML='<div class="push-no-data">データがありません</div>';
+    return;
+  }
+  var days=pushData.days;
+  var total=pushData.total||0;
+  var ytSum=0,igSum=0,ttSum=0,maxDay=0;
+  for(var i=0;i<days.length;i++){
+    ytSum+=days[i].yt;igSum+=days[i].ig;ttSum+=days[i].tt;
+    if(days[i].sum>maxDay)maxDay=days[i].sum;
+  }
+  document.getElementById('pushTotalNum').textContent=total;
+  document.getElementById('pushYtTotal').textContent=ytSum;
+  document.getElementById('pushIgTotal').textContent=igSum;
+  document.getElementById('pushTtTotal').textContent=ttSum;
+
+  var html='';
+  var today=new Date();
+  var todayDay=today.getDate();
+  var isCurrentMonthPush=(pushYear===today.getFullYear()&&pushMonth===(today.getMonth()+1));
+  for(var d=0;d<days.length;d++){
+    if(isCurrentMonthPush&&days[d].day>todayDay)break;
+    if(days[d].sum===0)continue;
+    var day=days[d];
+    var ytPct=maxDay>0?(day.yt/maxDay*100):0;
+    var igPct=maxDay>0?(day.ig/maxDay*100):0;
+    var ttPct=maxDay>0?(day.tt/maxDay*100):0;
+    html+='<div class="push-bar-row">';
+    html+='<div class="push-bar-day">'+pushMonth+'/'+day.day+'</div>';
+    html+='<div class="push-bar-wrap">';
+    if(day.yt>0)html+='<div class="push-bar-seg yt" style="width:'+ytPct+'%" title="YT:'+day.yt+'"></div>';
+    if(day.ig>0)html+='<div class="push-bar-seg ig" style="width:'+igPct+'%" title="IG:'+day.ig+'"></div>';
+    if(day.tt>0)html+='<div class="push-bar-seg tt" style="width:'+ttPct+'%" title="TT:'+day.tt+'"></div>';
+    html+='</div>';
+    html+='<div class="push-bar-num">'+day.sum+'</div>';
+    html+='</div>';
+  }
+  if(!html)html='<div class="push-no-data">まだ商談数の記録がありません</div>';
+  document.getElementById('pushBars').innerHTML=html;
 }
 
 function toast(msg){
