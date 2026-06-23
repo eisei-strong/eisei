@@ -3016,6 +3016,182 @@ function inspectPostAppSaveErrors() {
   Logger.log('========== 終了 ==========');
 }
 
+// ===== 受講生1人の3シート状況を一発取得（Botの自動診断用） =====
+function inspectMemberData(id) {
+  var result = inspectMemberDataAsObject_(id);
+  Logger.log('========== 受講生データ診断: ID=' + id + ' ==========');
+  Logger.log('');
+  Logger.log('▼ 投稿数シート（' + POST_APP_SHEET_NAME + '）');
+  if (result.postSheet.exists) {
+    Logger.log('  row=' + result.postSheet.row);
+    Logger.log('  名前: ' + (result.postSheet.name || '(空)'));
+    Logger.log('  D列背景色: ' + result.postSheet.bgColor);
+    Logger.log('  リスト/商談数 公開判定: ' + (result.allowed ? '✅ ON (水色)' : '❌ OFF (' + result.postSheet.bgColor + ')'));
+    Logger.log('  全期間合計: ' + result.postSheet.totalPosts);
+  } else {
+    Logger.log('  ❌ シートに該当ID見つからず');
+  }
+  Logger.log('');
+  Logger.log('▼ ホープ数シート（' + POST_APP_HOPE_SHEET_NAME + '）');
+  if (result.hopeSheet.exists) {
+    Logger.log('  row=' + result.hopeSheet.row);
+    Logger.log('  当月（' + result.currentMonth + '月）合計: ' + result.hopeSheet.currentMonthTotal);
+  } else {
+    Logger.log('  ❌ シートに該当ID見つからず');
+  }
+  Logger.log('');
+  Logger.log('▼ プッシュ数シート（' + POST_APP_PUSH_SHEET_NAME + '）');
+  if (result.pushSheet.exists) {
+    Logger.log('  row=' + result.pushSheet.row);
+    Logger.log('  当月（' + result.currentMonth + '月）合計: ' + result.pushSheet.currentMonthTotal);
+  } else {
+    Logger.log('  ❌ シートに該当ID見つからず');
+  }
+  Logger.log('');
+  Logger.log('▼ パスワード設定');
+  Logger.log('  postapp_auth: ' + (result.hasPassword ? '✅ 設定済み' : '❌ 未設定'));
+  Logger.log('');
+  Logger.log('========== 終了 ==========');
+  return result;
+}
+
+// 構造化データ版（Botから呼ばれる）
+function inspectMemberDataAsObject_(id) {
+  var ss = SpreadsheetApp.openById(POST_APP_SS_ID);
+  var now = new Date();
+  var currentYear = now.getFullYear();
+  var currentMonth = now.getMonth() + 1;
+
+  var result = {
+    id: String(id),
+    currentYear: currentYear,
+    currentMonth: currentMonth,
+    allowed: false,
+    hasPassword: false,
+    postSheet: { exists: false, row: 0, name: '', bgColor: '', totalPosts: 0 },
+    hopeSheet: { exists: false, row: 0, currentMonthTotal: 0, currentMonthDays: [] },
+    pushSheet: { exists: false, row: 0, currentMonthTotal: 0, currentMonthDays: [] }
+  };
+
+  // パスワード確認
+  var auth = PropertiesService.getScriptProperties().getProperty('postapp_auth');
+  if (auth) {
+    try {
+      var authObj = JSON.parse(auth);
+      result.hasPassword = !!authObj[String(id)];
+    } catch (e) {}
+  }
+
+  // 投稿数シート
+  var postSheet = ss.getSheetByName(POST_APP_SHEET_NAME);
+  if (postSheet) {
+    var pLast = postSheet.getLastRow();
+    var ids = postSheet.getRange(2, POST_APP_ID_COL, pLast - 1, 1).getValues();
+    for (var i = 0; i < ids.length; i++) {
+      if (String(ids[i][0]).trim() === String(id).trim()) {
+        var row = i + 2;
+        result.postSheet.exists = true;
+        result.postSheet.row = row;
+        result.postSheet.name = String(postSheet.getRange(row, POST_APP_NAME_COL).getValue() || '');
+        result.postSheet.bgColor = String(postSheet.getRange(row, POST_APP_NAME_COL).getBackground() || '').toLowerCase();
+        result.postSheet.totalPosts = postSheet.getRange(row, POST_APP_TOTAL_COL).getValue();
+        result.allowed = (result.postSheet.bgColor === POST_APP_LIST_ALLOWED_BG);
+        break;
+      }
+    }
+  }
+
+  // ホープ数 / プッシュ数 共通の現在月データ取得
+  var monthlySheets = [
+    { sheetName: POST_APP_HOPE_SHEET_NAME, target: 'hopeSheet' },
+    { sheetName: POST_APP_PUSH_SHEET_NAME, target: 'pushSheet' }
+  ];
+  for (var k = 0; k < monthlySheets.length; k++) {
+    var sheetInfo = monthlySheets[k];
+    var sheet = ss.getSheetByName(sheetInfo.sheetName);
+    if (!sheet) continue;
+    var sLast = sheet.getLastRow();
+    if (sLast < 3) continue;
+    var sIds = sheet.getRange(3, 1, sLast - 2, 1).getValues();
+    var sRowIdx = -1;
+    for (var j = 0; j < sIds.length; j++) {
+      if (String(sIds[j][0]).trim() === String(id).trim()) { sRowIdx = j; break; }
+    }
+    if (sRowIdx < 0) continue;
+    var sRow = sRowIdx + 3;
+    result[sheetInfo.target].exists = true;
+    result[sheetInfo.target].row = sRow;
+    try {
+      var rng = getCurrentMonthHopeColRange_(sheetInfo.sheetName, currentYear, currentMonth);
+      var values = sheet.getRange(sRow, rng.startCol, 1, rng.totalCols).getValues()[0];
+      var total = 0;
+      var days = [];
+      for (var d = 0; d < rng.monthDays; d++) {
+        var yt = parseInt(values[d * 3] || 0) || 0;
+        var ig = parseInt(values[d * 3 + 1] || 0) || 0;
+        var tt = parseInt(values[d * 3 + 2] || 0) || 0;
+        var sum = yt + ig + tt;
+        days.push({ day: d + 1, sum: sum, yt: yt, ig: ig, tt: tt });
+        total += sum;
+      }
+      result[sheetInfo.target].currentMonthTotal = total;
+      result[sheetInfo.target].currentMonthDays = days;
+    } catch (e) {
+      result[sheetInfo.target].error = e.message;
+    }
+  }
+
+  return result;
+}
+
+// 受講生IDをChatworkメッセージから抽出するヘルパー
+function extractStudentIdFromMessage_(body) {
+  if (!body) return null;
+  var s = String(body);
+  // 優先度高い順
+  var patterns = [
+    /受講生\s*ID[:：]?\s*[\[【]?\s*(\d{4})\s*[\]】]?/,
+    /ID[:：]?\s*[\[【]?\s*(\d{4})\s*[\]】]?/,
+    /[\[【]\s*(\d{4})\s*[\]】]/,
+    /\b(\d{4})\b/  // 4桁数字単独（誤検出注意）
+  ];
+  for (var i = 0; i < patterns.length; i++) {
+    var m = s.match(patterns[i]);
+    if (m && m[1]) return m[1];
+  }
+  return null;
+}
+
+// ===== 既存Bot 状態診断 =====
+function inspectBugReportBotStatus() {
+  Logger.log('========== BugReportBot 状態診断 ==========');
+  Logger.log('');
+  var triggers = ScriptApp.getProjectTriggers();
+  var bugReportTrigger = null;
+  Logger.log('▼ 現在のトリガー一覧');
+  for (var i = 0; i < triggers.length; i++) {
+    var t = triggers[i];
+    Logger.log('  - ' + t.getHandlerFunction() + ' / ' + t.getEventType());
+    if (t.getHandlerFunction() === 'pollBugReportRoom') bugReportTrigger = t;
+  }
+  Logger.log('');
+  Logger.log('pollBugReportRoom トリガー: ' + (bugReportTrigger ? '✅ 設定済み' : '❌ 未設定'));
+  Logger.log('');
+  var props = PropertiesService.getScriptProperties();
+  var checks = [
+    ['CHATWORK_BOT_TOKEN', 'Chatworkメッセージ取得・投稿用'],
+    ['CHATWORK_API_TOKEN', 'Chatwork API（旧設定、フォールバック）'],
+    ['CLAUDE_API_KEY', 'Claude API（バグ報告解析）'],
+    ['GITHUB_PAT', 'GitHub PR作成用']
+  ];
+  for (var c = 0; c < checks.length; c++) {
+    var key = checks[c][0];
+    var val = props.getProperty(key);
+    Logger.log('  ' + key + ': ' + (val ? '✅' : '❌') + ' [' + checks[c][1] + ']');
+  }
+  Logger.log('========== 終了 ==========');
+}
+
 // ===== 読み取り専用: Chatwork エラー報告ルームの直近メッセージを取得 =====
 // 使い方: GASエディタから inspectChatworkErrors() を実行 → ログをClaude Codeに貼る
 // 取得先: ルームID 434019583 (post-appのエラー報告チャット)
