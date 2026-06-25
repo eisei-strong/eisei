@@ -477,8 +477,7 @@ a{color:#1CB0F6;font-weight:600}
 <div id="resetScreen" class="screen">
   <h1>パスワードリセット</h1>
   <div class="fn" id="resetName"></div>
-  <p class="sub">登録時のメールアドレスを入力してください</p>
-  <input id="resetEmail" class="fi" type="email" placeholder="メールアドレス" autocomplete="email">
+  <p class="sub">パスワードをリセットして、新しいパスワードを登録し直します。<br>下のボタンを押すと、すぐにリセットされます。</p>
   <button id="resetBtn" class="fb" onclick="doReset()">リセットする</button>
   <div id="resetError" class="fe"></div>
   <div style="margin-top:16px"><a href="#" onclick="backToLogin();return false">戻る</a></div>
@@ -2159,22 +2158,18 @@ function backToId(){doLogout()}
 function goToLogin(){show('loginScreen');document.getElementById('loginPw').focus()}
 function backToLogin(){show('loginScreen')}
 
-// ---- パスワードリセット ----
+// ---- パスワードリセット（メアド不要、IDだけでリセット） ----
 function showReset(){
   document.getElementById('resetName').textContent=userName||userId;
-  document.getElementById('resetEmail').value='';
   document.getElementById('resetError').textContent='';
   show('resetScreen');
-  document.getElementById('resetEmail').focus();
 }
 
 function doReset(){
-  var email=document.getElementById('resetEmail').value.trim();
-  if(!email){document.getElementById('resetError').textContent='メールアドレスを入力してください';return}
   var btn=document.getElementById('resetBtn');
   btn.disabled=true;btn.innerHTML='<span class="spinner"></span>';
   document.getElementById('resetError').textContent='';
-  api('action=postResetPassword&id='+encodeURIComponent(userId)+'&email='+encodeURIComponent(email)).then(function(d){
+  api('action=postResetPassword&id='+encodeURIComponent(userId)).then(function(d){
     btn.disabled=false;btn.textContent='リセットする';
     if(d.error){document.getElementById('resetError').textContent=d.error;return}
     // リセット成功 → 登録画面へ

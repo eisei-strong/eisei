@@ -217,30 +217,29 @@ function postAppRegister_(id, password) {
   return { ok: true };
 }
 
-// ---- パスワードリセット（メールアドレス照合） ----
-
+// ---- パスワードリセット（メアド不要、ID存在確認のみ） ----
+// 2026-06-25 変更: 「メールアドレス照合」を撤廃。
+// 理由: 受講生登録時にメアドを登録していないため、メアドベース照合が常に失敗していた。
+// 仕様: 投稿数シートに該当IDがあれば postapp_auth から該当エントリを削除する（最低限のチェック）。
+// 受講生は次に「新規パスワード登録」画面で新しいPWを設定する流れ。
+// セキュリティ上の意味: 第三者がIDを推測してPWを消しても、投稿データ自体は消えず、本人が再登録できる。
 function postAppResetPassword_(id, email) {
-  if (!id || !email) return { error: 'IDとメールアドレスを入力してください' };
+  if (!id) return { error: 'IDが入力されていません' };
 
-  // SMCマスターでメールアドレスを照合
-  var smcSs = SpreadsheetApp.openById(SMC_SS_ID);
-  var smcSheet = smcSs.getSheetByName(SMC_MASTER_SHEET);
-  if (!smcSheet) return { error: 'マスターデータが見つかりません' };
-
-  var smcLastRow = smcSheet.getLastRow();
-  var smcData = smcSheet.getRange(2, SMC_MASTER_ID_COL, smcLastRow - 1, SMC_MASTER_EMAIL_COL - SMC_MASTER_ID_COL + 1).getValues();
-  var matched = false;
-  for (var i = 0; i < smcData.length; i++) {
-    var sid = String(smcData[i][0] || '').trim();
-    var semail = String(smcData[i][SMC_MASTER_EMAIL_COL - SMC_MASTER_ID_COL] || '').trim().toLowerCase();
-    if (sid === String(id).trim() && semail === email.trim().toLowerCase()) {
-      matched = true;
-      break;
-    }
+  // 投稿数シートに該当IDがあるかチェック（最低限の確認）
+  var ss = SpreadsheetApp.openById(POST_APP_SS_ID);
+  var sheet = ss.getSheetByName(POST_APP_SHEET_NAME);
+  if (!sheet) return { error: 'シートが見つかりません' };
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { error: '受講生データがありません' };
+  var ids = sheet.getRange(2, POST_APP_ID_COL, lastRow - 1, 1).getValues();
+  var found = false;
+  for (var i = 0; i < ids.length; i++) {
+    if (String(ids[i][0]).trim() === String(id).trim()) { found = true; break; }
   }
-  if (!matched) return { error: 'メールアドレスが一致しません' };
+  if (!found) return { error: 'IDが見つかりません' };
 
-  // PropertiesServiceからパスワードを削除
+  // postapp_auth から該当IDを削除
   migrateAuthToProps_();
   var authMap = getAuthData_();
   delete authMap[String(id).trim()];
@@ -3014,6 +3013,311 @@ function inspectPostAppSaveErrors() {
     Logger.log('[' + ts + '] id=' + r[1] + ' / type=' + r[2] + ' / value="' + r[3] + '" / len=' + r[4] + ' / charCodes=' + r[5] + ' / col=' + r[6] + ' / year=' + r[7] + ' / month=' + r[8]);
   }
   Logger.log('========== 終了 ==========');
+}
+
+// ===== PWリセット機構の調査関数 =====
+// SMC_SS_ID のスプシでシート一覧・SMC_MASTER_SHEET の存在・指定IDの行・メアド を確認
+function inspectPWResetForId(id) {
+  Logger.log('========== PWリセット診断: ID=' + id + ' ==========');
+  Logger.log('');
+  Logger.log('▼ 定数確認');
+  Logger.log('  SMC_SS_ID: ' + SMC_SS_ID);
+  Logger.log('  SMC_MASTER_SHEET: ' + SMC_MASTER_SHEET);
+  Logger.log('  SMC_MASTER_ID_COL: ' + SMC_MASTER_ID_COL + '（B列）');
+  Logger.log('  SMC_MASTER_EMAIL_COL: ' + SMC_MASTER_EMAIL_COL + '（AI列）');
+  Logger.log('');
+
+  var ss;
+  try {
+    ss = SpreadsheetApp.openById(SMC_SS_ID);
+  } catch (e) {
+    Logger.log('❌ SS_ID で開けない: ' + e.message);
+    Logger.log('   → SMC_SS_ID が無効 or アクセス権限なし');
+    return;
+  }
+  Logger.log('▼ スプシ名: ' + ss.getName());
+  Logger.log('');
+
+  Logger.log('▼ シート一覧');
+  var sheets = ss.getSheets();
+  var foundMaster = null;
+  for (var i = 0; i < sheets.length; i++) {
+    var sName = sheets[i].getName();
+    var isTarget = (sName === SMC_MASTER_SHEET);
+    Logger.log('  - ' + sName + (isTarget ? ' ← SMC_MASTER_SHEET' : ''));
+    if (isTarget) foundMaster = sheets[i];
+  }
+  Logger.log('');
+
+  if (!foundMaster) {
+    Logger.log('🔴 SMC_MASTER_SHEET（' + SMC_MASTER_SHEET + '）がスプシに存在しない');
+    Logger.log('→ シート名が変わった or 削除された可能性');
+    Logger.log('→ 上記シート一覧から該当しそうな名前を探して定数を更新する必要あり');
+    return;
+  }
+  Logger.log('✅ SMC_MASTER_SHEET 見つかった');
+  Logger.log('  最終行: ' + foundMaster.getLastRow());
+  Logger.log('  最終列: ' + foundMaster.getLastColumn());
+  Logger.log('');
+
+  // 該当IDを検索
+  Logger.log('▼ ID=' + id + ' をB列から検索');
+  var lastRow = foundMaster.getLastRow();
+  if (lastRow < 2) { Logger.log('データなし'); return; }
+
+  var idVals = foundMaster.getRange(2, SMC_MASTER_ID_COL, lastRow - 1, 1).getValues();
+  var hitRow = -1;
+  for (var j = 0; j < idVals.length; j++) {
+    if (String(idVals[j][0]).trim() === String(id).trim()) {
+      hitRow = j + 2;
+      break;
+    }
+  }
+  if (hitRow < 0) {
+    Logger.log('🔴 ID=' + id + ' が B列に見つからず');
+    Logger.log('→ マスターシートに登録がない or B列が ID 列じゃなくなった可能性');
+    Logger.log('  B列サンプル先頭5件:');
+    for (var k = 0; k < Math.min(5, idVals.length); k++) {
+      Logger.log('    row=' + (k + 2) + ' B列="' + idVals[k][0] + '"');
+    }
+    return;
+  }
+  Logger.log('✅ ID=' + id + ' 見つかった: row=' + hitRow);
+
+  // メアド取得
+  var email = foundMaster.getRange(hitRow, SMC_MASTER_EMAIL_COL).getValue();
+  Logger.log('  AI列のメールアドレス: "' + email + '"');
+  if (!email) {
+    Logger.log('🔴 メアドが空');
+    Logger.log('→ マスター側にメアド未登録');
+  } else {
+    Logger.log('✅ メアド登録あり: ' + email);
+    Logger.log('→ 受講生本人がこのメアドを正確に入力すれば PWリセット成功するはず');
+  }
+
+  Logger.log('');
+  Logger.log('========== 終了 ==========');
+}
+
+// 「認証」シートの中身を確認
+function inspectAuthSheet() {
+  var ss = SpreadsheetApp.openById(POST_APP_SS_ID);
+  var sheet = ss.getSheetByName('認証');
+  if (!sheet) { Logger.log('❌ 認証シートなし'); return; }
+
+  Logger.log('========== 認証シート 構造調査 ==========');
+  Logger.log('最終行: ' + sheet.getLastRow() + ' / 最終列: ' + sheet.getLastColumn());
+  Logger.log('');
+
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  Logger.log('▼ ヘッダ行（row 1）');
+  for (var i = 0; i < headers.length; i++) {
+    Logger.log('  [' + (i + 1) + ', ' + colNumToLetter_(i + 1) + '] "' + headers[i] + '"');
+  }
+  Logger.log('');
+
+  // 先頭10件サンプル
+  Logger.log('▼ 先頭10件サンプル');
+  var lastRow = sheet.getLastRow();
+  var sampleN = Math.min(10, lastRow - 1);
+  var sample = sheet.getRange(2, 1, sampleN, sheet.getLastColumn()).getValues();
+  for (var j = 0; j < sample.length; j++) {
+    Logger.log('  row=' + (j + 2) + ' A="' + sample[j][0] + '" B="' + sample[j][1] + '"');
+  }
+  Logger.log('');
+
+  // 3007 ゆうじ を全列で探す
+  Logger.log('▼ "3007" を全列で検索');
+  var data = sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).getValues();
+  var found = false;
+  for (var k = 0; k < data.length; k++) {
+    for (var col = 0; col < data[k].length; col++) {
+      if (String(data[k][col]).trim() === '3007') {
+        Logger.log('  ✅ row=' + (k + 2) + ' col=' + (col + 1) + ' (' + colNumToLetter_(col + 1) + ') value="' + data[k][col] + '"');
+        Logger.log('    その行全体: ' + JSON.stringify(data[k]));
+        found = true;
+      }
+    }
+  }
+  if (!found) Logger.log('  ❌ 3007 がどの列にもない');
+
+  Logger.log('');
+  Logger.log('========== 終了 ==========');
+}
+
+// post-app本体スプシ内のメアドマスタを探す
+function inspectPostAppMasterForEmail() {
+  Logger.log('========== post-app スプシ内のメアド列探索 ==========');
+  Logger.log('SS_ID: ' + POST_APP_SS_ID + ' (=POST_APP_SS_ID)');
+  Logger.log('');
+
+  var ss = SpreadsheetApp.openById(POST_APP_SS_ID);
+  Logger.log('スプシ名: ' + ss.getName());
+  Logger.log('');
+
+  Logger.log('▼ シート一覧');
+  var sheets = ss.getSheets();
+  for (var i = 0; i < sheets.length; i++) {
+    Logger.log('  - ' + sheets[i].getName() + ' (gid=' + sheets[i].getSheetId() + ', 最終列=' + sheets[i].getLastColumn() + ', 最終行=' + sheets[i].getLastRow() + ')');
+  }
+  Logger.log('');
+
+  // 各シートでメアド候補列を探す
+  for (var j = 0; j < sheets.length; j++) {
+    var sh = sheets[j];
+    var lastCol = sh.getLastColumn();
+    if (lastCol < 1) continue;
+    var headers;
+    try {
+      headers = sh.getRange(1, 1, 1, lastCol).getValues()[0];
+    } catch (e) { continue; }
+
+    var emailCols = [];
+    for (var k = 0; k < headers.length; k++) {
+      var h = String(headers[k] || '');
+      if (/mail|メール|アドレス/i.test(h)) {
+        emailCols.push({ col: k + 1, letter: colNumToLetter_(k + 1), header: h });
+      }
+    }
+
+    if (emailCols.length > 0) {
+      Logger.log('▼ シート「' + sh.getName() + '」にメアド候補:');
+      for (var m = 0; m < emailCols.length; m++) {
+        Logger.log('  col=' + emailCols[m].col + ' (' + emailCols[m].letter + ') ヘッダ="' + emailCols[m].header + '"');
+      }
+
+      // 3007 ゆうじ の行を探してメアド表示
+      var lastRow = sh.getLastRow();
+      if (lastRow >= 2) {
+        // B列 or A列 から 3007 を探す
+        for (var idColCandidate = 1; idColCandidate <= Math.min(3, lastCol); idColCandidate++) {
+          try {
+            var idVals = sh.getRange(2, idColCandidate, lastRow - 1, 1).getValues();
+            for (var n = 0; n < idVals.length; n++) {
+              if (String(idVals[n][0]).trim() === '3007') {
+                Logger.log('  ★ ID=3007 found: ' + colNumToLetter_(idColCandidate) + '列, row=' + (n + 2));
+                for (var p = 0; p < emailCols.length; p++) {
+                  var ev = sh.getRange(n + 2, emailCols[p].col).getValue();
+                  Logger.log('    → ' + emailCols[p].letter + '列のメール: "' + ev + '"');
+                }
+                idColCandidate = 999; // break outer
+                break;
+              }
+            }
+          } catch (e) {}
+        }
+      }
+      Logger.log('');
+    }
+  }
+
+  Logger.log('========== 終了 ==========');
+}
+
+// 引数不要版（GASエディタの関数プルダウンから直接実行できる）
+function inspectPWResetFor3007() { inspectPWResetForId('3007'); }
+function inspectPWResetFor5668() { inspectPWResetForId('5668'); } // 大島小百合
+
+// 新マスター（マスターシート2）の構造調査
+function inspectNewSMCMaster() {
+  var NEW_SMC_SS_ID = '1KdnFrLW-mEZ_RTC4yb3vUR6pquJjwcNfJ5H8h7I8Ew0';
+  Logger.log('========== 新SMCマスター 構造調査 ==========');
+  Logger.log('SS_ID: ' + NEW_SMC_SS_ID);
+  Logger.log('');
+
+  var ss;
+  try {
+    ss = SpreadsheetApp.openById(NEW_SMC_SS_ID);
+  } catch (e) {
+    Logger.log('❌ 開けない: ' + e.message);
+    return;
+  }
+  Logger.log('スプシ名: ' + ss.getName());
+  Logger.log('');
+
+  Logger.log('▼ シート一覧');
+  var sheets = ss.getSheets();
+  for (var i = 0; i < sheets.length; i++) {
+    Logger.log('  - ' + sheets[i].getName() + ' (gid=' + sheets[i].getSheetId() + ')');
+  }
+  Logger.log('');
+
+  // 商談データタブ（gid=1297964801）を探す
+  var targetSheet = null;
+  for (var j = 0; j < sheets.length; j++) {
+    if (sheets[j].getSheetId() === 1297964801 || sheets[j].getName().indexOf('商談マスター') >= 0 || sheets[j].getName().indexOf('商談データ') >= 0) {
+      targetSheet = sheets[j];
+      break;
+    }
+  }
+  if (!targetSheet) {
+    Logger.log('❌ 商談データシートが特定できず');
+    return;
+  }
+  Logger.log('▼ 対象シート: ' + targetSheet.getName() + ' (gid=' + targetSheet.getSheetId() + ')');
+  Logger.log('  最終行: ' + targetSheet.getLastRow() + ' / 最終列: ' + targetSheet.getLastColumn());
+  Logger.log('');
+
+  // ヘッダ行（row 1）を全列表示
+  Logger.log('▼ ヘッダ行（row 1）の全列');
+  var headers = targetSheet.getRange(1, 1, 1, targetSheet.getLastColumn()).getValues()[0];
+  var emailCols = [];
+  for (var k = 0; k < headers.length; k++) {
+    var colLetter = colNumToLetter_(k + 1);
+    var h = String(headers[k] || '');
+    var mark = '';
+    if (/mail|メール|アドレス/.test(h)) {
+      mark = ' ★メアド候補';
+      emailCols.push({ col: k + 1, letter: colLetter, header: h });
+    }
+    if (k < 50 || mark) {
+      Logger.log('  [' + (k + 1) + ', ' + colLetter + '] "' + h + '"' + mark);
+    }
+  }
+  Logger.log('');
+
+  if (emailCols.length > 0) {
+    Logger.log('✅ メアド候補列:');
+    for (var m = 0; m < emailCols.length; m++) {
+      Logger.log('  col=' + emailCols[m].col + ' (' + emailCols[m].letter + ') ヘッダ="' + emailCols[m].header + '"');
+    }
+  } else {
+    Logger.log('🔴 メアドらしき列が見つからない');
+  }
+
+  // 3007 ゆうじ をB列(2)から検索
+  Logger.log('');
+  Logger.log('▼ ID=3007 をB列から検索');
+  var lastRow = targetSheet.getLastRow();
+  var idVals = targetSheet.getRange(2, 2, lastRow - 1, 1).getValues();
+  var hitRow = -1;
+  for (var n = 0; n < idVals.length; n++) {
+    if (String(idVals[n][0]).trim() === '3007') { hitRow = n + 2; break; }
+  }
+  if (hitRow < 0) {
+    Logger.log('  ❌ 3007 がB列に見つからず');
+  } else {
+    Logger.log('  ✅ 3007 found row=' + hitRow);
+    if (emailCols.length > 0) {
+      for (var p = 0; p < emailCols.length; p++) {
+        var ev = targetSheet.getRange(hitRow, emailCols[p].col).getValue();
+        Logger.log('    ' + emailCols[p].letter + '列 ヘッダ="' + emailCols[p].header + '" 値="' + ev + '"');
+      }
+    }
+  }
+
+  Logger.log('========== 終了 ==========');
+}
+
+// 列番号→A1記法のヘルパー
+function colNumToLetter_(col) {
+  var letter = '';
+  while (col > 0) {
+    var rem = (col - 1) % 26;
+    letter = String.fromCharCode(65 + rem) + letter;
+    col = Math.floor((col - 1) / 26);
+  }
+  return letter;
 }
 
 // ===== 受講生1人の3シート状況を一発取得（Botの自動診断用） =====
