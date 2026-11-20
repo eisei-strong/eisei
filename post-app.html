@@ -120,13 +120,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif;bac
 .cal-day.done8{background:#F8BBD0;color:#AD1457;border-color:#E91E63AA}
 .cal-day.done9{background:#E1BEE7;color:#7B1FA2;border-color:#9C27B0AA}
 .cal-day.done10{background:#D1C4E9;color:#4A148C;border-color:#7C4DFF}
+.cal-day.done15{background:#B39DDB;color:#311B92;border-color:#651FFF}
+.cal-day.done20{background:#FFE082;color:#E65100;border-color:#FFB300}
+.cal-day.done50{background:#FFCC80;color:#BF360C;border-color:#FF6D00}
+.cal-day.done100{background:#FFD54F;color:#6A1B9A;border-color:#FF6F00}
 .cal-day.today{box-shadow:0 0 0 3px #FFC800}
 .cal-day .cal-val{font-size:9px;margin-top:1px;opacity:.7}
 
 /* 入力モーダル */
 .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:50;align-items:flex-end;justify-content:center}
 .modal-bg.active{display:flex}
-.modal{background:#fff;border-radius:24px 24px 0 0;padding:24px 20px 32px;width:100%;max-width:420px;animation:slideUp .2s}
+.modal{background:#fff;border-radius:24px 24px 0 0;padding:24px 20px max(32px,env(safe-area-inset-bottom));width:100%;max-width:420px;max-height:92vh;overflow-y:auto;-webkit-overflow-scrolling:touch;animation:slideUp .2s}
 @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
 .modal-date{text-align:center;font-size:20px;font-weight:800;margin-bottom:16px;color:#3C3C3C}
 .modal-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
@@ -136,6 +140,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif;bac
 .modal-opt.x{color:#AFAFAF}
 .modal-opt.x.sel{border-color:#AFAFAF;background:#F0F0F0;color:#777;box-shadow:0 3px 0 #CACACA}
 .modal-cancel{width:100%;padding:14px;font-size:16px;font-weight:700;border:none;border-radius:14px;background:#F0F0F0;color:#777;cursor:pointer}
+.modal-more{margin:2px 0 14px;padding:12px;border:2px dashed #E0E0E0;border-radius:16px;background:#FAFAFA}
+.modal-more-label{font-size:12px;font-weight:800;color:#777;text-align:center;margin-bottom:8px}
+.modal-stepper{display:flex;align-items:center;justify-content:center;gap:10px}
+.modal-step{width:52px;height:52px;border-radius:16px;border:2px solid #E0E0E0;background:#fff;font-size:28px;font-weight:800;color:#1CB0F6;box-shadow:0 3px 0 #E0E0E0;cursor:pointer;line-height:1;-webkit-user-select:none;user-select:none}
+.modal-step:active{transform:translateY(2px);box-shadow:0 1px 0 #E0E0E0}
+.modal-step:disabled{color:#DDD;box-shadow:0 3px 0 #F0F0F0}
+.modal-num{width:88px;height:52px;border-radius:16px;border:2px solid #E0E0E0;font-size:24px;font-weight:800;text-align:center;color:#3C3C3C;outline:none;-moz-appearance:textfield;appearance:textfield}
+.modal-num::-webkit-outer-spin-button,.modal-num::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.modal-num:focus{border-color:#1CB0F6}
+.modal-num-unit{font-size:16px;font-weight:800;color:#777}
+.modal-quick{display:flex;gap:8px;justify-content:center;margin-top:10px}
+.modal-quick button{flex:1;padding:10px 0;border-radius:12px;border:2px solid #E0E0E0;background:#fff;font-weight:800;font-size:14px;color:#3C3C3C;box-shadow:0 3px 0 #E0E0E0;cursor:pointer}
+.modal-quick button.sel{border-color:#1CB0F6;background:#E3F2FD;color:#1CB0F6;box-shadow:0 3px 0 #1CB0F6AA}
+.modal-apply{width:100%;margin-top:10px;padding:14px;font-size:16px;font-weight:800;border:none;border-radius:14px;background:#1CB0F6;color:#fff;cursor:pointer;box-shadow:0 3px 0 #1899D6}
+.modal-apply:active{transform:translateY(2px);box-shadow:0 1px 0 #1899D6}
 
 .toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#58CC02;color:#fff;padding:12px 24px;border-radius:16px;font-weight:800;font-size:16px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:100;box-shadow:0 4px 12px rgba(88,204,2,.3)}
 .toast.show{opacity:1}
@@ -719,6 +738,21 @@ a{color:#1CB0F6;font-weight:600}
       <div class="modal-opt" data-v="9本" onclick="pickValue(this)">9本</div>
       <div class="modal-opt" data-v="10本" onclick="pickValue(this)">10本</div>
     </div>
+    <div class="modal-more">
+      <div class="modal-more-label">数字で入力（1〜100）</div>
+      <div class="modal-stepper">
+        <button type="button" class="modal-step" id="postMinus" onclick="stepPostCount(-1)">−</button>
+        <input id="postCountInput" class="modal-num" type="number" inputmode="numeric" min="1" max="100" step="1" placeholder="本数" oninput="onPostCountInput()" onkeydown="if(event.key==='Enter'){event.preventDefault();applyPostCount()}">
+        <span class="modal-num-unit">本</span>
+        <button type="button" class="modal-step" id="postPlus" onclick="stepPostCount(1)">+</button>
+      </div>
+      <div class="modal-quick">
+        <button type="button" data-n="20" onclick="setPostCount(20)">20</button>
+        <button type="button" data-n="50" onclick="setPostCount(50)">50</button>
+        <button type="button" data-n="100" onclick="setPostCount(100)">100</button>
+      </div>
+      <button type="button" class="modal-apply" onclick="applyPostCount()">この本数で記録</button>
+    </div>
     <button class="modal-cancel" onclick="closeModal()">キャンセル</button>
   </div>
 </div>
@@ -1081,7 +1115,7 @@ function checkPostMilestone(streak,totalPostDays,val,oldVal){
     }
     if(prevTotal===0){
       setTimeout(function(){showCelebrationOverlay('🎉','初投稿おめでとう！','投稿記録スタート！','ここから伝説が始まる','#22C55E')},400);
-      return;
+      return true;
     }
   }
   // 連続投稿マイルストーン
@@ -1096,9 +1130,10 @@ function checkPostMilestone(streak,totalPostDays,val,oldVal){
     if(streak===milestones[m].days){
       var ms=milestones[m];
       (function(ms2){setTimeout(function(){showCelebrationOverlay(ms2.emoji,ms2.title,ms2.sub,'',ms2.color)},400)})(ms);
-      return;
+      return true;
     }
   }
+  return false;
 }
 
 // ===== ログイン連続演出 =====
@@ -1843,21 +1878,15 @@ function renderMain(){
     var cls='cal-day';
     if(isFuture){
       cls+=' future';
-    }else if(val==='❌'){cls+=' miss'}
-    else if(val==='10本'){cls+=' done10'}
-    else if(val==='9本'){cls+=' done9'}
-    else if(val==='8本'){cls+=' done8'}
-    else if(val==='7本'){cls+=' done7'}
-    else if(val==='6本'){cls+=' done6'}
-    else if(val==='5本'){cls+=' done5'}
-    else if(val==='4本'){cls+=' done4'}
-    else if(val==='3本'){cls+=' done3'}
-    else if(val==='2本'){cls+=' done2'}
-    else{cls+=' done1'}
+    }else{
+      cls+=postDayClass(val);
+    }
     if(dnl===todayLabel)cls+=' today';
 
+    var shownCount=postCountFromValue(val);
     html+='<div class="'+cls+'"'+(isFuture?'':' onclick="openModal('+d+')"')+' data-col="'+d+'">'+
       '<span>'+dayNum+'</span>'+
+      (shownCount>=11?'<span class="cal-val">'+shownCount+'</span>':'')+
       '</div>';
   }
   grid.innerHTML=html;
@@ -2030,11 +2059,7 @@ function openModal(col){
   selectedCol=col;
   var day=monthDays[col];
   document.getElementById('modalDate').textContent=normLabel(day.label,day.col);
-  var opts=document.querySelectorAll('.modal-opt');
-  for(var i=0;i<opts.length;i++){
-    opts[i].classList.remove('sel');
-    if(opts[i].getAttribute('data-v')===day.value) opts[i].classList.add('sel');
-  }
+  syncPostPicker(day.value);
   document.getElementById('modalBg').classList.add('active');
 }
 
@@ -2043,12 +2068,117 @@ function closeModal(e){
   document.getElementById('modalBg').classList.remove('active');
 }
 
+var POST_MAX=100;
+function postCountFromValue(val){
+  var m=String(val||'').match(/^([1-9]|[1-9][0-9]|100)本$/);
+  return m?parseInt(m[1],10):0;
+}
+function postDayClass(val){
+  if(!val||val==='❌') return ' miss';
+  var n=postCountFromValue(val);
+  if(n<=0) return ' done1';
+  if(n<=10) return ' done'+n;
+  if(n<20) return ' done15';
+  if(n<50) return ' done20';
+  if(n<100) return ' done50';
+  return ' done100';
+}
+function highlightGrid(n){
+  var label=(n>=1&&n<=10)?(n+'本'):'';
+  var opts=document.querySelectorAll('.modal-opt');
+  for(var i=0;i<opts.length;i++){
+    var v=opts[i].getAttribute('data-v');
+    if(label&&v===label) opts[i].classList.add('sel');
+    else opts[i].classList.remove('sel');
+  }
+}
+function markQuick(n){
+  var qs=document.querySelectorAll('.modal-quick button');
+  for(var i=0;i<qs.length;i++){
+    if(parseInt(qs[i].getAttribute('data-n'),10)===n) qs[i].classList.add('sel');
+    else qs[i].classList.remove('sel');
+  }
+  var minus=document.getElementById('postMinus');
+  var plus=document.getElementById('postPlus');
+  if(minus) minus.disabled=!(n>=2);
+  if(plus) plus.disabled=(n>=POST_MAX);
+}
+function syncPostPicker(val){
+  var n=postCountFromValue(val);
+  var input=document.getElementById('postCountInput');
+  if(input) input.value=n?String(n):'';
+  highlightGrid(n);
+  if(val==='❌'){
+    var opts=document.querySelectorAll('.modal-opt');
+    for(var i=0;i<opts.length;i++){
+      if(opts[i].getAttribute('data-v')==='❌') opts[i].classList.add('sel');
+    }
+  }
+  markQuick(n);
+}
+function onPostCountInput(){
+  var input=document.getElementById('postCountInput');
+  var raw=String(input.value||'').replace(/[^0-9]/g,'');
+  if(raw===''){input.value='';highlightGrid(0);markQuick(0);return}
+  var n=parseInt(raw,10);
+  if(n>POST_MAX) n=POST_MAX;
+  if(n<1) n=1;
+  input.value=String(n);
+  highlightGrid(n);
+  markQuick(n);
+}
+function stepPostCount(delta){
+  var input=document.getElementById('postCountInput');
+  var n=parseInt(input.value,10);
+  if(isNaN(n)) n=0;
+  n+=delta;
+  if(n<1) n=1;
+  if(n>POST_MAX) n=POST_MAX;
+  input.value=String(n);
+  highlightGrid(n);
+  markQuick(n);
+}
+function setPostCount(n){
+  n=parseInt(n,10);
+  if(!(n>=1&&n<=POST_MAX)) return;
+  document.getElementById('postCountInput').value=String(n);
+  highlightGrid(n);
+  markQuick(n);
+}
+function cheerMessages(n){
+  var cheers=[
+    ['🎉 1本！えらい！','💪 その一歩が大事！','✨ 投稿できた！すごい！'],
+    ['🔥 2本！絶好調！','⚡ 勢いに乗ってる！','🌟 2本！さすが！'],
+    ['👑 3本！パーフェクト！','🏆 今日のMVP！','💎 3本！最強！'],
+    ['🚀 4本！超ハイペース！','⚡ 4本！止まらない！','🌈 4本！天才！'],
+    ['💥 5本！異次元！','🔥 5本！プロ級！','🏅 5本！圧巻！'],
+    ['👑 6本！神！！','🌟 6本！伝説！','💎 6本！最強すぎる！'],
+    ['🌋 7本！怪物級！','💥 7本！規格外！','🔱 7本！異次元！'],
+    ['☄️ 8本！圧倒的！','🏆 8本！王者！','⚡ 8本！限界突破！'],
+    ['🐉 9本！もはや伝説！','👑 9本！神の領域！','💫 9本！宇宙級！'],
+    ['🌟 10本！完全体！！','💎 10本！歴史に残る！','🔥 10本！無双状態！']
+  ];
+  if(n>=1&&n<=10) return cheers[n-1];
+  if(n===20) return ['🏅 20本！節目達成！','🚀 20本！加速してる！','🔥 20本！二桁の壁突破！'];
+  if(n===50) return ['👑 50本！折り返し地点！','💎 50本！圧倒的！','🏆 50本！半分の100！'];
+  if(n===100) return ['💯 100本！カンスト！！','🌟 100本！伝説の1日！','🐉 100本！限界の向こう側！'];
+  return ['🔥 '+n+'本！すごい！','⚡ '+n+'本！止まらない！','🌟 '+n+'本！記録した！'];
+}
+
 var _saving=false;
 function pickValue(el){
+  var val=String(el.getAttribute('data-v')||'').trim();
+  if(!val){toast('値が空です');return;}
+  commitPostValue(val);
+}
+function applyPostCount(){
+  var n=parseInt(document.getElementById('postCountInput').value,10);
+  if(!(n>=1&&n<=POST_MAX)){toast('1〜100の数字を入力してください');return;}
+  commitPostValue(n+'本');
+}
+function commitPostValue(val){
   if(_saving)return;
   _saving=true;setTimeout(function(){_saving=false},1000);
-  // 値の正規化: data-v属性の前後空白・改行を除去（保存失敗の予防）
-  var val=String(el.getAttribute('data-v')||'').trim();
   if(!val){toast('値が空です');return;}
   var oldVal=monthDays[selectedCol].value;
   monthDays[selectedCol].value=val;
@@ -2061,20 +2191,8 @@ function pickValue(el){
   // ===== 祝福アニメーション =====
   if(val!=='❌'){
     celebrate();
-    var cheers=[
-      ['🎉 1本！えらい！','💪 その一歩が大事！','✨ 投稿できた！すごい！'],
-      ['🔥 2本！絶好調！','⚡ 勢いに乗ってる！','🌟 2本！さすが！'],
-      ['👑 3本！パーフェクト！','🏆 今日のMVP！','💎 3本！最強！'],
-      ['🚀 4本！超ハイペース！','⚡ 4本！止まらない！','🌈 4本！天才！'],
-      ['💥 5本！異次元！','🔥 5本！プロ級！','🏅 5本！圧巻！'],
-      ['👑 6本！神！！','🌟 6本！伝説！','💎 6本！最強すぎる！'],
-      ['🌋 7本！怪物級！','💥 7本！規格外！','🔱 7本！異次元！'],
-      ['☄️ 8本！圧倒的！','🏆 8本！王者！','⚡ 8本！限界突破！'],
-      ['🐉 9本！もはや伝説！','👑 9本！神の領域！','💫 9本！宇宙級！'],
-      ['🌟 10本！完全体！！','💎 10本！歴史に残る！','🔥 10本！無双状態！']
-    ];
-    var idx=Math.min((parseInt(val)||1)-1,9);
-    var msgs=cheers[idx];
+    var countN=postCountFromValue(val)||(parseInt(val,10)||0);
+    var msgs=cheerMessages(countN);
     toast(msgs[Math.floor(Math.random()*msgs.length)]);
     // 連続投稿・初投稿マイルストーン判定
     var streak=0;
@@ -2091,7 +2209,16 @@ function pickValue(el){
     }
     var totalPostDays=0;
     for(var k=0;k<monthDays.length;k++){if(monthDays[k].value&&monthDays[k].value!=='❌')totalPostDays++}
-    checkPostMilestone(streak,totalPostDays,val,oldVal);
+    var showedMilestone=checkPostMilestone(streak,totalPostDays,val,oldVal);
+    if(countN===20||countN===50||countN===100){
+      var big={
+        20:{emoji:'🏅',title:'20本達成！',sub:'節目クリア！',color:'#F59E0B'},
+        50:{emoji:'👑',title:'50本達成！',sub:'今日は圧倒的！',color:'#FF6D00'},
+        100:{emoji:'💯',title:'100本！カンスト！',sub:'1日の上限までやりきった！',color:'#FFD700'}
+      }[countN];
+      var bigDelay=showedMilestone?3200:400;
+      setTimeout(function(){showCelebrationOverlay(big.emoji,big.title,big.sub,'',big.color)},bigDelay);
+    }
   }else{
     toast('記録しました');
   }

@@ -93,6 +93,177 @@ function postAppColToLetter_(col) {
   return s;
 }
 
+// 1日に記録できる投稿本数の上限。❌ は「記録なし」で、本数には数えない。
+var POST_APP_MAX_DAILY_POSTS = 100;
+// 「1本」〜「100本」だけ。先頭ゼロ（01本）や 0本・101本は含めない。
+var POST_APP_COUNT_RE_SRC = '^([1-9]|[1-9][0-9]|100)本$';
+
+/** 保存前のゆれを吸収（前後の空白、全角数字） */
+function normalizePostAppValue_(value) {
+  var normalized = String(value || '').trim();
+  normalized = normalized.replace(/[０-９]/g, function(c) {
+    return String.fromCharCode(c.charCodeAt(0) - 0xFEE0);
+  });
+  return normalized;
+}
+
+/** ❌ または 1本〜100本だけ保存できる */
+function isValidPostAppValue_(normalized) {
+  if (normalized === '❌') return true;
+  return postAppCountCell_(normalized) >= 1;
+}
+
+/**
+ * セル1つの投稿本数。
+ * 「1本」〜「100本」だけを数え、❌・空欄・その他は 0。
+ * シートの合計数式と同じ規則。
+ */
+function postAppCountCell_(value) {
+  var s = value == null ? '' : String(value);
+  if (!new RegExp(POST_APP_COUNT_RE_SRC).test(s)) return 0;
+  return parseInt(s, 10);
+}
+
+function postAppSumPostCells_(values) {
+  var total = 0;
+  for (var i = 0; i < values.length; i++) total += postAppCountCell_(values[i]);
+  return total;
+}
+
+/** 旧式 COUNTIF(範囲,"N本")*N を 1〜maxN まで足した合計。一致確認用 */
+function postAppLegacyCountifSum_(values, maxN) {
+  var total = 0;
+  for (var n = 1; n <= maxN; n++) {
+    var label = n + '本';
+    var count = 0;
+    for (var i = 0; i < values.length; i++) {
+      if (String(values[i] == null ? '' : values[i]) === label) count++;
+    }
+    total += count * n;
+  }
+  return total;
+}
+
+/**
+ * 範囲内の「N本」だけを足す数式。
+ * ❌・空欄・「N本」以外は 0 なので、1本〜10本しか無い行の合計は旧COUNTIF式と同じ。
+ * 11本〜100本も同じ取り出し方で足す。
+ */
+function postAppPostsSumFormula_(rangeA1) {
+  return '=SUM(MAP(' + rangeA1 + ',LAMBDA(c,IFERROR(IF(REGEXMATCH(TO_TEXT(c),"' + POST_APP_COUNT_RE_SRC + '"),VALUE(REGEXEXTRACT(TO_TEXT(c),"^[0-9]+")),0),0))))';
+}
+
+/** 1本〜10本を COUNTIF で足している式なら、同じ範囲の新しい式を返す。対象外は空文字 */
+function postAppUpgradeCountFormula_(formula) {
+  if (!formula || formula.indexOf('COUNTIF') < 0 || formula.indexOf('"1本"') < 0 || formula.indexOf('"10本"') < 0) return '';
+  var m = formula.match(/COUNTIF\(\s*(\$?[A-Z]+\$?\d+)\s*:\s*(\$?[A-Z]+\$?\d+)\s*,\s*"1本"\s*\)/);
+  if (!m) return '';
+  return postAppPostsSumFormula_(m[1] + ':' + m[2]);
+}
+
+function postAppValidValueList_() {
+  var values = ['❌'];
+  for (var n = 1; n <= POST_APP_MAX_DAILY_POSTS; n++) values.push(n + '本');
+  return values;
+}
+
+function postAppDropdownRule_() {
+  return SpreadsheetApp.newDataValidation()
+    .requireValueInList(postAppValidValueList_(), true)
+    .setAllowInvalid(false)
+    .build();
+}
+
+/** F1 が月別合計なら日付は O列、そうでなければ旧構造の F列 */
+function postAppDayDataStartCol_(sheet) {
+  var header = String(sheet.getRange(1, POST_APP_MONTHLY_TOTAL_START_COL).getValue() || '');
+  if (header.indexOf('合計') >= 0) return POST_APP_DATE_START_COL;
+  return 6;
+}
+
+/** 日付列へ ❌ / 1本〜100本 のプルダウンを付ける。戻り値はセル数 */
+function applyPostCountDropdown_(sheet, startCol, numCols) {
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2 || numCols < 1 || startCol < 1) return 0;
+  var rule = postAppDropdownRule_();
+  var numRows = lastRow - 1;
+  var chunk = 16;
+  for (var col = startCol; col < startCol + numCols; col += chunk) {
+    var width = Math.min(chunk, startCol + numCols - col);
+    sheet.getRange(2, col, numRows, width).setDataValidation(rule);
+  }
+  return numRows * numCols;
+}
+
+/**
+ * E〜N列にある「1本〜10本のCOUNTIF合計」だけを、同じ範囲のまま 1〜100本対応に差し替える。
+ * 全期間合計の SUM(月別) や、すでに新しい式のセルは触らない。
+ * 数式でないセル（日付の「❌」「3本」など）は消さない。
+ */
+function refreshPostCountSumFormulas_(sheet) {
+  var lastRow = sheet.getLastRow();
+  var lastCol = sheet.getLastColumn();
+  if (lastRow < 2) return 0;
+  var metaEnd = Math.min(14, lastCol);
+  if (metaEnd < 5) return 0;
+  var updated = 0;
+  for (var col = 5; col <= metaEnd; col++) {
+    var colFormulas = sheet.getRange(2, col, lastRow - 1, 1).getFormulas();
+    var out = [];
+    var changed = 0;
+    var safeToWriteColumn = true;
+    for (var i = 0; i < colFormulas.length; i++) {
+      var f = colFormulas[i][0] || '';
+      if (!f) { safeToWriteColumn = false; break; }
+      var next = postAppUpgradeCountFormula_(f);
+      if (next && next !== f) { out.push([next]); changed++; }
+      else out.push([f]);
+    }
+    if (!safeToWriteColumn) {
+      for (var j = 0; j < colFormulas.length; j++) {
+        var f2 = colFormulas[j][0] || '';
+        var next2 = postAppUpgradeCountFormula_(f2);
+        if (next2 && next2 !== f2) {
+          sheet.getRange(j + 2, col).setFormula(next2);
+          updated++;
+        }
+      }
+      continue;
+    }
+    if (changed > 0) {
+      sheet.getRange(2, col, out.length, 1).setFormulas(out);
+      updated += changed;
+    }
+  }
+  return updated;
+}
+
+/**
+ * 既存の「投稿数」シートを、1日100本までに対応させる。
+ * GASエディタの関数選択から、この関数を1回だけ実行する。
+ * - 合計数式: 1〜10本のCOUNTIFを、同じ範囲のまま 1〜100本対応に差し替える
+ * - プルダウン: 日付の列を ❌ と 1本〜100本 にする
+ * すでに入っている ❌ と 1〜10本は消えない。11本以上が無い行の合計も変わらない。
+ */
+function enablePostCountUpTo100() {
+  var ss = SpreadsheetApp.openById(POST_APP_SS_ID);
+  var sheet = ss.getSheetByName(POST_APP_SHEET_NAME);
+  if (!sheet) {
+    Logger.log('❌ 投稿数シートが見つかりません');
+    return;
+  }
+  var formulas = refreshPostCountSumFormulas_(sheet);
+  var startCol = postAppDayDataStartCol_(sheet);
+  var lastCol = sheet.getLastColumn();
+  var dropdownCells = 0;
+  if (lastCol >= startCol) {
+    dropdownCells = applyPostCountDropdown_(sheet, startCol, lastCol - startCol + 1);
+  }
+  Logger.log('✅ 合計数式を更新したセル: ' + formulas);
+  Logger.log('✅ プルダウンを設定したセル: ' + dropdownCells + '（' + postAppColToLetter_(startCol) + '列以降の日付）');
+  Logger.log('選択肢: ❌ と 1本〜' + POST_APP_MAX_DAILY_POSTS + '本');
+}
+
 // LP投稿本数シート（受講生マスター）
 var LP_SS_ID = '1LP_eye2PMswK1OuGfCpzALJkiRE7gsAvrdFjrj5zoik';
 var LP_POST_SHEET_GID = 655724533;
@@ -408,12 +579,9 @@ function postAppSave_(token, value, col, year, month) {
 
   // 値の正規化: 全角・半角・前後空白・改行のゆれを吸収（受講生環境のIME問題対策）
   var rawValue = value;
-  var normalized = String(value || '').trim();
-  // 全角数字→半角に正規化（５本 → 5本）
-  normalized = normalized.replace(/[０-９]/g, function(c) { return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); });
+  var normalized = normalizePostAppValue_(value);
 
-  var validValues = ['❌', '1本', '2本', '3本', '4本', '5本', '6本', '7本', '8本', '9本', '10本'];
-  if (validValues.indexOf(normalized) < 0) {
+  if (!isValidPostAppValue_(normalized)) {
     // 詳細ログ: スプシに永続化 + デバッグ可能なエラーメッセージを返す
     logPostAppSaveError_(id, 'invalid_value', {
       value: rawValue,
@@ -462,8 +630,12 @@ function postAppSave_(token, value, col, year, month) {
   var row = rowIdx + 2;
   var cell = sheet.getRange(row, targetCol);
   try {
+    // 古いプルダウン（1〜10本）が残っていても 11本以上を書き込めるように、いったん外してから入れる
     cell.clearDataValidations();
     cell.setValue(value);
+    try { cell.setDataValidation(postAppDropdownRule_()); } catch (ve) {
+      Logger.log('dropdown reapply failed: ' + ve.message);
+    }
     SpreadsheetApp.flush();
   } catch (e) {
     logPostAppSaveError_(id, 'setvalue_exception', {
@@ -1010,7 +1182,7 @@ function createTestAccount() {
   // 2行目に挿入
   sheet.insertRowAfter(1);
   // A=ID, B=契約日, C=CW ID, D=名前, E=合計数式, F〜AI=❌
-  var f = '=COUNTIF(F2:AI2,"1本")+COUNTIF(F2:AI2,"2本")*2+COUNTIF(F2:AI2,"3本")*3+COUNTIF(F2:AI2,"4本")*4+COUNTIF(F2:AI2,"5本")*5+COUNTIF(F2:AI2,"6本")*6';
+  var f = postAppPostsSumFormula_('F2:AI2');
   var newRow = [id, '', '', name, f];
   for (var d = 0; d < POST_APP_MONTH_DAYS; d++) newRow.push('❌');
   sheet.getRange(2, 1, 1, newRow.length).setValues([newRow]);
@@ -1264,7 +1436,7 @@ function fixPostAppTotal() {
   if (lastRow < 2) return;
   var formulas = [];
   for (var r = 2; r <= lastRow; r++) {
-    formulas.push(['=COUNTIF(F' + r + ':AI' + r + ',"1本")+COUNTIF(F' + r + ':AI' + r + ',"2本")*2+COUNTIF(F' + r + ':AI' + r + ',"3本")*3+COUNTIF(F' + r + ':AI' + r + ',"4本")*4+COUNTIF(F' + r + ':AI' + r + ',"5本")*5+COUNTIF(F' + r + ':AI' + r + ',"6本")*6']);
+    formulas.push([postAppPostsSumFormula_('F' + r + ':AI' + r)]);
   }
   sheet.getRange(2, POST_APP_TOTAL_COL, formulas.length, 1).setFormulas(formulas);
   Logger.log('Done: ' + formulas.length + ' rows updated');
@@ -1384,6 +1556,7 @@ function ensureCurrentMonthColumns_(ss) {
         postSheet.getRange(2, range.startCol, lastRow - 1, range.monthDays).setValues(blank);
       }
       Logger.log('投稿数: ' + addCols + '列追加 (' + month + '月分)');
+      applyPostCountDropdown_(postSheet, lastCol + 1, addCols);
     }
     updatePostSheetTotalFormula_(postSheet);
   }
@@ -1629,30 +1802,30 @@ function writeMonthHopeHeader_(sheet, startCol, monthDays, month) {
 }
 
 /**
- * 投稿数シートE列の合計数式を当月の列範囲ベースで更新
+ * 投稿数シートの合計数式を 1〜100本対応にする。
+ * E列が「月別合計のSUM」（全期間）なら E列は維持し、月別列のCOUNTIFだけ差し替える。
+ * E列が当月合計（COUNTIF や、すでに差し替えた式）なら、当月の日付範囲で式を入れ直す。
  */
 function updatePostSheetTotalFormula_(sheet) {
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return;
+  var e2 = sheet.getRange(2, POST_APP_TOTAL_COL).getFormula() || '';
+  var eIsAllPeriod = e2.indexOf('SUM(') >= 0 && e2.indexOf('MAP(') < 0 && e2.indexOf('COUNTIF') < 0;
+  if (eIsAllPeriod) {
+    var kept = refreshPostCountSumFormulas_(sheet);
+    Logger.log('投稿数: E列は全期間のSUMのため維持。月別合計の更新セル=' + kept);
+    return;
+  }
   var range = getCurrentMonthColRange_();
   var startLetter = postAppColToLetter_(range.startCol);
   var endLetter = postAppColToLetter_(range.endCol);
-  var lastRow = sheet.getLastRow();
-  if (lastRow < 2) return;
   var formulas = [];
   for (var r = 2; r <= lastRow; r++) {
-    var f = '=COUNTIF(' + startLetter + r + ':' + endLetter + r + ',"1本")' +
-            '+COUNTIF(' + startLetter + r + ':' + endLetter + r + ',"2本")*2' +
-            '+COUNTIF(' + startLetter + r + ':' + endLetter + r + ',"3本")*3' +
-            '+COUNTIF(' + startLetter + r + ':' + endLetter + r + ',"4本")*4' +
-            '+COUNTIF(' + startLetter + r + ':' + endLetter + r + ',"5本")*5' +
-            '+COUNTIF(' + startLetter + r + ':' + endLetter + r + ',"6本")*6' +
-            '+COUNTIF(' + startLetter + r + ':' + endLetter + r + ',"7本")*7' +
-            '+COUNTIF(' + startLetter + r + ':' + endLetter + r + ',"8本")*8' +
-            '+COUNTIF(' + startLetter + r + ':' + endLetter + r + ',"9本")*9' +
-            '+COUNTIF(' + startLetter + r + ':' + endLetter + r + ',"10本")*10';
-    formulas.push([f]);
+    formulas.push([postAppPostsSumFormula_(startLetter + r + ':' + endLetter + r)]);
   }
   sheet.getRange(2, POST_APP_TOTAL_COL, formulas.length, 1).setFormulas(formulas);
-  Logger.log('投稿数 E列の合計数式を更新: ' + formulas.length + '行 (' + startLetter + ':' + endLetter + ')');
+  Logger.log('投稿数 E列の合計数式を更新: ' + formulas.length + '行 (' + startLetter + ':' + endLetter + '、1〜' + POST_APP_MAX_DAILY_POSTS + '本)');
+  refreshPostCountSumFormulas_(sheet);
 }
 
 /**
@@ -1719,6 +1892,7 @@ function addPostSheetMonth_(ss, year, month) {
     }
     sheet.getRange(2, range.startCol, lastRow - 1, range.monthDays).setValues(blank);
   }
+  applyPostCountDropdown_(sheet, lastCol + 1, addCols);
   Logger.log('✅ 投稿数 ' + year + '/' + month + ': ' + addCols + '列追加 (' + postAppColToLetter_(range.startCol) + '〜' + postAppColToLetter_(range.endCol) + ')');
 }
 
@@ -2198,24 +2372,14 @@ function migrateAddMonthlyTotalsToPost() {
       var row = [];
       for (var mi = 0; mi < monthRanges.length; mi++) {
         var s = monthRanges[mi].start, e = monthRanges[mi].end;
-        var f = '=COUNTIF(' + s + r2 + ':' + e + r2 + ',"1本")' +
-                '+COUNTIF(' + s + r2 + ':' + e + r2 + ',"2本")*2' +
-                '+COUNTIF(' + s + r2 + ':' + e + r2 + ',"3本")*3' +
-                '+COUNTIF(' + s + r2 + ':' + e + r2 + ',"4本")*4' +
-                '+COUNTIF(' + s + r2 + ':' + e + r2 + ',"5本")*5' +
-                '+COUNTIF(' + s + r2 + ':' + e + r2 + ',"6本")*6' +
-                '+COUNTIF(' + s + r2 + ':' + e + r2 + ',"7本")*7' +
-                '+COUNTIF(' + s + r2 + ':' + e + r2 + ',"8本")*8' +
-                '+COUNTIF(' + s + r2 + ':' + e + r2 + ',"9本")*9' +
-                '+COUNTIF(' + s + r2 + ':' + e + r2 + ',"10本")*10';
-        row.push(f);
+        row.push(postAppPostsSumFormula_(s + r2 + ':' + e + r2));
       }
       formulas.push(row);
     }
     sheet.getRange(2, 6, lastRow - 1, 9).setFormulas(formulas);
-    Logger.log('✅ F〜N列 月別COUNTIF式設定');
-    Logger.log('  範囲例（4月）: F2 = COUNTIF(' + monthRanges[0].start + '2:' + monthRanges[0].end + '2, ...)');
-    Logger.log('  範囲例（5月）: G2 = COUNTIF(' + monthRanges[1].start + '2:' + monthRanges[1].end + '2, ...)');
+    Logger.log('✅ F〜N列 月別合計式設定（1〜' + POST_APP_MAX_DAILY_POSTS + '本）');
+    Logger.log('  範囲例（4月）: F2 = ' + monthRanges[0].start + '2:' + monthRanges[0].end + '2');
+    Logger.log('  範囲例（5月）: G2 = ' + monthRanges[1].start + '2:' + monthRanges[1].end + '2');
   }
 
   Logger.log('=== 投稿数 完了 ===');
