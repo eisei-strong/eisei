@@ -1,9 +1,11 @@
 /**
  * 投稿本数 1〜100 の検証。
  * - サーバーが受け付ける値
- * - 旧COUNTIF（1〜10本）と新しい合計が、❌ と 1〜10本では同じになること
+ * - 旧COUNTIF（1〜10本）と厳密な合計が、❌ と 1〜10本では同じになること
  * - 11〜100本が足されること
- * - 既存の COUNTIF 式は同じ範囲のまま差し替わること
+ * - シートへ書く合計式は SUMPRODUCT。アプリが保存する値では厳密な合計と一致する
+ * - COUNTIF と重い MAP 式は、同じ範囲の軽い式に差し替わる
+ * - 日付列へプルダウンの入力規則を付けない
  */
 var fs = require('fs');
 var path = require('path');
@@ -76,17 +78,64 @@ assert(sandbox.postAppCountCell_('11本') === 11, '11本');
 assert(sandbox.postAppCountCell_('❌') === 0, '❌は0');
 assert(sandbox.postAppCountCell_('初投稿') === 0, '初投稿は0');
 
-// 式の差し替えは範囲を保つ。SUM(月別) は触らない
+// 式の差し替えは範囲を保つ。SUM(月別) と、すでに軽い式は触らない
+var light = function(range) {
+  return '=SUMPRODUCT(IFERROR(VALUE(SUBSTITUTE(' + range + ',"本","")),0))';
+};
 var oldFormula = '=COUNTIF($O2:AR2,"1本")+COUNTIF($O2:AR2,"10本")*10';
 var upgraded = sandbox.postAppUpgradeCountFormula_(oldFormula);
-assert(upgraded.indexOf('$O2:AR2') >= 0, '範囲を維持');
+assert(upgraded === light('$O2:AR2'), 'COUNTIFを軽い式へ。実際=' + upgraded);
 assert(upgraded.indexOf('COUNTIF') < 0, 'COUNTIFを残さない');
-assert(upgraded.indexOf(sandbox.POST_APP_COUNT_RE_SRC) >= 0, '1〜100の正規表現を含む');
+assert(upgraded.indexOf('MAP(') < 0, 'MAPを書かない');
+assert(upgraded.indexOf('REGEXMATCH') < 0, '正規表現を書かない');
 assert(sandbox.postAppUpgradeCountFormula_('=SUM(F2:N2)') === '', '全期間SUMは対象外');
 assert(sandbox.postAppUpgradeCountFormula_(upgraded) === '', '新しい式は再変換しない');
 
+var heavy = '=SUM(MAP($O2:AR2,LAMBDA(c,IFERROR(IF(REGEXMATCH(TO_TEXT(c),"^([1-9]|[1-9][0-9]|100)本$"),VALUE(REGEXEXTRACT(TO_TEXT(c),"^[0-9]+")),0),0))))';
+assert(sandbox.postAppUpgradeCountFormula_(heavy) === light('$O2:AR2'), '重いMAP式も同じ範囲の軽い式へ');
+var heavySpaced = '=SUM(MAP( O2:AR2 , LAMBDA(c, IFERROR(IF(REGEXMATCH(TO_TEXT(c), "^([1-9]|[1-9][0-9]|100)本$"), VALUE(REGEXEXTRACT(TO_TEXT(c), "^[0-9]+")), 0), 0))))';
+assert(sandbox.postAppUpgradeCountFormula_(heavySpaced) === light('O2:AR2'), '空白入りの重い式も範囲を保つ');
+
 var direct = sandbox.postAppPostsSumFormula_('F12:AI12');
-assert(direct.indexOf('F12:AI12') >= 0, '直接生成も範囲を含む');
+assert(direct === light('F12:AI12'), '直接生成も軽い式。実際=' + direct);
+
+// 全期間合計（F〜N）は当月の式で上書きしない。日付列を直接足す式は上書き対象
+assert(sandbox.postAppFormulaIsAllPeriodTotal_('=SUM(F2:N2)') === true, 'SUM(F:N)は全期間');
+assert(sandbox.postAppFormulaIsAllPeriodTotal_('=SUM($F2:$N2)') === true, '絶対参照のSUM(F:N)');
+assert(sandbox.postAppFormulaIsAllPeriodTotal_(light('F2:N2')) === true, 'SUMPRODUCT(F:N)は全期間');
+assert(sandbox.postAppFormulaIsAllPeriodTotal_(light('$F$2:$N$2')) === true, '絶対参照のSUMPRODUCT(F:N)');
+assert(sandbox.postAppFormulaIsAllPeriodTotal_(light('O2:IX2')) === false, '日付範囲のSUMPRODUCTは当月更新の対象');
+assert(sandbox.postAppFormulaIsAllPeriodTotal_(heavy) === false, '重いMAP式は全期間扱いしない');
+assert(sandbox.postAppFormulaIsAllPeriodTotal_('=COUNTIF(O2:AR2,"1本")') === false, 'COUNTIFは全期間扱いしない');
+assert(sandbox.postAppLetterToCol_('F') === 6 && sandbox.postAppLetterToCol_('N') === 14, '月別合計列');
+assert(sandbox.postAppLetterToCol_('O') === 15 && sandbox.postAppLetterToCol_('KC') === 289, '日付列 O〜KC');
+
+// アプリが保存する値では、厳密な合計とシート式の合計が一致する
+var storedPool = ['❌', '', '初投稿'];
+for (var s = 1; s <= 100; s++) storedPool.push(s + '本');
+for (var storedTrial = 0; storedTrial < 200; storedTrial++) {
+  var storedRow = [];
+  var storedLen = 1 + Math.floor(Math.random() * 40);
+  for (var si = 0; si < storedLen; si++) storedRow.push(storedPool[Math.floor(Math.random() * storedPool.length)]);
+  var strictSum = sandbox.postAppSumPostCells_(storedRow);
+  var sheetSum = sandbox.postAppSheetFormulaSum_(storedRow);
+  assert(strictSum === sheetSum, 'stored trial ' + storedTrial + ' strict=' + strictSum + ' sheet=' + sheetSum);
+}
+assert(sandbox.postAppSheetFormulaSum_(sample) === 55, 'シート式でも1〜10は55');
+assert(sandbox.postAppSheetFormulaSum_(['❌', '', '11本', '20本', '50本', '100本', '0本', '初投稿']) === 11 + 20 + 50 + 100, 'シート式は0本と初投稿を足さない');
+// サーバーが保存しない文字は、シート式だけ数えることがある。保存チェックは変えない。
+assert(sandbox.postAppSheetFormulaSumCell_('10') === 10 && sandbox.postAppCountCell_('10') === 0, '「10」はシート式だけ');
+assert(sandbox.postAppSheetFormulaSumCell_('101本') === 101 && sandbox.postAppCountCell_('101本') === 0, '101本はシート式だけ');
+assert(sandbox.postAppSheetFormulaSumCell_('01本') === 1 && sandbox.postAppCountCell_('01本') === 0, '01本はシート式だけ');
+assert(sandbox.postAppSheetFormulaSumCell_('0本') === 0 && sandbox.postAppCountCell_('0本') === 0, '0本はどちらも0');
+assert(sandbox.postAppSheetFormulaSumCell_('10本 ') === 10 && sandbox.postAppCountCell_('10本 ') === 0, '末尾空白はシート式だけ');
+
+assert(code.indexOf('setDataValidation') < 0, 'setDataValidation を呼ばない');
+assert(code.indexOf('requireValueInList') < 0, 'プルダウンのリストを作らない');
+assert(code.indexOf('applyPostCountDropdown_') < 0, '日付列への一括プルダウンを残さない');
+assert(code.indexOf('postAppDropdownRule_') < 0, 'プルダウン規則を残さない');
+assert(code.indexOf('clearDataValidations') >= 0, '残った入力規則は外す');
+assert(code.indexOf('clearPostCountDropdown_') >= 0, '列追加でコピーされた入力規則を外す');
 
 // 画面側: 1〜10の色クラスは今まで通り。11以上は別クラス。合計は parseInt で100まで足せる
 var html = fs.readFileSync(path.join(root, 'post-app.html'), 'utf8');
